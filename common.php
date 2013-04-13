@@ -1,0 +1,2561 @@
+<?php
+
+/*
+Copyright © 2001 Nick Gammon.
+
+  Author: Nick Gammon <nick@gammon.com.au>
+  Web:    http://www.gammon.com.au/
+  Date:   February 2001
+
+  This program is free software; you can redistribute it and/or modify 
+  it under the terms of the GNU General Public License as published by 
+  the Free Software Foundation; either version 2 of the License, 
+  or (at your option) any later version. 
+
+  This program is distributed in the hope that it will be useful, 
+  but WITHOUT ANY WARRANTY; without even the implied warranty of 
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. 
+  See the GNU General Public License for more details. 
+
+  You should have received a copy of the GNU General Public License 
+  along with this program; if not, write to 
+
+  The Free Software Foundation, Inc., 
+  59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+
+
+  The Free Software Foundation maintains a web page at: http://www.fsf.org
+
+  See the file gpl.txt for the full GNU General Public License.
+*/
+
+$MAX_LOGIN_FAILURES = 5;  // number of times you can get your password wrong for a username
+$MAX_UNKNOWN_USER_FAILURES = 10;  // number of times an IP address can try a non-existent username
+
+// major problems - white on brown
+$COLOUR_ERROR_TEXT = "#FFFFFF"; // white
+$COLOUR_ERROR_BGND = "#A52A2A"; // brown
+
+// my timing information - green on white
+$COLOUR_TIMING_TEXT = "#FFFFFF";  // white
+$COLOUR_TIMING_BGND = "#008000";  // green
+
+DefaultColours ();
+
+function DefaultColours ()
+  {
+  global $colours;
+  
+  $colours = array
+    (
+    
+    'colour_body'                 => array (    // COLOUR_BODY
+      'default' => '#F5F5F5', 
+      'title' => 'Body of page', 
+      'description' => 'Colour for the body of each page.' ),
+    
+    'colour_sections_bgnd'        => array (    // COLOUR_SECTIONS_BGND
+      'default' => '#DEDEDE', 
+      'title' => 'Sections list background', 
+      'description' => 'Colour to use for the background of sections (main page) listing.' ),
+    
+    'colour_read_unread_separator'           => array (    // COLOUR_READ_UNREAD_SEPARATOR
+      'default' => '#008000', 
+      'no_text' => true,
+      'title' => 'Read/unread separator line', 
+      'description' => 'Colour for the line separating read and unread posts.' ),
+    
+    'colour_frequent_posters_bgnd'=> array (    // COLOUR_FREQUENT_POSTERS_BGND
+      'default' => '#E5E5E5', 
+      'title' => 'Frequent posters background', 
+      'description' => 'Colour for the background of frequent posters, new topics etc.' ),
+    
+    'colour_topics_heading_bgnd'  => array (    // COLOUR_TOPICS_HEADING_BGND
+      'default' => '#ADD8E6', 
+      'title' => 'Topics heading background', 
+      'description' => 'Colour for the background of topics heading.' ),
+      
+    'colour_topics_bgnd'          => array (    // COLOUR_TOPICS_BGND
+      'default' => '#DEDEDE', 
+      'title' => 'Topics list background', 
+      'description' => 'Colour for the background of list of topics.' ),
+    
+    'colour_lh_table'             => array (    // COLOUR_TABLE_LEFT_BGND
+      'default' => '#ADD8E6', 
+      'title' => 'LH table', 
+      'description' => 'Colour for LH side of general table data (such as this page).' ),
+      
+    'colour_rh_table'             => array (    // COLOUR_TABLE_RIGHT_BGND
+      'default' => '#FAF0E6', 
+      'title' => 'RH table', 
+      'description' => 'Colour for RH side of general table data (such as this page).' ),
+      
+   'colour_threads_heading_bgnd' => array (    // COLOUR_THREADS_HEADING_BGND
+      'default' => '#ADD8E6', 
+      'title' => 'Threads heading background', 
+      'description' => 'Colour for the background of heading row for thread lists.' ),
+      
+    'colour_read_threads_bgnd'    => array (    // COLOUR_READ_THREADS_BGND
+      'default' => '#F0FFFF', 
+      'title' => 'Read threads background', 
+      'description' => 'Colour for the background of read threads.' ),
+      
+    'colour_unread_threads_bgnd'  => array (    // COLOUR_UNREAD_THREADS_BGND
+      'default' => '#BAFCBA', 
+      'title' => 'Unread threads background', 
+      'description' => 'Colour for the background of unread threads.' ),
+      
+    'colour_thread_heading_text'  => array (    // COLOUR_THREAD_HEADING_TEXT
+      'default' => '#FFFFFF', 
+      'sample_text' => 'colour_thread_heading_text',
+      'sample_bgnd' => 'colour_thread_heading_bgnd',
+      'title' => 'Thread heading text', 
+      'description' => 'Colour for text of thread headings' ),
+      
+    'colour_thread_heading_bgnd'  => array (    // COLOUR_THREAD_HEADING_BGND
+      'default' => '#CD5C5C', 
+      'sample_text' => 'colour_thread_heading_text',
+      'sample_bgnd' => 'colour_thread_heading_bgnd',
+      'title' => 'Thread heading background', 
+      'description' => 'Colour for background of thread headings.' ),
+       
+    'colour_lh_message'           => array (    // COLOUR_MESSAGE_LEFT_BGND
+      'default' => '#ADD8E6', 
+      'title' => 'Post heading background', 
+      'description' => 'Colour to use for the background of post headings (eg. Posted By, Date, Message).' ),
+      
+    'colour_rh_message'           => array (    // COLOUR_MESSAGE_RIGHT_BGND
+      'default' => '#FAF0E6', 
+      'title' => 'Posts background', 
+      'description' => 'Colour for the background of posts.' ),
+
+    'colour_signature_line'       => array (    // COLOUR_SIGNATURE_LINE
+      'default' => '#C0C0C0', 
+      'no_text' => true,
+      'title' => 'Signature rule', 
+      'description' => 'Colour for the horizonal rule before signatures.' ),
+     
+    'colour_signature'            => array (    // COLOUR_SIGNATURE
+      'default' => '#808080', 
+      'sample_text' => 'colour_signature',
+      'sample_bgnd' => 'colour_rh_message',
+      'title' => 'Signature', 
+      'description' => 'Colour to use for the text of signatures at the end of posts.' ),
+                                   
+    'colour_form_error'                 => array (    // COLOUR_FORM_ERROR_TEXT
+      'default' => '#FF0000', 
+      'sample_text' => 'colour_form_error',
+      'sample_bgnd' => 'colour_rh_table',
+      'title' => 'Errors', 
+      'description' => 'Colour for errors in form submission.' ),
+    
+   'colour_text'                 => array (    // COLOUR_TEXT
+      'default' => '#000000', 
+      'sample_text' => 'colour_text',
+      'sample_bgnd' => 'colour_body',
+      'title' => 'Text', 
+      'description' => 'Colour for most text (excluding exceptions above).' ),
+    
+    );  // end of colour table
+
+  // set up current values    
+  reset ($colours);
+  while (list ($colourname, $value) = each ($colours))
+    $colours [$colourname] ['current'] = $value ['default'];
+
+  
+   } // end of DefaultColours
+
+function GetColour ($which)
+  {
+  global $colours;
+  return $colours [$which]['current'];
+  } // end of GetColour
+  
+// common routines
+
+function ShowError ($theerror)
+  {
+  global $COLOUR_ERROR_TEXT, $COLOUR_ERROR_BGND;
+  
+  echo "<table border=\"0\" cellpadding=\"5\"> <tr bgcolor=\"$COLOUR_ERROR_BGND\"> "
+     . "<td><font color=\"$COLOUR_ERROR_TEXT\"><b>\n";
+  echo (htmlspecialchars ($theerror) . "\n");
+  echo "</b></font></td></tr></table>\n";
+  } // end of ShowError
+  
+// Use this before database opened or if we cannot read styles
+function MajorProblem ($why)
+  {
+  global $WEBMASTER;
+  echo "<html><head><title>System error</title></head>\n";
+  echo "<h3>We apologise that there has been a problem with the web server ...</h3>\n";
+  ShowError ($why);
+  echo "<p>Error occurred at " . strftime ("%Y-%m-%d %H:%M:%S", time()) . "</p>\n";
+  echo "<p>Please notify <a href=\"mailto:$WEBMASTER\">$WEBMASTER</a> of the above message and time.</p>";
+  echo "</body></html>\n";
+  die ();
+  } // end of MajorProblem
+
+function GetDatabaseName (&$thename)
+  {
+  global $current_database_name;
+  
+  $thename = $current_database_name;
+  } // end of GetDatabaseName
+
+//----------------------------------------------------------------------------
+// Open database, load control values
+//----------------------------------------------------------------------------
+  
+function OpenDatabase ($dbserver, $dbuser, $dbname, $dbpassword)
+  {
+  global $current_database_name;
+  
+  // save database name in case needed later
+  $current_database_name = $dbname;
+    
+  $link = mysql_pconnect ($dbserver, $dbuser, $dbpassword) 
+      or MajorProblem ("Cannot connect to server $dbserver: " . mysql_error ());
+      
+  mysql_select_db ($dbname) 
+      or MajorProblem ("Cannot select database $dbname: " . mysql_error ());
+  } // end of OpenDatabase  
+
+function OpenMailDatabase ()
+  {
+  global $DATABASE_SERVER, $MAIL_DATABASE_NAME, $MAIL_DATABASE_USER, $MAIL_DATABASE_PASSWORD;
+    
+  $link = mysql_pconnect ($DATABASE_SERVER, $MAIL_DATABASE_USER, $MAIL_DATABASE_PASSWORD) 
+      or MajorProblem ("Cannot connect to server $DATABASE_SERVER: " . mysql_error ());
+      
+  mysql_select_db ($MAIL_DATABASE_NAME) 
+      or MajorProblem ("Cannot select database $MAIL_DATABASE_NAME: " . mysql_error ());
+  } // end of OpenMailDatabase  
+
+function GetControlItems ()
+  {
+  global $control, $_SERVER;
+  
+  $result = mysql_query ("SELECT * FROM control") 
+    or MajorProblem ("Select of control table failed: " . mysql_error ());
+
+  while ($row = mysql_fetch_array ($result))
+    $control [$row ['item']] = $row ['contents'];
+    
+  mysql_free_result ($result);  
+ 
+  $control ['forum_url'] = "http://" . $_SERVER ["HTTP_HOST"] . "/forum";
+  }
+
+/*
+
+I am doing sessions my own way for a number of reasons. The main one is I want to know
+what is happening, and I only want session id tags to appear on pages if you have logged
+in, otherwise it isn't necessary.
+
+*/
+
+function CheckSessionID ()
+  {
+  global $control, $userinfo, $adminaction, $ADMIN_DIRECTORY;
+
+  if (empty ($userinfo))
+    return;   // no session for this guy
+   
+   
+  if ($adminaction == "logoff")
+    {
+    LogOff ();
+    $userinfo = "";   // don't use unset, it doesn't change the global version
+    return;    
+    }
+   
+  $userinfo ["logged_on"] = true;
+  echo "<p align=\"right\"><font size=\"1\">Logged on as <b>"
+     . $userinfo ["username"]
+     . "</b>&nbsp;&nbsp;";
+  hLink ("(Menu)", $ADMIN_DIRECTORY . "logon.php");
+  hLink ("(Log off)", $ADMIN_DIRECTORY . "logon.php", "adminaction=logoff");
+  echo $control ['admin_links'];    // extra useful links
+  echo "</font></p>\n";
+    
+  } // end of CheckSessionID  
+
+// this is for an *adminstrative* logon, eg. to edit SQL tables etc.
+
+function CheckAdminSession ()
+  {
+  global $HTTP_GET_VARS, $HTTP_POST_VARS, $HTTP_COOKIE_VARS, $HTTP_SERVER_VARS; 
+  global $userinfo;
+  
+  $adminsession = $HTTP_POST_VARS ['session'];
+  if (empty ($adminsession))
+    $adminsession = $HTTP_GET_VARS ['session'];
+  if (empty ($adminsession))
+    $adminsession = $HTTP_COOKIE_VARS ['session'];
+  
+  $userinfo = "";
+    
+  // if they are logging on, let them 
+  
+  $adminaction = trim ($HTTP_POST_VARS ['adminaction']);
+  $username = trim ($HTTP_POST_VARS ['username']);
+  $password = trim ($HTTP_POST_VARS ['password']);
+  
+  if ($adminaction == "logon")   
+    {
+
+    $md5_password = md5 ($password);
+    
+    $result = mysql_query ("SELECT * FROM user "
+                         . "WHERE username = '$username' "
+                         . "AND password = '$md5_password'") 
+      or Problem ("Select of user failed: " . mysql_error ());
+    
+    $userinfo = mysql_fetch_array ($result);
+    mysql_free_result ($result);  
+    
+    if ($userinfo)
+      {
+              
+     // try and work out their IP address
+      $remote_ip = $HTTP_SERVER_VARS ['REMOTE_ADDR'];
+      if (!$remote_ip)
+        $remote_ip = $HTTP_ENV_VARS ['REMOTE_ADDR'];
+        
+        
+      if ($userinfo ['required_ip'])
+        if ($userinfo ['required_ip'] != $remote_ip)
+          {
+          $userinfo = "";
+          Problem ("You cannot log on from the IP address $remote_ip"); 
+          }
+                
+      // generate session
+      srand ((double) microtime () * 1000000);
+      $session = md5 (uniqid (rand ()));
+      $userid = $userinfo ['userid'];
+      
+      $query = "UPDATE user SET session = '$session', "
+             . "date_logged_on = "
+             . "'" . strftime ("%Y-%m-%d %H:%M:%S", utctime()) . "' "
+             . "WHERE userid = $userid";
+      
+      $result = mysql_query ($query)
+        or Problem ("Update of user failed: " . mysql_error ());
+  
+      $userinfo ['session'] = $session; 
+      $expiry = $userinfo ['cookie_expiry'];
+      if (!$expiry)
+        $expiry = 60 * 60 * 24 * 7;    // expire in 7 days as default
+      if ($userinfo ['use_cookies'])   // only if wanted  
+        setcookie ('session', $userinfo ['session'], utctime() + $expiry, "/");
+      } // end of user on file
+
+      return;   // end of logon process
+    
+    } // end of logon wanted    
+
+  if (empty ($adminsession))    // not logged on yet
+    return;   // no session, and not logging in
+  
+  $result = mysql_query ("SELECT * FROM user WHERE session = '$adminsession'") 
+    or Problem ("Select of session failed: " . mysql_error ());
+      
+  if ($userinfo = mysql_fetch_array ($result)) // will be empty if no match
+    {
+        
+    // if the user is found, and their session was the same one found in the cookie
+    // we don't need to pass sessions on URLs, which makes them look better
+    
+    if ($userinfo ['session'] == $HTTP_COOKIE_VARS ['session'])
+      $userinfo ['have_cookie_ok'] = true;   // don't need to pass sessions on links
+    } // end of reading that user OK
+    
+  mysql_free_result ($result);  
+    
+  } // end of CheckAdminSession  
+
+function GetUserColours ()
+  {
+  global $foruminfo;
+  global $colours;
+  
+  // customised colours - if they are logged in
+  if ($foruminfo)
+    {
+   
+    // set up custom values from user values, if supplied   
+    reset ($colours);
+    while (list ($colourname, $value) = each ($colours))
+      {
+      if ($foruminfo [$colourname])   // colour supplied?
+        $colours [$colourname] ['current'] = $foruminfo [$colourname];  // use it
+      }
+    } // end of having $foruminfo
+    
+  } // end of GetUserColours
+
+function ForumUserLoginFailure ($username, $password, $remote_ip)
+  {
+  global $HTTP_GET_VARS, $HTTP_POST_VARS, $HTTP_COOKIE_VARS, 
+         $HTTP_SERVER_VARS, $HTTP_ENV_VARS, $_SERVER; 
+  global $foruminfo, $blocked, $banned_ip, $MAX_LOGIN_FAILURES, $MAX_UNKNOWN_USER_FAILURES;
+ 
+  $username = strtolower ($username);
+  $password = strtolower ($password);
+   
+  // generate login failure tracking record
+  $query = "INSERT INTO bbuser_login_failure "
+       . "(username, password, date_failed, failure_ip) "
+       . "VALUES ("
+       . "'$username', "
+       . "'$password', "
+       . "NOW(), "
+       . "'$remote_ip' );";
+
+  $result = mysql_query ($query) or Problem ("Insert into bbuser_login_failure failed: " . mysql_error ()); 
+   
+  $query = "UPDATE bbuser SET "
+         . "count_failed_logins = count_failed_logins + 1 "
+         . "WHERE username = '$username' ";
+    
+  $result = mysql_query ($query) or Problem ("Updating failed login count failed: " . mysql_error ()); 
+
+  // clear old login failure tracking records (so they can reset by waiting a day)
+  $query = "DELETE FROM bbuser_login_failure "
+         . "WHERE username = '$username' AND "
+         . "failure_ip = '$remote_ip' AND "
+         . "date_failed < DATE_ADD(NOW(), INTERVAL -1 DAY) ";
+         
+  $result = mysql_query ($query) or Problem ("Clearing of bbuser_login_failure failed: " . mysql_error ()); 
+        
+  // see how many times they failed from this IP address
+  $query = "SELECT count(*) AS counter "
+          . "FROM bbuser_login_failure "
+          . "WHERE failure_ip  = '$remote_ip' "
+          . "AND username = '$username'";
+                           
+  $result = mysql_query ($query) or Problem ("Select of bbuser_login_failure failed: " . mysql_error ());
+  $failure_row = mysql_fetch_array ($result);
+  mysql_free_result ($result);
+              
+  if ($failure_row ['counter'] > $MAX_LOGIN_FAILURES)
+    {
+    // now block that IP address
+    $query = "INSERT INTO bbbanned_ip (ip_address, date_banned, reason) "
+           . "VALUES ( '$remote_ip', NOW(), 'Too many forum login failures for: $username' )";
+    // don't check query, maybe already on file
+    mysql_query ($query);
+    }
+
+  // Extra code to allow for bots trying non-existent usernames:
+      
+  // see if user exists
+  $query = "SELECT username FROM bbuser WHERE username = '$username' ";
+                           
+  $result = mysql_query ($query) or Problem ("Select of bbuser failed: " . mysql_error ());
+  $row = mysql_fetch_array ($result);
+  mysql_free_result ($result);
+  
+  if ($row)
+    return;  // username exists, all is OK
+    
+  $query = "SELECT * FROM bbsuspect_ip WHERE ip_address = '$remote_ip' ";
+                           
+  $result = mysql_query ($query) or Problem ("Select of bbsuspect_ip failed: " . mysql_error ());
+  $row = mysql_fetch_array ($result);
+  mysql_free_result ($result);
+  
+  if ($row)
+    {
+    if ($row ['count'] >=  $MAX_UNKNOWN_USER_FAILURES)
+      {
+      // right! that does it!  
+      // now block that IP address
+      $query = "INSERT INTO bbbanned_ip (ip_address, date_banned, reason) "
+             . "VALUES ( '$remote_ip', NOW(), 'Too many attempts to login to forum with unknown username' )";
+      mysql_query ($query);
+      // get rid of from bbuser_login_failure 
+      $query = "DELETE FROM bbuser_login_failure WHERE failure_ip = '$remote_ip' ";
+      mysql_query ($query);
+      // get rid of from bbsuspect_ip
+      $query = "DELETE FROM bbsuspect_ip WHERE ip_address ='$remote_ip'";
+      mysql_query ($query);
+      }
+    else
+      {
+      // increment counter - haven't hit limit yet
+      $query = "UPDATE bbsuspect_ip SET count = count + 1 WHERE ip_address ='$remote_ip'";
+      mysql_query ($query);
+      }  
+      
+    }
+  else
+    {
+    $query = "INSERT INTO bbsuspect_ip (ip_address, count) VALUES ('$remote_ip', 1)";
+    mysql_query ($query);
+    }
+  
+            
+  }  // end of ForumUserLoginFailure
+
+function CheckForumToken ()
+  {
+  global $HTTP_GET_VARS, $HTTP_POST_VARS, $HTTP_COOKIE_VARS, 
+         $HTTP_SERVER_VARS, $HTTP_ENV_VARS, $_SERVER; 
+  global $foruminfo, $blocked, $banned_ip;
+  
+  
+  $forumtoken = $HTTP_POST_VARS ['token'];
+  if (empty ($forumtoken))
+    $forumtoken = $HTTP_GET_VARS ['token'];
+  if (empty ($forumtoken))
+    $forumtoken = $HTTP_COOKIE_VARS ['token'];
+
+  $foruminfo = "";
+    
+  // try and work out their IP address
+  $remote_ip = $HTTP_SERVER_VARS ['REMOTE_ADDR'];
+  if (!$remote_ip)
+    $remote_ip = $HTTP_ENV_VARS ['REMOTE_ADDR'];
+  
+  // if they are logging on, let them 
+  
+  $action = trim ($HTTP_POST_VARS ['action']);
+
+  // get rid of quotes so they can paste from the email like this: "Nick Gammon"
+  $username = stripslashes ($HTTP_POST_VARS ['username']);
+  $username = str_replace ("\"", " ", $username);
+  $username = addslashes (trim ($username));  // in case their name is O'Grady
+
+  $password = stripslashes ($HTTP_POST_VARS ['password']);
+  $password = str_replace ("\"", " ", $password);
+  $password = addslashes (trim ($password));
+    
+  // clear old login IP ban records (so they can reset by waiting a day)
+  $query = "DELETE FROM bbbanned_ip "
+         . "WHERE ip_address = '$remote_ip' AND "
+         . "date_banned < DATE_ADD(NOW(), INTERVAL -1 DAY) AND "
+         . "reason LIKE 'Too many forum login failures for%' ";
+         
+  $result = mysql_query ($query)
+    or Problem ("Clearing of bbbanned_ip failed: " . mysql_error ()); 
+  
+  $query = "SELECT * "
+         . "FROM bbbanned_ip "
+         . "WHERE ip_address  = '$remote_ip'";
+                           
+  $result = mysql_query ($query) 
+      or Problem ("Select of banned ip address failed: " . mysql_error ());
+  $banned_row = mysql_fetch_array ($result);
+  mysql_free_result ($result);
+
+  if ($banned_row)  
+    {
+    $banned_ip = true;    // can't do it
+    $foruminfo = "";
+    return; // give up
+    } // end of a match
+      
+  if ($action == "logon")   
+    {
+      
+    // try and work out their IP address
+    $remote_ip = $HTTP_SERVER_VARS ['REMOTE_ADDR'];
+    if (!$remote_ip)
+      $remote_ip = $HTTP_ENV_VARS ['REMOTE_ADDR'];
+    
+    $server_name = $_SERVER["HTTP_HOST"];
+      
+    $md5_password = md5 ($password);
+    
+    $result = mysql_query ("SELECT *, "
+                         . "TO_DAYS(NOW()) - TO_DAYS(date_registered) AS days_on FROM bbuser "
+                         . "WHERE username = '$username' "
+                         . "AND password = '$md5_password'") 
+      or Problem ("Select of user failed: " . mysql_error ());
+    
+    $foruminfo = mysql_fetch_array ($result);
+    mysql_free_result ($result);  
+    
+    if ($foruminfo)
+      {
+      
+      if ($foruminfo ['blocked'])
+        {
+        $blocked = true;    // can't do it
+        $foruminfo = "";
+        return; // give up
+        }
+        
+        
+      if ($foruminfo ['required_ip'])
+        if ($foruminfo ['required_ip'] != $remote_ip)
+          {
+          return;  // don't generate a cookie
+          }
+        
+      $query = "SELECT * "
+             . "FROM bbbanned_ip "
+             . "WHERE ip_address  = '$remote_ip'";
+                               
+      $result = mysql_query ($query) 
+          or Problem ("Select of banned ip address failed: " . mysql_error ());
+      $banned_row = mysql_fetch_array ($result);
+      mysql_free_result ($result);
+    
+      if ($banned_row)  
+        {
+        $banned_ip = true;    // can't do it
+        $foruminfo = "";
+        return; // give up
+        } // end of a match
+                
+      // generate token
+      srand ((double) microtime () * 1000000);
+      $token = md5 (uniqid (rand ()));
+      $bbuser_id = $foruminfo ['bbuser_id'];
+            
+      $query = "UPDATE bbuser SET "
+             . "  token = NULL, "
+             . "  date_logged_on = "
+             . "  '" . strftime ("%Y-%m-%d %H:%M:%S", utctime()) . "', "
+             . "  last_remote_ip = '$remote_ip' "
+             . "WHERE bbuser_id = $bbuser_id";
+      
+      $result = mysql_query ($query)
+        or Problem ("Update of bbuser failed: " . mysql_error ());
+  
+      $query = "DELETE FROM bbusertoken "
+             . "WHERE bbuser_id = $bbuser_id "
+             . "AND date_expires <= NOW()";
+      
+      $result = mysql_query ($query)
+        or Problem ("Delete from bbusertoken failed: " . mysql_error ());
+        
+      $expiry = $foruminfo ['cookie_expiry'];
+      if (!$expiry)
+        $expiry = 60 * 60 * 24 * 7;    // expire in 7 days as default
+       
+      $days = ceil ($expiry / (60 * 60 * 24));
+      
+      $query = "INSERT INTO bbusertoken "
+             . "(bbuser_id, token, date_logged_on, last_remote_ip, server_name, date_expires) "
+             . "VALUES ("
+             . "$bbuser_id, "
+             . "'$token', "
+             . "NOW(), "
+             . "'$remote_ip', "
+             . "'$server_name', "
+             . "DATE_ADD(NOW(), INTERVAL '$days' DAY) );";
+     
+      $result = mysql_query ($query)
+        or Problem ("Insert into bbusertoken failed: " . mysql_error ());
+       
+      $foruminfo ['token'] = $token; 
+      if ($foruminfo ['use_cookies'])   // only if wanted  
+        setcookie ('token', $foruminfo ['token'], utctime() + $expiry, "/");
+        
+      // clear login failure tracking records (so they don't accumulate)
+      $query = "DELETE FROM bbuser_login_failure "
+             . "WHERE username = '$username' AND failure_ip = '$remote_ip'";
+      $result = mysql_query ($query)
+        or Problem ("Clearing of bbuser_login_failure failed: " . mysql_error ()); 
+                
+      // get rid of from bbsuspect_ip - this IP seems OK now
+      $query = "DELETE FROM bbsuspect_ip WHERE ip_address ='$remote_ip'";
+      mysql_query ($query);
+        
+      GetUserColours ();
+      } // end of user on file
+     else
+       {
+       ForumUserLoginFailure ($username, $password, $remote_ip);
+       }
+
+     return;   // end of logon process
+    
+    } // end of logon wanted    
+
+  if (empty ($forumtoken))    // not logged on yet
+    return;   // no token, and not logging in
+ 
+  // first look up token in bbusertoken (this allows for multiple logins)
+  
+  $tokenresult = mysql_query ("SELECT * FROM bbusertoken WHERE token = '$forumtoken' "
+                             . "AND date_expires >= NOW()" )
+    or Problem ("Select of forum token failed: " . mysql_error ());
+ 
+  // if found, use user id in the bbusertoken table to find the forum user id
+  
+  if ($tokeninfo = mysql_fetch_array ($tokenresult)) // will be empty if no match
+    {
+    $id = $tokeninfo ['bbuser_id'];
+    
+    $result = mysql_query ("SELECT *, "
+                         . "TO_DAYS(NOW()) - TO_DAYS(date_registered) AS days_on FROM bbuser "
+                         . "WHERE bbuser_id = '$id'") 
+       or Problem ("Select of forum user failed: " . mysql_error ());
+      
+    if ($foruminfo = mysql_fetch_array ($result)) // will be empty if no match
+      {
+      // if the user is found, and their token was the same one found in the cookie
+      // we don't need to pass tokens on URLs, which makes them look better
+      
+      if ($tokeninfo ['token'] == $HTTP_COOKIE_VARS ['token'])
+        $foruminfo ['have_cookie_ok'] = true;   // don't need to pass tokens on links
+      }
+    mysql_free_result ($result);  
+    
+    } // end of reading that user OK
+    
+  mysql_free_result ($tokenresult);  
+
+  // check if they carried a good token to a bad IP  
+  if ($foruminfo ['required_ip'])
+    if ($foruminfo ['required_ip'] != $remote_ip)
+      $foruminfo = "";
+        
+  // check for a problem user logging in
+  if ($foruminfo ['blocked'])
+    {
+    $blocked = true;    // can't do it
+    $foruminfo = "";
+    }
+  else
+    GetUserColours ();
+        
+  } // end of CheckForumToken  
+
+// log off by changing the session id
+function LogOff ()
+  {
+  global $userinfo;
+  // generate another random token - they won't know that one!
+  srand ((double) microtime () * 1000000);
+  $session = md5 (uniqid (rand ()));
+  
+  $query = "UPDATE user SET session = '$session' "
+          . "WHERE userid = " . $userinfo ['userid'];
+  $result = mysql_query ($query)
+    or Problem ("Update of user failed: " . mysql_error ());
+
+  $userinfo = "";    // user info is no good
+    
+  } // end of LogOff
+  
+function ShowSource ($filename)
+  {
+ 
+  Permission ('viewsource');
+  
+// see: highlight_file ($source_name);
+  
+  $fd = @fopen ($filename, "r") 
+    or Problem ("Cannot open file '$filename'");  
+  $sourcedata = fread ($fd, filesize ($filename)) 
+    or Problem ("Cannot read file '$filename'");  
+  fclose ($fd);
+  bTable ();
+  bRow ("lightblue");
+  tHead ("Source of: $filename");
+  eRow ();
+  bRow ("azure");
+  echo "<td><pre><font size=\"3\"><code>\n"; 
+  echo htmlspecialchars ($sourcedata);
+  echo "</code></font></pre></td>"; 
+  eRow ();
+  eTable ();    
+  $sourcedata = "";
+  
+  } // end of  ShowSource 
+  
+function Init ($title, 
+               $keywords = "", 
+               $mail=false,
+               $dbserver = "", 
+               $dbuser = "", 
+               $dbname = "",
+               $dbpassword = "",
+               $otherheaderhtml = "")
+  {
+  global $userinfo, $logoff, $control, 
+         $viewsource, $PATH_TRANSLATED, $pagestarttime, $doingMail;
+         
+  // default databases         
+  global $DATABASE_SERVER, $GENERAL_DATABASE_USER, 
+         $GENERAL_DATABASE_NAME, $GENERAL_DATABASE_PASSWORD;
+
+  // take defaults if necessary
+   if ($dbserver == "")
+     $dbserver = $DATABASE_SERVER;
+   if ($dbuser == "")
+     $dbuser = $GENERAL_DATABASE_USER;
+   if ($dbname == "")
+     $dbname = $GENERAL_DATABASE_NAME;
+   if ($dbpassword == "")
+     $dbpassword = $GENERAL_DATABASE_PASSWORD;
+  
+  // note when we started, for timing purposes
+  $pagestarttime = getmicrotime ();
+ 
+  header("Content-type: text/html; charset=utf-8");
+  header("Cache-Control: no-cache, must-revalidate"); // HTTP/1.1
+  header("Expires: Mon, 26 Jul 1997 05:00:00 GMT"); // Date in the past
+
+  if ($doingMail = $mail)  // this assignment is intentional
+    OpenMailDatabase ();
+  else
+    {
+    OpenDatabase ($dbserver, $dbuser, $dbname, $dbpassword);
+    // I am going to use cookies here, so I must do it before I do the header :)
+    CheckAdminSession ();
+    CheckForumToken ();
+    }
+
+  $control ['dateformat'] = "%e %b %Y";  // default date format
+  $control ['shortdateformat'] = "%e %b";  // default short date format
+  $control ['timeformat'] = "%r";  // default time format
+  $control ['datetimeformat'] = "%e %b %Y %r";  // default date/time format
+  $control ['shortdatetimeformat'] = "%e %b %r";  // default short date/time format
+  
+  // HTML control items
+  GetControlItems ();
+       
+  MessageHead ($title, $keywords, $otherheaderhtml);
+  
+  // we check the session ID here because it outputs HTML which has to come
+  // after the header (eg. the fact that you are logged on)
+  
+  CheckSessionID ();
+    
+  if ($viewsource == "yes")
+    ShowSource ($PATH_TRANSLATED);
+    
+  } // end of Init
+ 
+//----------------------------------------------------------------------------
+// Start, end of page
+//----------------------------------------------------------------------------
+ 
+function SetFont ()
+  {
+  global $control;
+  echo $control ['font'];
+  } // end of SetFont  
+
+
+function MessageHead ($title, $keywords, $otherheaderhtml)
+  {
+global $control, $foruminfo;
+global $bbsubject_id, $bbtopic_id, $bbsection_id;
+global $HTTP_GET_VARS, $HTTP_POST_VARS;
+
+if ($title == "%FORUM_NAME%")
+  {
+    
+  // let them use just "id=x" on the URL
+  
+  if ($HTTP_GET_VARS ['id']) 
+    $bbsubject_id = $HTTP_GET_VARS ['id'];
+  else
+  if ($HTTP_POST_VARS ['id']) 
+    $bbsubject_id = $HTTP_POST_VARS ['id'];
+      
+  // get better title (put section/topic/subject into it)
+  
+  $title = $control ['forum_name'];
+  if ($bbsubject_id && ValidateInt ($bbsubject_id) == "")
+    $title = LookupSubject (true);
+  else if ($bbtopic_id && ValidateInt ($bbtopic_id) == "")
+    $title = LookupTopic (true);
+  else if ($bbsection_id && ValidateInt ($bbsection_id) == "")
+    $title = LookupSection (true);
+    
+  } // end of forum title
+  
+$head = str_replace ("<%TITLE%>", htmlspecialchars ($title), $control ['head']);  
+$head = str_replace ("<%KEYWORDS%>", htmlspecialchars ($keywords), $head); 
+
+
+if ($foruminfo ['font'])
+  $control ['font'] = '<font face="' . $foruminfo ['font'] . '" size="-1">';
+
+ 
+
+// build up CSS styles for user-supplied text and background colours
+
+$font_string = "\n" .
+              '<style type="text/css">' . "\n" . 
+              '  body {color:' ;
+
+// if they specified a colour for their body, don't use the default
+
+if ($foruminfo ['colour_text'])
+   $font_string .= $foruminfo ['colour_text']; 
+else
+   $font_string .= $control ['colour_text'];
+
+$font_string .= '; }' . "\n" . 
+                '  body {background-color: ';
+ 
+// ditto for background
+
+if ($foruminfo ['colour_body'])
+  {
+  $font_string .=  $foruminfo ['colour_body'] .  ";\n" ;
+  $font_string .= "background-image: none; }\n";
+  }
+else
+  $font_string .=  $control ['colour_body'] . "; }\n" ;
+
+// and take custom font
+
+if ($foruminfo ['font'])
+  {
+  $font_string .=  '  body { font-family: ';
+  $font_string .=  $foruminfo ['font'] .  ";\n" ;
+  $font_string .= "font-size: 80%;  }\n";
+  }
+  
+$font_string .= "</style>\n";
+
+$head = str_replace ("<%BODY%>", $control ['body'], $head);  
+ 
+$head = str_replace ("<%FONT%>", $font_string, $head);  
+
+
+echo $head;
+echo $otherheaderhtml;    // eg. refresh
+  }   // end of MessageHead
+
+/*
+
+Call this at the end of each page to do a standard page footer
+
+*/
+
+function MessageTail ()
+  {
+global $control, $pagestarttime, $userinfo, $doingMail, $foruminfo;
+global $COLOUR_TIMING_TEXT, $COLOUR_TIMING_BGND;
+
+$endtime = getmicrotime ();
+$diff = $endtime - $pagestarttime;
+
+if (!empty ($userinfo) || $doingMail || 
+    $foruminfo ['admin'] || 
+    $foruminfo ['moderator_topic'] ||
+    $foruminfo ['moderator_section'])
+  {
+  echo "<p></p><table border=\"0\" cellpadding=\"5\"> "
+     . "<tr bgcolor=\"$COLOUR_TIMING_BGND\"> <td><font color=\"$COLOUR_TIMING_TEXT\"><b>\n";
+  printf ("<b>Page execution time: %6.3f seconds</b>\n", $diff);
+  echo "</b></font></td></tr></table><p></p>\n";
+  }
+  
+echo $control ['tail'];
+  } // end of MessageTail
+
+function ElapsedTime ($where = "")
+  {
+global $pagestarttime, $userinfo, $doingMail, $foruminfo;
+  
+$endtime = getmicrotime ();
+$diff = $endtime - $pagestarttime;
+
+if (!empty ($userinfo) || $doingMail || 
+    $foruminfo ['admin'] || 
+    $foruminfo ['moderator_topic'] ||
+    $foruminfo ['moderator_section'])
+  {
+  echo "<p><b><font color=\"darkgreen\">\n";
+  printf ("Elapsed time $where: %6.3f seconds\n", $diff);
+  echo "</font></b></p>\n";
+  }
+  
+  } // end of ElapsedTime
+  
+function DebugSomething ($what)
+  {
+global $pagestarttime, $userinfo, $doingMail, $foruminfo;
+
+if (!empty ($userinfo) ||
+    $foruminfo ['admin'])
+  {
+  echo "<br>Debug: " . nl2br (htmlspecialchars ($what)) . "<br>\n";
+  }
+  }     // end of DebugSomething
+  
+/*
+Return a status name from an ID
+*/  
+  
+function GetStatusName ($statusid, &$statusname)
+  {
+
+  $result = mysql_query ("SELECT longdescription FROM status "
+                       . "WHERE statusid = $statusid"
+                        ) 
+      or die ("Select of status name failed: " . mysql_error ());
+  
+  if ($row = mysql_fetch_row ($result))
+    $statusname = $row[0];
+  else
+    $statusname = "Unknown status";
+
+  mysql_free_result ($result);
+  } // end of GetstatusName
+  
+function Problem ($why)
+  {
+  echo "<h3>There is a problem ...</h3><p>\n";
+  ShowError ($why);
+  MessageTail (false); 
+  die ();
+  } // end of Problem
+
+//----------------------------------------------------------------------------
+// Debugging
+//----------------------------------------------------------------------------
+
+function ShowArray ($name, $thearray, $recurse = false)
+  {
+  echo "<p><b>$name</b></p><ul>\n";
+  if (!is_array ($thearray))
+    {
+    echo "<li>Not an array\n";
+    echo "</ul>\n";
+    return;
+    }
+    
+  reset ($thearray);
+  while (list ($cellname, $value) = each ($thearray))
+    {
+    
+    printf ("<li>[%s] = [%s]\n", 
+            htmlspecialchars ($cellname),   // name
+            htmlspecialchars ($value));  // value
+    if ($recurse && is_array ($value))
+      ShowArray ($cellname, $value);  // should really be , true but be cautious
+    }
+  echo "</ul>\n";
+  
+  } // end of showarray
+  
+  
+function DebugVars ()
+  { 
+  global $HTTP_GET_VARS, $HTTP_POST_VARS, $HTTP_COOKIE_VARS, $HTTP_SERVER_VARS; 
+  echo "<hr/>\n";
+  ShowArray ("HTTP_POST_VARS", $HTTP_POST_VARS, true);
+  ShowArray ("HTTP_GET_VARS", $HTTP_GET_VARS);
+  ShowArray ("HTTP_COOKIE_VARS", $HTTP_COOKIE_VARS);
+  ShowArray ("HTTP_SERVER_VARS", $HTTP_SERVER_VARS);
+  ShowArray ("GLOBALS", $GLOBALS);
+  echo "<hr/>\n";
+  } // end of DebugVars  
+  
+//----------------------------------------------------------------------------
+// Table management
+//----------------------------------------------------------------------------
+
+// begin table
+function bTable ($border=1, $cellpadding=5)
+  {
+  echo "<table border=\"$border\" cellpadding=\"$cellpadding\">\n";
+  } // end of bTable
+
+// end table
+function eTable ()
+  {
+  echo "</table>\n";
+  } // end of eTable
+
+// begin row
+function bRow ($bgcolor="same", $valign="top")  // azure
+  {
+  if ($bgcolor == 'same')
+    echo "<tr valign=\"$valign\">\n";  
+  else
+    echo "<tr valign=\"$valign\" bgcolor=\"$bgcolor\">\n";
+  } // end of bRow
+  
+// end row  
+function eRow ()
+  {
+  echo "</tr>\n";
+  } // end of eRow
+  
+// table heading  
+function tHead ($text, $fontsize=-1, $align="left", $colspan=1)
+  {
+  echo "<th align=\"$align\" colspan=\"$colspan\"><font size=\"$fontsize\">"
+      . nl2br (htmlspecialchars ($text))
+      . "</font></th>\n";
+  }  // end of tHead
+
+// table heading extra - add extra HTML (eg. class, colspan) 
+function tHeadx ($text, $extra="")
+  {
+  echo "<th $extra> " . nl2br (htmlspecialchars ($text)) . "</th>\n";
+  }  // end of tHeadx
+
+// table heading (HTML) - with class specified  
+function tHeadHx ($text, $extra="")
+  {
+  echo "<th $extra>$text</th>\n";
+  }  // end of tHeadHx
+
+// table heading - HTML
+function tHeadH ($text, $fontsize=-1, $align="left", $colspan=1)
+  {
+  echo "<th align=\"$align\" colspan=\"$colspan\"><font size=\"$fontsize\">"
+      . $text
+      . "</font></th>\n";
+  }  // end of tHeadH
+  
+// table data extra - add extra HTML (eg. class, colspan) 
+function tDatax ($text, $extra="")
+  {
+  echo "<td $extra> " . nl2br (htmlspecialchars ($text)) . "</td>\n";
+  }  // end of tDatax
+
+// table data extra (HTML) - add extra HTML (eg. class, colspan) 
+function tDataHx ($text, $extra="")
+  {
+  echo "<td $extra>$text</td>\n";
+  } // end of tDataHx
+  
+// table data  
+function tData ($text, $fontsize=-1, $align="left", $colspan=1)
+  {
+  echo "<td align=\"$align\" colspan=\"$colspan\"><font size=\"$fontsize\">"
+      . nl2br (htmlspecialchars ($text))
+      . "</font></td>\n";
+  } // end of tData 
+
+// HTML table data  
+function tDataH ($text, $fontsize=-1, $align="left", $colspan=1)
+  {
+  echo "<td align=\"$align\" colspan=\"$colspan\"><font size=\"$fontsize\">"
+      . $text
+      . "</font></td>\n";
+  } // end of tDataH 
+
+// start unordered list
+function bList ()
+  {
+  echo "<ul>\n";
+  } // end of bList
+
+// end unordered list
+function eList ()
+  {
+  echo "</ul>\n";
+  } // end of eList
+ 
+// start ordered list
+function bOList ()
+  {
+  echo "<ol>\n";
+  } // end of bOList
+
+// end ordered list
+function eOList ()
+  {
+  echo "</ol>\n";
+  } // end of eOList
+   
+// list item
+function LI ()
+  {
+  echo "<li/>";
+  } // end of LI
+
+// returns an hlink in a string
+function shLink (&$result, $description, $destination, $params="", $newwindow=false)
+  {
+  global $userinfo, $viewsource, $foruminfo;
+    
+  if (!$foruminfo ['have_cookie_ok'])
+    $token = $foruminfo ['token'];
+  if (!$userinfo ['have_cookie_ok'])
+    $session = $userinfo ['session'];
+    
+  if ($session && $token)
+    $session = "?session=$session&amp;token=$token";
+  else if ($session)
+    $session = "?session=$session";
+  else if ($token)
+    $session = "?token=$token";
+  else
+    $session = "";
+  
+  $params = htmlspecialchars ($params);   // should be &amp; inside URLs
+
+  if ($viewsource == "yes")
+    $session .= "&amp;viewsource=yes";
+  
+  if ($newwindow)
+    $target = " target=\"_blank\"";
+  else
+    $target = "";
+    
+  // only show session ID if we have one, and we are going to a dynamic page
+  if (!empty ($session) && stristr ($destination, ".php"))
+    if (empty ($params))
+      $result =  "<a href=\"$destination$session\"$target>$description</a>\n";
+    else
+      $result =  "<a href=\"$destination$session&$params\"$target>$description</a>\n";
+  else
+    if (empty ($params))
+      $result =   "<a href=\"$destination\"$target>$description</a>\n";
+    else
+      $result =   "<a href=\"$destination?$params\"$target>$description</a>\n";
+  
+  } // end of shLink
+  
+// use this to hyperlink to another file, preserving session id
+function hLink ($description, $destination, $params="", $newwindow=false)
+  {
+  shLink ($result, $description, $destination, $params, $newwindow);
+  echo $result;          
+  }   // end of hLink
+
+// use this to send a form, preserving forum session id
+function ForumSession ()
+  {
+  global $foruminfo;
+  if (!$foruminfo ['have_cookie_ok'])
+    if (!empty ($foruminfo))
+      {
+      $token = $foruminfo ['token'];
+      echo "<input type=\"hidden\" name=\"token\" value=\"$token\"/>\n";  
+      }
+  } // end of ForumSession
+  
+// use this to send a form, preserving session id
+function FormSession ()
+  {
+  global $userinfo, $viewsource;
+  
+  if (!$userinfo ['have_cookie_ok'])
+    if (!empty ($userinfo))
+    {
+    $session = $userinfo ['session'];
+    echo "<input type=\"hidden\" name=\"session\" value=\"$session\"/>\n";  
+    }
+  if ($viewsource == "yes")
+    echo "<input type=\"hidden\" name=\"viewsource\" value=\"yes\"/>\n"; 
+  ForumSession (); 
+  } // end of FormSession
+
+
+// check we can do something
+function Permission ($todo)
+  {
+  global $userinfo, $ADMIN_DIRECTORY;
+  
+  if (!$userinfo [$todo])
+    {
+    echo "<p>";
+    hLink ("Log on", $ADMIN_DIRECTORY . "logon.php");
+    echo "</p>\n";
+    Problem ("Permission denied");
+   }
+  }  // end of  Permission  
+   
+/*
+
+Shows a table, supplied in the $table argument (ie. an array)
+Tables consist of a label, and contents. eg.
+
+$table = array 
+  (
+  'Summary' => $row ["shortdescription"],  
+  'Details' => $row ["longdescription"],   
+  );  // end of array
+
+You can specify parameters for the table, there are defaults if you omit them:
+
+$COLOUR_TABLE_LEFT_BGND       = GetColour ('colour_lh_table'             );
+$COLOUR_TABLE_RIGHT_BGND      = GetColour ('colour_rh_table'             );
+
+$params =  array 
+  (     // table parameters
+  'LH' => 'valign="top" bgcolor="' . $COLOUR_TABLE_LEFT_BGND . '" align="right"',
+  'RH' => 'bgcolor="' . $COLOUR_TABLE_RIGHT_BGND . '" align="left"'
+  );
+
+You can specify one or more "special processing" for named labels:
+
+$specials = array 
+  (     // specials
+  'Summary'     => array ('heading'),   // want this in bold
+  'Details'     => array ('breaks'),    // has line breaks
+  'Fixed in version' => array ('html' => true, 'heading' => true) // is in HTML and we want bold
+  );
+
+Currently specials are:
+
+  description - description (LH column) - defaults to label
+  heading - I want this line in bold (ie. TH rather than TD)
+  breaks - I want to see newlines - implies not HTML
+  html - The line is already in HTML
+  input - field is input, argument is name (eg. input => 'myfield')
+  type - type of input (text, multiline, password, combo, bool)
+  size - size of input field on screen
+  maxlength - max length of input field
+  values - values array for a combo box etc.
+  rows - number of rows in a multiline field
+  cols - number of columns in a multiline field
+  error - flag entry with a red asterisk
+  comment - explanatory material to be shown in small type in the RH column
+  htmlcomment - explanatory material in the RH column - HTML
+  
+*/
+    
+function ShowTable ($table, $params, $specials)
+  {
+  global $WEBMASTER;
+  global $control;
+
+  $COLOUR_FORM_ERROR_TEXT       = GetColour ('colour_form_error');
+
+  if (!is_array ($table))
+    {
+    echo "<p><b>Not a table</b></p>\n";
+    return;
+    }
+
+  $tableparam = $params ['table'];    // args for table
+  if (!isset ($tableparam))
+    $tableparam="border=\"0\" cellpadding=\"5\""; // default
+
+  $rowparam = $params ['row'];    // args for each row
+  if (!isset ($rowparam))
+    $rowparam="valign=\"top\"";         // default
+
+  $LHcolparam = $params ['LH'];    // args for LH column
+  if (!isset ($LHcolparam))
+    $LHcolparam="valign=\"top\" align=\"right\"";         // default
+
+  $RHcolparam = $params ['RH'];    // args for RH column
+  if (!isset ($RHcolparam))
+    $RHcolparam="valign=\"top\"";         // default
+      
+  $bfont = $params ['font'];    // font definition
+  
+//  if (!isset ($bfont))
+//    $bfont="<font size=\"-1\">";         // default
+
+  if (!empty ($bfont))    // must terminate the font definition
+    $efont = "</font>";
+  
+  // sanity check - we can't have errors for non-input fields
+
+  if (is_array ($specials))
+    {
+    $implementation_error = false;
+    reset ($specials);
+    while (list ($label, $contents) = each ($specials))
+      {
+      $error = $contents ['error'];
+      if ($error && $error != '*' && !$contents ['input'])
+        {
+        ShowError ("Implementation error - error message \"$error\" for field \"$label\""
+                 . " however this field is not an input field.");
+        $implementation_error = true;
+        }
+      } // end of checking specials
+  
+    if ($implementation_error)
+      echo "<p>Please notify the above message(s) to: <a href=\"mailto:$WEBMASTER\">$WEBMASTER</a></p>";
+    } // end of specials being an array    
+  
+  echo "<table $tableparam>\n";
+  
+  $contents = "";	// in case no items
+        
+  $first_input = true;
+  
+  reset ($table);
+  while (list ($label, $contents) = each ($table))
+    {
+   
+    // any special processing for this item?
+    $special = $specials [$label];
+    $html = false;
+    $heading = false;
+    $breaks = false;
+    $inputname = "";
+    $error = false;
+    $type = 'text';
+    $comment = "";
+    $htmlcomment = "";
+    $description = $label;
+//    $bold = false;
+        
+    // if the word is in the array, then it is enabled
+    if (is_array ($special))
+      {
+      $html = $special ['html'];                  // HTML encoded
+      $heading = $special ['heading'];            // this row is heading
+      $breaks = $special ['breaks'];              // line breaks wanted
+      $inputname = $special ['input'];            // name of input field
+      $size = $special ['size'];                  // size of it on screen
+      $maxlength = $special ['maxlength'];        // max length of it
+      $type = $special ['type'];                  // type of input (text, password, combo, multiline, bool)
+      $values = $special ['values'];              // values for combo box
+      $rows =   $special ['rows'];                // rows in multiline box
+      $cols =   $special ['cols'];                // cols in multiline box
+      $error = $special ['error'];                // this row is in error
+      $comment = $special ['comment'];            // comment pertaining to this row
+      $required = $special ['required'];          // is field required?
+      $htmlcomment = $special ['htmlcomment'];    // HTML comment pertaining to this row
+//      $bold = $special ['bold'];                  // is description in bold?
+      if ($special ['description'])
+        $description = $special ['description'];  // description of this row
+      
+      if (empty ($type))
+        $type = 'text';
+        
+      }   // end of having specials
+      
+    // don't display NULL rows, provided we are not getting input from it
+    if (!isset ($contents) && empty ($inputname))
+      continue;
+
+	 if (is_array ($contents))
+	    {
+			ShowArray ("error, contents is an array", $contents);
+	    return;
+	    }
+    
+    // if 'breaks' then they want to keep line breaks
+    if ($breaks)
+      $contents = nl2br (htmlentities ($contents));
+    else if (!$html)
+      $contents = htmlspecialchars ($contents);
+      
+    // this is a heading?
+    if ($heading)
+      $td = "th";
+    else
+      $td = "td";
+                  
+    echo "  <tr $rowparam>\n";
+    echo "    <$td $LHcolparam>$bfont<b>" . htmlspecialchars ($description) . "</b>$efont</$td>\n";
+    echo "    <$td $RHcolparam>$bfont";
+    
+    // do forms processing
+    if (!empty ($inputname))
+      {
+      switch ($type)
+        {
+        case 'combo':
+          echo "<select name=\"$inputname\" size=\"1\">\n";
+          reset ($values);
+          while (list ($selectvalue, $selectdescription) = each ($values))
+            {
+            echo "<option value=\"$selectvalue\" ";
+            if ($contents == $selectvalue)
+              echo "selected ";
+            echo "/>$selectdescription\n";
+            } // end of each item
+          echo "</select>\n";
+          break;    // end of combo box
+        
+        case 'multiline':
+          echo "<textarea name=\"$inputname\" wrap=\"virtual\" ";
+          if (isset ($rows))
+            echo "rows=\"$rows\" ";
+          if (isset ($cols))
+            echo "cols=\"$cols\" ";
+          if ($first_input)
+            {
+            echo "autofocus ";
+            $first_input = false;  
+            } // end of first one
+          echo ">";
+          echo $contents;
+          echo "</textarea>\n";
+          break;    // end of multiline input area
+
+        case 'bool':
+          echo "<input type=\"checkbox\" name=\"$inputname\" value=\"1\" ";
+          if ($contents)
+            echo "checked ";
+          echo "/>\n";
+          break;    // end of boolean
+
+        case 'latitude':
+          $name1 = $inputname . "_direction";
+          $name2 = $inputname . "_degrees";
+          $name3 = $inputname . "_minutes";
+          $deg = floor (abs ($contents));
+          $min = round ((abs ($contents) - $deg) * 60 * 10) / 10;;
+          
+          echo "\n<select name=\"$name1\" size=\"1\">\n";
+          echo "<option value=\"1\"";
+          if ($contents >= 0)
+            echo " selected";
+          echo ">North\n";
+          echo "<option value=\"-1\"";
+          if ($contents < 0)
+            echo " selected";
+          echo ">South\n";
+          echo "</select>\n";
+          echo "&nbsp;<input type=\"$type\" name=\"$name2\" value=\"$deg\" "
+             . "size=\"3\" maxlength=\"3\"/> degrees\n";
+          echo "&nbsp;<input type=\"$type\" name=\"$name3\" value=\"$min\" "
+             . "size=\"7\" maxlength=\"7\"/> minutes\n";
+          break;    // end of latitude
+
+        case 'longitude':
+          $name1 = $inputname . "_direction";
+          $name2 = $inputname . "_degrees";
+          $name3 = $inputname . "_minutes";
+          $deg = floor (abs ($contents));
+          $min = round ((abs ($contents) - $deg) * 60 * 10) / 10;;
+          
+          echo "\n<select name=\"$name1\" size=\"1\">\n";
+          echo "<option value=\"1\"";
+          if ($contents >= 0)
+            echo " selected";
+          echo ">East\n";
+          echo "<option value=\"-1\"";
+          if ($contents < 0)
+            echo " selected";
+          echo ">West\n";
+          echo "</select>\n";
+          echo "&nbsp;<input type=\"$type\" name=\"$name2\" value=\"$deg\" "
+             . "size=\"3\" maxlength=\"3\"/> degrees\n";
+          echo "&nbsp;<input type=\"$type\" name=\"$name3\" value=\"$min\" "
+             . "size=\"7\" maxlength=\"7\"/> minutes\n";
+          break;    // end of longitude
+          
+        default:
+          echo "<input type=\"$type\" name=\"$inputname\" value=\"$contents\" ";
+          if (isset ($size))
+            echo "size=\"$size\" ";
+          if (isset ($maxlength))
+            echo "maxlength=\"$maxlength\" ";
+          if ($first_input)
+            {
+            echo "autofocus ";
+            $first_input = false;  
+            } // end of first one
+         if ($required)
+            echo "required ";
+          echo "/>\n";
+          break;    // end of default input type
+                
+        }   // end of switch on input type
+      if ($error)
+        echo "<br><b><font color=\"$COLOUR_FORM_ERROR_TEXT\">$error</font></b>";
+      } // end of having an input field
+    else    
+      echo $contents;
+  
+    // comment
+    
+    if (!empty ($comment))
+      {
+      echo "<br><font size=\"-2\">";
+      echo (nl2br (htmlentities($comment)));
+      echo ("\n</font>\n"); 
+      }
+
+    // HTML comment
+    
+    if (!empty ($htmlcomment))
+      {
+      echo "<br><font size=\"-2\">";
+      echo ($htmlcomment);
+      echo ("\n</font>\n"); 
+      }
+    
+    echo "$efont</$td>\n";
+    echo "  </tr>\n";
+    } // end of looping through each item
+  echo "</table>\n";
+  
+  } // end of ShowTable
+  
+function getmicrotime ()
+  { 
+  $mtime = microtime(); 
+  $mtime = explode(" ",$mtime); 
+  $mtime = $mtime[1] + $mtime[0]; 
+  return ($mtime); 
+  }  // end of getmicrotime
+
+  
+function ShowList ($query,      // SQL query
+                   $id,         // id of identity row (eq. faqid)
+                   $other_args = "",  // other args for link, eg. &productid=0
+                   $summary = "summary",
+                   $show_count = true,  // show count of matches?
+                   $block_preamble = "<UL>",  
+                   $block_postamble = "</UL>",
+                   $line_preamble = "<LI>",
+                   $line_postamble = "</LI>",
+                   $page = ""
+                   )
+{
+global $PHP_SELF;
+                      
+$result = mysql_query ($query) 
+    or Problem ("Select failed: " . mysql_error ());
+
+$count = mysql_num_rows ($result);
+
+if ($count)
+  echo $block_preamble . "\n";
+
+if (!$page)
+  $page = $PHP_SELF;
+  
+while ($row = mysql_fetch_array ($result))
+  {
+  echo $line_preamble;
+  $summarydata = $row [$summary];
+  $iddata = $row [$id];
+  hLink (htmlspecialchars ($summarydata), $page, "$id=$iddata$other_args");
+  echo $line_postamble . "\n";
+
+  // ------ excerpt -------
+
+  $excerpt = $row ["excerpt"];
+  
+  if (!empty ($excerpt))
+    {
+    bList (); // indent
+    echo "<font size=-2>";
+    if ($row ['html'])
+      $excerpt = strip_tags ($excerpt);
+    echo (htmlentities($excerpt));
+    echo ("\n</font><br>\n"); 
+    eList ();   // unindent
+    }
+    
+  } // end of reading each row
+
+if ($count)
+  echo $block_postamble . "\n";
+
+if ($show_count)
+  {
+  echo "<p><b>";
+  if ($count == 0)
+    echo "No matches.";
+  else if ($count == 1)
+    echo "One match.";
+  else
+    echo $count . " matches.";
+  echo "</b></p>";
+  }  // end of searching for something
+
+mysql_free_result ($result);
+
+return $count;
+} // end of ShowList   
+
+// validate integers
+function ValidateInt ($theint)
+  {
+  $theint = trim ($theint); // ensure no leading spaces etc.
+
+  // look for leading sign
+  if ($theint [0] == '+' || $theint [0] == '-')
+    $theint = substr ($theint, 1);    // remove sign
+  if (!strlen ($theint) || !ereg ("^[0-9]+$", $theint))
+    return "Field must be numeric";
+  } // end of ValidateInt
+
+// validate booleans
+function ValidateBool ($thebool)
+  {
+  if (!strlen ($thebool) || !ereg ("^[0-1]$", $thebool))
+    return "Field must be '0' or '1'";
+  } // end of ValidateBool
+
+// validate real numbers  
+function ValidateReal ($thereal)
+  {
+  $thereal = trim ($thereal); // ensure no leading spaces etc.
+  
+  // look for leading sign
+  if ($thereal [0] == '+' || $thereal [0] == '-')
+    $thereal = substr ($thereal, 1);    // remove sign
+  
+  $items = explode (".", trim ($thereal));  // don't want two decimal points
+  if (count ($items) > 2 || !strlen ($thereal) || !ereg ("^[0-9.]+$", $thereal))
+    return "Field must be numeric";
+  } // end of ValidateReal
+
+// validate colours
+function ValidateColour ($thecolour)
+  {
+  $thecolour = trim ($thecolour); // ensure no leading spaces etc.
+
+  // look for leading #
+  if ($thecolour [0] == '#')
+    {
+    $thecolour = substr ($thecolour, 1);    // remove #
+    if (!strlen ($thecolour) || !ereg ("^[A-Fa-f0-9]+$", $thecolour))
+      return "Field must colour name or #hex_colour";
+    }
+  else
+    {    
+    if (!strlen ($thecolour) || !ereg ("^[A-Za-z0-9]+$", $thecolour))
+      return "Field must colour name or #hex_colour";
+    }
+    
+  } // end of ValidateColour
+
+// validate font names
+function ValidateFont ($thefont)
+  {
+  $thecolour = trim ($thefont); // ensure no leading spaces etc.
+
+  if (!strlen ($thefont) || !ereg ("^[-A-Za-z0-9 ,_]+$", $thefont))
+    return "Invalid characters in font name";
+    
+  } // end of ValidateFont
+
+
+// validate degrees (eg. latitude/longitude)  
+function ValidateDegrees ($thedegrees)
+  {
+  $error = ValidateReal ($thedegrees);
+  if ($error)
+    return $error;
+  if ($thedegrees > 360 || $thedegrees < -360)
+    return "Degrees must be in range 0 to 360";    
+  } // end of ValidateDegrees
+  
+// simple date check
+function ValidateDate ($thedate)
+  {
+  global $control;
+  
+  $thedate = trim ($thedate); // ensure no leading spaces etc.
+  
+  // don't let them slip in alphas or other stuff into the middle of a number
+  if (!ereg ("^[0-9\-]+$", $thedate))
+     return "Date must consist of YYYY-MM-DD";
+    
+  $items = explode ("-", trim ($thedate));
+  
+  if (count ($items) != 3)
+     return "Date must consist of YYYY-MM-DD";
+     
+  if ($items [0] < 1900 || $items [0] > 2100)
+     return "Year must be in range 1900 to 2100";
+  
+  if ($items [1] < 1 || $items [1] > 12)
+     return "Month must be in range 1 to 12";
+  
+  if ($items [2] < 1 || $items [2] > 31)
+     return "Month must be in range 1 to 31";
+  
+  return "";
+  } // end of ValidateDate
+
+function ValidateTime ($thetime)
+  {
+  $thetime = trim ($thetime); // ensure no leading spaces etc.
+    
+    
+  // don't let them slip in alphas or other stuff into the middle of a number
+  if (!ereg ("^[0-9\:]+$", $thetime))
+     return "Time must consist of HH:MM or HH:MM:SS";
+
+  $items = explode (":", trim ($thetime));
+  
+  if (count ($items) < 2 || count ($items) > 3)
+     return "Time must consist of HH:MM or HH:MM:SS";
+     
+  if ($items [0] < 0 || $items [0] > 23)
+     return "Hour must be in range 0 to 23";
+  
+  if ($items [1] < 0 || $items [1] > 59)
+     return "Minute must be in range 0 to 59";
+  
+  if ($items [2])
+    if ($items [2] < 0 || $items [2] > 59)
+       return "Seconds must be in range 0 to 59";
+  
+  return "";
+  } // end of ValidateTime
+
+function ValidateField ($value, $type)
+  {
+  $error = "";  
+  switch ($type)
+    {
+    case "int": 
+                $error = ValidateInt ($value);
+                 break;
+                 
+    case "bool": 
+                $error = ValidateBool ($value);
+                 break;
+                 
+    case "real": 
+                $error = ValidateReal ($value);
+                 break;
+                 
+     case "date":
+                $error = ValidateDate ($value);
+                break;
+                
+     case "time":
+                $error = ValidateTime ($value);
+                break;
+                
+     case "latitude":
+     case "longitude":
+                $error = ValidateDegrees ($value);
+                break;
+                
+     case "datetime":
+                $temp = explode (" ", $value);
+                if (count ($temp) < 1 || count ($temp) > 2)
+                  $error = "Date/time must consist of YYYY-MM-DD [ HH:MM:SS ]";
+                $error = ValidateDate ($temp [0]);
+                // date OK? then check time
+                if (!$error && $temp [1])
+                  $error = ValidateTime ($temp [1]);
+                break;  
+                
+    case "colour": 
+                $error = ValidateColour ($value);
+                 break;
+
+    case "font": 
+                $error = ValidateFont ($value);
+                 break;
+                                                  
+    } // end of switch on type
+  
+  return $error;
+    
+  } // end of ValidateField
+
+function ValidateOneField ($name, $type, $notnull, $maxsize, &$specials)
+  {
+  global $HTTP_POST_VARS, $have_error;
+ 
+  // remove leading/trailing spaces
+  $HTTP_POST_VARS [$name] = trim ($HTTP_POST_VARS [$name]);
+  $value = stripslashes ($HTTP_POST_VARS [$name]); // get value
+
+  // check for empty on NOT NULL fields
+  if (!strlen ($value))
+    {
+    if ($notnull)
+      {
+      $have_error = true;
+      $specials [$name] ['error'] = "Field cannot be empty";
+      }
+      return;   // enough validation, field is empty
+    } // end of empty field
+
+  // validate fields  
+
+  $error = ValidateField ($value, $type);
+
+  if (!$error && $type == "email")
+    {
+    if (strstr ($value, "\""))
+      $error = "Email address should not contain a 'quote' character";
+    else if (!strstr ($value, "@"))
+      $error = "Email address should contain the '@' character";
+    
+    } // end of email address
+      
+  if (!$error)
+    {
+    if ($maxsize && strlen ($value) > $maxsize)
+      $error = "You have entered too much data - maximum is $maxsize characters";
+    } // end of checking size      
+
+  if ($error)
+    {
+    $have_error = true;
+    $specials [$name] ['error'] = $error;
+    }
+  
+  } // end of ValidateOneField
+
+function CheckField ($description, $id, $can_be_blank=true)
+  {
+  if ($id || !$can_be_blank)
+    {
+    $error = ValidateInt ($id);
+    if ($error)
+      Problem ("Error in $description ID - $error");
+    } // end of not empty
+  } // end of CheckField
+
+function ShowTablesToEdit ()
+  {
+  global $userinfo, $ADMIN_DIRECTORY;
+  
+  echo "<form METHOD=\"post\" ACTION=\"" . $ADMIN_DIRECTORY . "edittable.php\"> \n";
+  echo "<p>Edit table: &nbsp; <select name=table size=1>\n";
+
+  // see if this user can edit *all* tables  
+  
+  $userid = $userinfo ["userid"];
+  $result = mysql_query ("SELECT * FROM access "
+                       . "WHERE userid = $userid AND tablename = '%'") 
+    or Problem ("Select of access failed: " . mysql_error ());
+  $row = mysql_fetch_array ($result);
+  mysql_free_result ($result);  
+
+  if ($row)
+    {  
+    // we can edit all tables, so get a list of them
+    GetDatabaseName ($databasename);
+                           
+    $result = mysql_list_tables ($databasename) 
+        or Problem ("List tables failed: " . mysql_error ());
+      
+    while ($row = mysql_fetch_row ($result))
+      {
+      $table = $row [0];
+      echo "<option value=\"$table\">$table\n";
+      } // end of doing each row
+    
+    mysql_free_result ($result);
+    
+    }  // end of being able to edit all tables
+  else
+    {
+    // find the tables he can edit
+    $result = mysql_query ("SELECT * FROM access "
+                         . "WHERE userid = $userid AND can_select = 1") 
+      or Problem ("Select of access failed: " . mysql_error ());
+    while ($row = mysql_fetch_array ($result))
+      {
+      $table = $row ['tablename'];
+      echo "<option value=\"$table\">$table\n";
+      } // end of doing each row
+      
+    mysql_free_result ($result);  
+    
+    } // end of being able to edit *some* tables
+    
+  echo "</select>\n";
+  
+  FormSession ();
+  echo "&nbsp; &nbsp; <input Type=submit name=dump Value=\"Edit\"> </p>\n";
+  echo "</form>\n";
+  } // end of ShowTablesToEdit
+  
+function MailAdmins ($subject, $message, $link, $condition, $bbuser_id = 0)
+  {
+  global $control, $username, $foruminfo, $subjectrow;
+
+  // don't do it if they don't permit it
+  if (!$control ['allow_notification'])
+    return;
+
+  $forum_name = $control ['forum_name'];
+  $forum_url = $control ['forum_url'];
+  
+  // find all admins (except ourselves - we don't need to notify ourselves
+  $query = "SELECT * from bbuser "
+          . "WHERE admin <> 0 "
+          . "  AND $condition <> 0 "
+          . "  AND (bounced IS NULL OR bounced = 0) ";
+        
+  if ($bbuser_id)
+    $query .= "AND bbuser_id <> " . $bbuser_id;
+  else    
+  if ($foruminfo ['bbuser_id'])
+    $query .= "AND bbuser_id <> " . $foruminfo ['bbuser_id'];
+  
+  $result = mysql_query ($query) 
+      or Problem ("Select of admins failed: " . mysql_error ());
+       
+  while ($row = mysql_fetch_array ($result))
+    {
+    $notifyname = $row ['username'];
+    $notifyemail = $row ['email'];
+    
+    $removal = "To edit your notification settings, please click on the link below:\n\n"
+             . "  $forum_url/bbuseredit.php?action=amend&bbuser_id=" . $row ['bbuser_id'];
+    
+    $removal .= "\n\n";
+    
+    // send mail message
+    
+    if ($subjectrow ['section_name'] && $subjectrow ['topic_name'])
+      $section_note = "This was in the section: " .
+                      $subjectrow ['section_name'] .
+                      " -> " .
+                      $subjectrow ['topic_name'] .
+                      "\n\n";
+    else
+      $section_note = "";
+
+    $mailresult = mail ($notifyname . " <" . $notifyemail . ">", 
+          "$subject",
+          "Hi $notifyname,\n\n" 
+        . "$username has $message.\n\n"
+        . $section_note
+        . "You can view this at:\n\n  $forum_url$link\n\n\n\n"
+        . $removal
+        . $control ['email_signature'],
+        // mail header
+        "From: " . $control ['email_from'] . "\r\n"
+      . "Content-type: text/plain\r\n"
+      . "X-mailer: PHP/" . phpversion()
+        );
+    
+    if (!$mailresult)
+      Problem ("An error occurred sending an email message");
+
+    } // end of having loop
+    
+  mysql_free_result ($result);
+  
+  } // end of MailAdmins
+  
+function utctime ()
+  {
+  global $control;
+  if ($control ['minuteswest'])
+    $minuteswest = $control ['minuteswest'];
+  else
+    {
+    $thetime = gettimeofday ();
+    $minuteswest = $thetime ['minuteswest'];
+    }
+  return time () + ($minuteswest * 60); // add in time-zone correction in minutes
+  } // end of utctime  
+
+// general function for getting a count of something
+
+function GetSQLcount ($query, $select = "SELECT count(*) FROM ")
+  {
+    
+  $result = mysql_query ($select . $query) 
+      or Problem ("Select count failed: " . mysql_error ());
+  $row = mysql_fetch_row ($result);    
+  $count = $row [0];
+  mysql_free_result ($result);
+    
+  return ($count);
+  } // end of GetSQLcount
+
+// Added because Superb.Net recompiled PHP without --enable-track-vars
+
+/*
+reset ($HTTP_GET_VARS);
+while (list ($name, $value) = each ($HTTP_GET_VARS))
+    $HTTP_GET_VARS [$name] = addslashes ($HTTP_GET_VARS [$name]);
+    
+reset ($HTTP_POST_VARS);
+while (list ($name, $value) = each ($HTTP_POST_VARS))
+    $HTTP_POST_VARS [$name] = addslashes ($HTTP_POST_VARS [$name]);
+    
+reset ($HTTP_COOKIE_VARS);
+while (list ($name, $value) = each ($HTTP_COOKIE_VARS))
+    $HTTP_COOKIE_VARS [$name] = addslashes ($HTTP_COOKIE_VARS [$name]);
+
+extract ($HTTP_GET_VARS, EXTR_OVERWRITE);
+extract ($HTTP_POST_VARS, EXTR_OVERWRITE);
+extract ($HTTP_COOKIE_VARS, EXTR_OVERWRITE);
+*/
+
+import_request_variables ("GPC");
+
+// turns numbers into their ordinal versions (eg. 1 becomes 1st, 23 becomes 23rd)
+
+function ordinal ($number)
+  {
+    
+  // 12 is 12th not 12nd.
+  
+  if ($number >= 10 && $number <= 20)
+    $ordinal = "th";
+  else
+    switch (substr ($number, -1, 1))
+      {
+      case 1: $ordinal = "st"; break;  
+      case 2: $ordinal = "nd"; break;
+      case 3: $ordinal = "rd"; break;  
+      default:  $ordinal = "th";
+      } // end of switch
+    
+  return $number . $ordinal;  
+  } // end of ordinal
+
+// extended date functions
+function DoExtendedDate (& $thedate)
+{
+
+// get rid of leading/trailing spaces, make lowercase
+$thedate = trim (strtolower ($thedate));
+
+// get rid of multiple spaces
+$thedate = str_replace ("  ", " ", $thedate);
+
+// try ISO date, like +1 day, -1 day, next thursday, last monday
+//
+// 1 year
+// 1 year ago
+// 3 years
+// 2 days
+
+
+// we will take a simple number (eg. 23) as a day not a time
+// also exclude straight alphas as it sometimes got "mon" wrong
+if (!ereg ("^[0-9]+$", $thedate) && !ereg ("^[A-Za-z]+$", $thedate))
+  {
+  $converteddate = strtotime ($thedate);
+  if ($converteddate != -1)
+    {
+    // success - convert back and return
+    $thedate = strftime ("%Y-%m-%d", $converteddate);
+    return "";
+    }
+  } // end of not simple number
+  
+// if date has hyphens in it, assume already in format 2002-15-02
+if (strstr ($thedate, "-"))
+  return "";
+  
+// look for 'today' or 'tomorrow', or some shortened version of either
+if (strlen ($thedate) > 2)
+  {
+
+  if ($thedate == substr ('today', 0, strlen ($thedate)) ||
+      $thedate == substr ('now', 0, strlen ($thedate))
+      )
+    {
+    $thedate = strftime ("%Y-%m-%d", utctime());
+    return "";
+    }   // end of today
+  
+  if ($thedate == substr ('tomorrow', 0, strlen ($thedate)))
+    {
+    $thedate = strftime ("%Y-%m-%d", utctime() + (60 * 60 * 24));
+    return "";
+    }   // end of tomorrow
+  }  // end of string length > 2
+  
+if (strstr ($thedate, "/"))
+  $items = explode ("/", $thedate);
+else
+  $items = explode (" ", $thedate);
+
+if (count ($items) > 3)
+  return "Too many fields in date, maximum of 3 (day/month/year)";
+  
+if (count ($items) < 1)
+  return "Date must consist of at least the day (eg. 15)";
+  
+$day = trim($items [0]);
+   
+// look for alpha day name (eg. Monday)
+if (ereg ("^[a-z]+$", $day) && count ($items) < 3)
+  {
+    
+ 
+    
+   $daynames = "";
+   $seconds = utctime();
+   // find the dates of the next 7 days
+   for ($count = 1; $count <= 7; $count++) 
+     {
+     $daynames [strtolower (strftime ("%A", $seconds))] = strftime ("%Y-%m-%d", $seconds);
+     
+     // echo ("<p>" . strtolower (strftime ("%A", $seconds)) . " = " . strftime ("%Y-%m-%d", $seconds));
+     
+     // let them put in 'Thursday week'
+     $daynames_week [strtolower (strftime ("%A", $seconds))] 
+        = strftime ("%Y-%m-%d", $seconds + (60 * 60 * 24 * 7));
+     $seconds += 60 * 60 * 24;  // onwards a day
+     }
+   
+   // our array now has all 7 days indexed by the day name (eg. Monday)
+   
+    reset ($daynames);
+    $count = 0;
+    while (list ($dayname, $daydate) = each ($daynames))
+      {
+      // look for partial match - do whole lot in case of ambiguity (eg. t(hursday))
+      if ($day == substr ($dayname, 0, strlen ($day)))
+        {
+        $founddate = $daydate;
+        // and pull out a week later
+        $founddate_week = $daynames_week [$dayname];
+        $count++;  
+        }  // end of found a match
+      }  // end of trying each day
+  
+    if ($count == 0)
+       return "Day name of \"$day\" not recognised, try 'Monday', 'Tuesday', etc.";
+    if ($count > 1)
+      return "Day named \"$day\" is ambiguous - please use longer name";
+     
+    // found one match - use the corresponding date
+    
+    // first see if they followed it by the word 'week'
+    $word = trim($items [1]);
+    if (count ($items) == 2 && $word != "")
+      {
+      if ($word == substr ('week', 0, strlen ($word)))
+        {
+        $thedate = $founddate_week;
+        return "";
+        }   // end of the word week (or an abbreviatio)        
+      } // end of having a second word
+      
+    $thedate = $founddate;
+    return "";
+  }   // end of alpha day 
+
+// don't let them slip in alphas or other stuff into the middle of a day
+if (!ereg ("^[0-9]+$", $day))
+   return "Day must consist of numbers (or 'Monday', 'Tuesday' etc.) - you supplied \"$day\"";
+
+// get the month
+if (count ($items) > 1)
+  $month = trim($items [1]);
+else  // no month? assume current month (or next month if past that date)
+      // eg. on 29th March, putting in 2 means 2nd April
+  {
+  $month = strftime ("%m", utctime()); 
+  $currentday = strftime ("%d", utctime());  // what is today?
+  if ($day < $currentday)   // is wanted day earlier? (therefore, next month)
+    $month = $month + 1;
+  }
+
+// get the year
+if (count ($items) > 2)
+  $year = trim($items [2]);
+else  // no year? assume current year
+  {
+  $year = strftime ("%Y", utctime()); 
+  // in case we added 1 to current month
+  if (ereg ("^[0-9]+$", $month) && $month > 12)
+    {
+    $year = $year + 1;
+    $month = 1;
+    }
+  }
+
+// don't let them slip in alphas or other stuff into the middle of a year
+if (!ereg ("^[0-9]+$", $year))
+   return "Year must consist of numbers, you supplied \"$year\"";
+
+// 2-digit year supplied? Assume current century
+if ($year < 100)
+  {
+  $century = intval (floor (strftime ("%Y", utctime()) / 100)) * 100;
+  $year = $year + $century; 
+  } // end of 2-digit year
+
+// if non-numeric month, see if we can recognise the month name, either in full or in part
+if (!ereg ("^[0-9]+$", $month))
+  {
+  $months = array 
+    (
+     1 => 'january',  
+     2 => 'february',  
+     3 => 'march',  
+     4 => 'april',  
+     5 => 'may',  
+     6 => 'june',  
+     7 => 'july',  
+     8 => 'august',  
+     9 => 'september',  
+    10 => 'october',  
+    11 => 'november',  
+    12 => 'december',  
+    );  // end of array
+
+  reset ($months);
+  $count = 0;
+  while (list ($monthnum, $monthname) = each ($months))
+    {
+    // look for partial match - do whole lot in case of ambiguity (eg. ju)
+    if ($month == substr ($monthname, 0, strlen ($month)))
+      {
+      $foundmonth = $monthnum;
+      $count++;  
+      }  // end of found a match
+    }  // end of trying each month
+
+  if ($count == 0)
+    return "Month named \"$month\" not a valid month name, or number";
+  if ($count > 1)
+    return "Month named \"$month\" is ambiguous - please use longer name";
+    
+  $month = $foundmonth;
+  } // end of non-numeric month
+
+$thedate = $year . "-" . $month . "-" . $day;
+
+return "";  
+} // end of DoExtendedDate
+
+function DoExtendedDateTime (& $thedate)
+{
+$thedate = trim ($thedate);
+
+// no date? give up
+if ($thedate == "")
+  return "";
+
+// get rid of multiple spaces
+$thedate = str_replace ("  ", " ", $thedate);
+  
+// try ISO date, like +1 day, next thursday, last monday
+//
+// 1 year
+// 1 year ago
+// 3 years
+// 2 days
+
+// we will take a simple number (eg. 23) as a day not a time
+if (!ereg ("^[0-9]+$", $thedate))
+  {
+  $converteddate = strtotime ($thedate);
+  if ($converteddate != -1)
+    {
+    // success - convert back and return
+    $thedate = strftime ("%Y-%m-%d %H:%M:%S", $converteddate);
+    return "";
+    }
+  } // end of not simple number
+  
+// if no colons let's assume they just typed a date
+if (strstr ($thedate, ":") == 0)
+  {
+  // extend the date (using my original code)
+  return DoExtendedDate ($thedate); 
+  }
+
+// see where the last space is
+$i = strrpos ($thedate, " ");
+// see if we have a colon
+$j = strpos  ($thedate, ":");
+
+$date = "";
+$time = "";
+
+// if we have a colon we have a time
+if ($j)
+  {
+  if ($i)
+    {
+    $date = substr ($thedate, 0, $i); // date is up to last space
+    $time = substr ($thedate, $i);    // time is after last space
+    }   // end of having a space
+  else
+    {
+    $date = strftime ("%Y-%m-%d", strtotime ("now"));   // assume date today
+    $time = $thedate;   // time is whole string
+    }   // end of no space
+  } // end of date string with a colon in it
+else
+  {
+  $date = $thedate;   // whole string is date  
+  } // end of no colon
+
+// extend the date
+$error = DoExtendedDate ($date);
+if ($error != "")
+  return $error;
+  
+// see if we have a time, and if so, process that  
+if ($time)
+  {
+  
+  // extend the date
+  $error = DoExtendedTime ($time);
+  if ($error != "")
+    return $error;
+  } // end of having a time too
+else 
+  $time = "";
+    
+// assemble the fixed date/time    
+$thedate = $date . " " . $time;
+return "";  // no error
+} // end of DoExtendedDateTime
+
+function DoExtendedTime(& $thetime)
+{
+// get rid of leading/trailing spaces, make lowercase
+$thetime = trim (strtolower ($thetime));
+
+// no time? given up
+if ($thetime == "")
+  return "";
+
+// get rid of multiple spaces
+$thetime = str_replace ("  ", " ", $thetime);
+
+// allow decimal places instead of colons
+$thetime = str_replace (".", ":", $thetime);
+
+// look for a space
+$items = explode (" ", $thetime);
+
+// first, let them enter hours only (eg. 11) (convert to 11:00)
+$time = $items [0];
+if (!strstr ($time, ":"))
+  $time .= ":00";
+
+if (count ($items) > 2)
+  return "Time must be in format '11', '11:45' or '11:45 am/pm'";
+  
+// look for am/pm  
+if (count ($items) == 2)
+  $am_pm = trim ($items [1]);
+else
+  $am_pm = "";
+  
+// leading zero (eg. 06:30 forces it to be am not pm)
+if (ereg ("^0", $time))
+  $am_pm = "am";
+  
+// don't let them slip in alphas or other stuff into the middle of a number
+if (!ereg ("^[0-9\:]+$", $time))
+   return "Time must consist of HH:MM or HH:MM:SS";
+
+// put out hour:minute:second
+$items = explode (":", trim ($time));
+
+$hour = $items [0];
+if (count ($items) > 1)
+  $min = $items [1];
+else
+  $min = 0;
+  
+if (count ($items) > 2)
+  $sec = $items [2];
+else
+  $sec = 0;
+  
+if ($am_pm)
+  {    
+  switch ($am_pm)
+    {
+    case "am":
+    case "a":
+      break;    // do nothing
+      
+    case "pm":
+    case "p":
+      if ($hour < 12) // make afternoon
+        $hour += 12;
+      break;  
+      
+    default: return "Time must consist of HH:MM am/pm or HH:MM:SS am/pm";
+  } // end of switch 
+  
+} // end of am/pm
+else
+  if ($hour < 8)  // assume a time like 6:30 is 6:30 pm
+    $hour += 12;
+
+$time = $hour . ":" . $min . ":" . $sec;
+$thetime = $time;
+return "";  // no error
+} // end of DoExtendedTime
+
+/*
+
+Audit trail - because some people like abusing the system we will log events
+that result in things changing, so we can roll them back or at least see what
+they are up to.
+
+eg. user created, posts message, changes his name, changes his email,
+deletes a message, adds a thread, deletes a thread, etc.
+
+*/
+
+// audit types
+
+$AUDIT_NEW_USER = 1;
+$AUDIT_CHANGED_USER = 2;
+$AUDIT_NEW_THREAD = 3;
+$AUDIT_NEW_MESSAGE = 4;
+$AUDIT_CHANGED_MESSAGE = 5;
+$AUDIT_CHANGED_SUBJECT = 6;
+$AUDIT_DELETED_MESSAGE = 7;
+$AUDIT_DELETED_THREAD = 8;
+$AUDIT_SENT_MAIL = 9;
+$AUDIT_REQUESTED_PASSWORD = 10;
+$AUDIT_CHANGED_PASSWORD = 11;
+$AUDIT_VOTED_SPAM = 12;
+$AUDIT_RESET_PASSWORD = 13;
+
+
+// audit something they have done
+function audit ($bbaudit_type_id,   // what action it is (eg. add, change, delete)
+                $bbuser_id,         // who did  it
+                $bbpost_id = "",    // which post
+                $bbsubject_id = "", // which thread
+                $bbtopic_id = "",   // which topic
+                $extra = "")        // extras, like the text of the message
+  {
+  global $HTTP_SERVER_VARS, $HTTP_ENV_VARS;
+  
+  // try and work out their IP address
+  $ip = $HTTP_SERVER_VARS ['REMOTE_ADDR'];
+  if (!$ip)
+    $ip = $HTTP_ENV_VARS ['REMOTE_ADDR'];
+  
+  if (!$bbpost_id)
+    $bbpost_id = "NULL";
+  if (!$bbsubject_id)
+    $bbsubject_id = "NULL";
+  if (!$bbtopic_id)
+    $bbtopic_id = "NULL";
+
+  $extra = addslashes ($extra);
+  $ip = addslashes ($ip);
+    
+  $query =  "INSERT INTO bbaudit ("
+          . " audit_date, "
+          . " bbaudit_type_id, "
+          . " bbuser_id, " 
+          . " bbpost_id , " 
+          . " bbsubject_id , " 
+          . " bbtopic_id , " 
+          . " extra, "
+          . " ip "
+          . " ) VALUES ( "
+          . " NOW(), "
+          . " $bbaudit_type_id, "
+          . " $bbuser_id, "
+          . " $bbpost_id, "
+          . " $bbsubject_id, "
+          . " $bbtopic_id, "
+          . " '$extra', "
+          . " '$ip' "
+          . ")";
+  
+  $result = mysql_query ($query) 
+    or Problem ("Audit failed: " . mysql_error ());
+  if (mysql_affected_rows () == 0)
+    Problem ("Could not insert audit record");
+  
+  }
+
+?>

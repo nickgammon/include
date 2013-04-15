@@ -2100,383 +2100,399 @@ function ordinal ($number)
   return $number . $ordinal;  
   } // end of ordinal
 
+ function checkSQLdate ($thedate, $originalDate)
+  {
+  $result = mysql_query ("SELECT DATE_ADD($thedate, INTERVAL 0 DAY) AS validatedDate") 
+    or Problem ("Select of date failed: " . mysql_error ());
+  $row = mysql_fetch_array ($result);
+  mysql_free_result ($result);    
+  
+  if (!$row || !$row ['validatedDate'])
+    return "Date '$originalDate' is not a valid date.";
+        
+  return "";      
+  } // end of checkSQLdate
+  
 // extended date functions
 function DoExtendedDate (& $thedate)
-{
-
-// get rid of leading/trailing spaces, make lowercase
-$thedate = trim (strtolower ($thedate));
-
-// get rid of multiple spaces
-$thedate = str_replace ("  ", " ", $thedate);
-
-// try ISO date, like +1 day, -1 day, next thursday, last monday
-//
-// 1 year
-// 1 year ago
-// 3 years
-// 2 days
-
-
-// we will take a simple number (eg. 23) as a day not a time
-// also exclude straight alphas as it sometimes got "mon" wrong
-if (!ereg ("^[0-9]+$", $thedate) && !ereg ("^[A-Za-z]+$", $thedate))
   {
-  $converteddate = strtotime ($thedate);
-  if ($converteddate != -1)
+  $originalDate = trim ($thedate);
+  
+  // get rid of leading/trailing spaces, make lowercase
+  $thedate = trim (strtolower ($thedate));
+  
+  // get rid of multiple spaces
+  $thedate = str_replace ("  ", " ", $thedate);
+  
+  // try ISO date, like +1 day, -1 day, next thursday, last monday
+  //
+  // 1 year
+  // 1 year ago
+  // 3 years
+  // 2 days
+  
+  // exclude colons because someone might put a time in a purely date field
+  if (strstr ($thedate, ":"))
+    return "Date cannot have a colon in it.";
+  
+  // we will take a simple number (eg. 23) as a day not a time
+  // also exclude straight alphas as it sometimes got "mon" wrong
+  if (!ereg ("^[0-9]+$", $thedate) && !ereg ("^[A-Za-z]+$", $thedate))
     {
-    // success - convert back and return
-    $thedate = strftime ("%Y-%m-%d", $converteddate);
-    return "";
-    }
-  } // end of not simple number
-  
-// if date has hyphens in it, assume already in format 2002-15-02
-if (strstr ($thedate, "-"))
-  return "";
-  
-// look for 'today' or 'tomorrow', or some shortened version of either
-if (strlen ($thedate) > 2)
-  {
-
-  if ($thedate == substr ('today', 0, strlen ($thedate)) ||
-      $thedate == substr ('now', 0, strlen ($thedate))
-      )
-    {
-    $thedate = strftime ("%Y-%m-%d", utctime());
-    return "";
-    }   // end of today
-  
-  if ($thedate == substr ('tomorrow', 0, strlen ($thedate)))
-    {
-    $thedate = strftime ("%Y-%m-%d", utctime() + (60 * 60 * 24));
-    return "";
-    }   // end of tomorrow
-  }  // end of string length > 2
-  
-if (strstr ($thedate, "/"))
-  $items = explode ("/", $thedate);
-else
-  $items = explode (" ", $thedate);
-
-if (count ($items) > 3)
-  return "Too many fields in date, maximum of 3 (day/month/year)";
-  
-if (count ($items) < 1)
-  return "Date must consist of at least the day (eg. 15)";
-  
-$day = trim($items [0]);
-   
-// look for alpha day name (eg. Monday)
-if (ereg ("^[a-z]+$", $day) && count ($items) < 3)
-  {
+    $converteddate = strtotime ($thedate);
     
- 
-    
-   $daynames = "";
-   $seconds = utctime();
-   // find the dates of the next 7 days
-   for ($count = 1; $count <= 7; $count++) 
-     {
-     $daynames [strtolower (strftime ("%A", $seconds))] = strftime ("%Y-%m-%d", $seconds);
-     
-     // echo ("<p>" . strtolower (strftime ("%A", $seconds)) . " = " . strftime ("%Y-%m-%d", $seconds));
-     
-     // let them put in 'Thursday week'
-     $daynames_week [strtolower (strftime ("%A", $seconds))] 
-        = strftime ("%Y-%m-%d", $seconds + (60 * 60 * 24 * 7));
-     $seconds += 60 * 60 * 24;  // onwards a day
-     }
-   
-   // our array now has all 7 days indexed by the day name (eg. Monday)
-   
-    reset ($daynames);
-    $count = 0;
-    while (list ($dayname, $daydate) = each ($daynames))
+    if ($converteddate)
       {
-      // look for partial match - do whole lot in case of ambiguity (eg. t(hursday))
-      if ($day == substr ($dayname, 0, strlen ($day)))
+      // success - convert back and return
+      $thedate = strftime ("%Y-%m-%d", $converteddate);
+      return "";
+      }
+    } // end of not simple number
+    
+  // if date has hyphens in it, assume already in format 2002-15-02
+  if (strstr ($thedate, "-"))
+    return "";
+        
+  // look for 'today' or 'tomorrow', or some shortened version of either
+  if (strlen ($thedate) > 2)
+    {
+  
+    if ($thedate == substr ('today', 0, strlen ($thedate)) ||
+        $thedate == substr ('now', 0, strlen ($thedate))
+        )
+      {
+      $thedate = strftime ("%Y-%m-%d", utctime());
+      return "";
+      }   // end of today
+    
+    if ($thedate == substr ('tomorrow', 0, strlen ($thedate)))
+      {
+      $thedate = strftime ("%Y-%m-%d", utctime() + (60 * 60 * 24));
+      return "";
+      }   // end of tomorrow
+    }  // end of string length > 2
+    
+  if (strstr ($thedate, "/"))
+    $items = explode ("/", $thedate);
+  else
+    $items = explode (" ", $thedate);
+  
+  if (count ($items) > 3)
+    return "Too many fields in date, maximum of 3 (day/month/year)";
+    
+  if (count ($items) < 1)
+    return "Date must consist of at least the day (eg. 15)";
+    
+  $day = trim($items [0]);
+     
+  // look for alpha day name (eg. Monday)
+  if (ereg ("^[a-z]+$", $day) && count ($items) < 3)
+    {
+     $daynames = "";
+     $seconds = utctime();
+     // find the dates of the next 7 days
+     for ($count = 1; $count <= 7; $count++) 
+       {
+       $daynames [strtolower (strftime ("%A", $seconds))] = strftime ("%Y-%m-%d", $seconds);
+       
+       // echo ("<p>" . strtolower (strftime ("%A", $seconds)) . " = " . strftime ("%Y-%m-%d", $seconds));
+       
+       // let them put in 'Thursday week'
+       $daynames_week [strtolower (strftime ("%A", $seconds))] 
+          = strftime ("%Y-%m-%d", $seconds + (60 * 60 * 24 * 7));
+       $seconds += 60 * 60 * 24;  // onwards a day
+       }
+     
+     // our array now has all 7 days indexed by the day name (eg. Monday)
+     
+      reset ($daynames);
+      $count = 0;
+      while (list ($dayname, $daydate) = each ($daynames))
         {
-        $founddate = $daydate;
-        // and pull out a week later
-        $founddate_week = $daynames_week [$dayname];
+        // look for partial match - do whole lot in case of ambiguity (eg. t(hursday))
+        if ($day == substr ($dayname, 0, strlen ($day)))
+          {
+          $founddate = $daydate;
+          // and pull out a week later
+          $founddate_week = $daynames_week [$dayname];
+          $count++;  
+          }  // end of found a match
+        }  // end of trying each day
+    
+      if ($count == 0)
+         return "Day name of \"$day\" not recognised, try 'Monday', 'Tuesday', etc.";
+      if ($count > 1)
+        return "Day named \"$day\" is ambiguous - please use longer name";
+       
+      // found one match - use the corresponding date
+      
+      // first see if they followed it by the word 'week'
+      $word = trim($items [1]);
+      if (count ($items) == 2 && $word != "")
+        {
+        if ($word == substr ('week', 0, strlen ($word)))
+          {
+          $thedate = $founddate_week;
+          return "";
+          }   // end of the word week (or an abbreviatio)        
+        } // end of having a second word
+        
+      $thedate = $founddate;
+      return "";
+    }   // end of alpha day 
+  
+  // don't let them slip in alphas or other stuff into the middle of a day
+  if (!ereg ("^[0-9]+$", $day))
+     return "Day must consist of numbers (or 'Monday', 'Tuesday' etc.) - you supplied \"$day\"";
+  
+  // get the month
+  if (count ($items) > 1)
+    $month = trim($items [1]);
+  else  // no month? assume current month (or next month if past that date)
+        // eg. on 29th March, putting in 2 means 2nd April
+    {
+    $month = strftime ("%m", utctime()); 
+    $currentday = strftime ("%d", utctime());  // what is today?
+    if ($day < $currentday)   // is wanted day earlier? (therefore, next month)
+      $month = $month + 1;
+    }
+  
+  // get the year
+  if (count ($items) > 2)
+    $year = trim($items [2]);
+  else  // no year? assume current year
+    {
+    $year = strftime ("%Y", utctime()); 
+    // in case we added 1 to current month
+    if (ereg ("^[0-9]+$", $month) && $month > 12)
+      {
+      $year = $year + 1;
+      $month = 1;
+      }
+    }
+    
+  // don't let them slip in alphas or other stuff into the middle of a year
+  if (!ereg ("^[0-9]+$", $year))
+     return "Year must consist of numbers, you supplied \"$year\"";
+  
+  // 2-digit year supplied? Assume current century
+  if ($year < 100)
+    {
+    $century = intval (floor (strftime ("%Y", utctime()) / 100)) * 100;
+    $year = $year + $century; 
+    } // end of 2-digit year
+  
+  // if non-numeric month, see if we can recognise the month name, either in full or in part
+  if (!ereg ("^[0-9]+$", $month))
+    {
+    $months = array 
+      (
+       1 => 'january',  
+       2 => 'february',  
+       3 => 'march',  
+       4 => 'april',  
+       5 => 'may',  
+       6 => 'june',  
+       7 => 'july',  
+       8 => 'august',  
+       9 => 'september',  
+      10 => 'october',  
+      11 => 'november',  
+      12 => 'december',  
+      );  // end of array
+  
+    reset ($months);
+    $count = 0;
+    while (list ($monthnum, $monthname) = each ($months))
+      {
+      // look for partial match - do whole lot in case of ambiguity (eg. ju)
+      if ($month == substr ($monthname, 0, strlen ($month)))
+        {
+        $foundmonth = $monthnum;
         $count++;  
         }  // end of found a match
-      }  // end of trying each day
+      }  // end of trying each month
   
     if ($count == 0)
-       return "Day name of \"$day\" not recognised, try 'Monday', 'Tuesday', etc.";
+      return "Month named \"$month\" not a valid month name, or number";
     if ($count > 1)
-      return "Day named \"$day\" is ambiguous - please use longer name";
-     
-    // found one match - use the corresponding date
-    
-    // first see if they followed it by the word 'week'
-    $word = trim($items [1]);
-    if (count ($items) == 2 && $word != "")
-      {
-      if ($word == substr ('week', 0, strlen ($word)))
-        {
-        $thedate = $founddate_week;
-        return "";
-        }   // end of the word week (or an abbreviatio)        
-      } // end of having a second word
+      return "Month named \"$month\" is ambiguous - please use longer name";
       
-    $thedate = $founddate;
-    return "";
-  }   // end of alpha day 
+    $month = $foundmonth;
+    } // end of non-numeric month
+  
+  $thedate = $year . "-" . $month . "-" . $day;
 
-// don't let them slip in alphas or other stuff into the middle of a day
-if (!ereg ("^[0-9]+$", $day))
-   return "Day must consist of numbers (or 'Monday', 'Tuesday' etc.) - you supplied \"$day\"";
-
-// get the month
-if (count ($items) > 1)
-  $month = trim($items [1]);
-else  // no month? assume current month (or next month if past that date)
-      // eg. on 29th March, putting in 2 means 2nd April
-  {
-  $month = strftime ("%m", utctime()); 
-  $currentday = strftime ("%d", utctime());  // what is today?
-  if ($day < $currentday)   // is wanted day earlier? (therefore, next month)
-    $month = $month + 1;
-  }
-
-// get the year
-if (count ($items) > 2)
-  $year = trim($items [2]);
-else  // no year? assume current year
-  {
-  $year = strftime ("%Y", utctime()); 
-  // in case we added 1 to current month
-  if (ereg ("^[0-9]+$", $month) && $month > 12)
-    {
-    $year = $year + 1;
-    $month = 1;
-    }
-  }
-
-// don't let them slip in alphas or other stuff into the middle of a year
-if (!ereg ("^[0-9]+$", $year))
-   return "Year must consist of numbers, you supplied \"$year\"";
-
-// 2-digit year supplied? Assume current century
-if ($year < 100)
-  {
-  $century = intval (floor (strftime ("%Y", utctime()) / 100)) * 100;
-  $year = $year + $century; 
-  } // end of 2-digit year
-
-// if non-numeric month, see if we can recognise the month name, either in full or in part
-if (!ereg ("^[0-9]+$", $month))
-  {
-  $months = array 
-    (
-     1 => 'january',  
-     2 => 'february',  
-     3 => 'march',  
-     4 => 'april',  
-     5 => 'may',  
-     6 => 'june',  
-     7 => 'july',  
-     8 => 'august',  
-     9 => 'september',  
-    10 => 'october',  
-    11 => 'november',  
-    12 => 'december',  
-    );  // end of array
-
-  reset ($months);
-  $count = 0;
-  while (list ($monthnum, $monthname) = each ($months))
-    {
-    // look for partial match - do whole lot in case of ambiguity (eg. ju)
-    if ($month == substr ($monthname, 0, strlen ($month)))
-      {
-      $foundmonth = $monthnum;
-      $count++;  
-      }  // end of found a match
-    }  // end of trying each month
-
-  if ($count == 0)
-    return "Month named \"$month\" not a valid month name, or number";
-  if ($count > 1)
-    return "Month named \"$month\" is ambiguous - please use longer name";
-    
-  $month = $foundmonth;
-  } // end of non-numeric month
-
-$thedate = $year . "-" . $month . "-" . $day;
-
-return "";  
-} // end of DoExtendedDate
+  // final check - will SQL accept it?  
+  return checkSQLdate ($thedate, $originalDate); 
+  } // end of DoExtendedDate
 
 function DoExtendedDateTime (& $thedate)
-{
-$thedate = trim ($thedate);
-
-// no date? give up
-if ($thedate == "")
-  return "";
-
-// get rid of multiple spaces
-$thedate = str_replace ("  ", " ", $thedate);
-  
-// try ISO date, like +1 day, next thursday, last monday
-//
-// 1 year
-// 1 year ago
-// 3 years
-// 2 days
-
-// we will take a simple number (eg. 23) as a day not a time
-if (!ereg ("^[0-9]+$", $thedate))
   {
-  $converteddate = strtotime ($thedate);
-  if ($converteddate != -1)
-    {
-    // success - convert back and return
-    $thedate = strftime ("%Y-%m-%d %H:%M:%S", $converteddate);
+  $thedate = trim ($thedate);
+  
+  // no date? give up
+  if ($thedate == "")
     return "";
-    }
-  } // end of not simple number
   
-// if no colons let's assume they just typed a date
-if (strstr ($thedate, ":") == 0)
-  {
-  // extend the date (using my original code)
-  return DoExtendedDate ($thedate); 
-  }
-
-// see where the last space is
-$i = strrpos ($thedate, " ");
-// see if we have a colon
-$j = strpos  ($thedate, ":");
-
-$date = "";
-$time = "";
-
-// if we have a colon we have a time
-if ($j)
-  {
-  if ($i)
+  // get rid of multiple spaces
+  $thedate = str_replace ("  ", " ", $thedate);
+    
+  // try ISO date, like +1 day, next thursday, last monday
+  //
+  // 1 year
+  // 1 year ago
+  // 3 years
+  // 2 days
+  
+  // we will take a simple number (eg. 23) as a day not a time
+  if (!ereg ("^[0-9]+$", $thedate))
     {
-    $date = substr ($thedate, 0, $i); // date is up to last space
-    $time = substr ($thedate, $i);    // time is after last space
-    }   // end of having a space
+    $converteddate = strtotime ($thedate);
+    if ($converteddate)
+      {
+      // success - convert back and return
+      $thedate = strftime ("%Y-%m-%d %H:%M:%S", $converteddate);
+      return "";
+      }
+    } // end of not simple number
+    
+  // if no colons let's assume they just typed a date
+  if (strstr ($thedate, ":") == 0)
+    {
+    // extend the date (using my original code)
+    return DoExtendedDate ($thedate); 
+    }
+  
+  // see where the last space is
+  $i = strrpos ($thedate, " ");
+  // see if we have a colon
+  $j = strpos  ($thedate, ":");
+  
+  $date = "";
+  $time = "";
+  
+  // if we have a colon we have a time
+  if ($j)
+    {
+    if ($i)
+      {
+      $date = substr ($thedate, 0, $i); // date is up to last space
+      $time = substr ($thedate, $i);    // time is after last space
+      }   // end of having a space
+    else
+      {
+      $date = strftime ("%Y-%m-%d", strtotime ("now"));   // assume date today
+      $time = $thedate;   // time is whole string
+      }   // end of no space
+    } // end of date string with a colon in it
   else
     {
-    $date = strftime ("%Y-%m-%d", strtotime ("now"));   // assume date today
-    $time = $thedate;   // time is whole string
-    }   // end of no space
-  } // end of date string with a colon in it
-else
-  {
-  $date = $thedate;   // whole string is date  
-  } // end of no colon
-
-// extend the date
-$error = DoExtendedDate ($date);
-if ($error != "")
-  return $error;
-  
-// see if we have a time, and if so, process that  
-if ($time)
-  {
+    $date = $thedate;   // whole string is date  
+    } // end of no colon
   
   // extend the date
-  $error = DoExtendedTime ($time);
+  $error = DoExtendedDate ($date);
   if ($error != "")
     return $error;
-  } // end of having a time too
-else 
-  $time = "";
     
-// assemble the fixed date/time    
-$thedate = $date . " " . $time;
-return "";  // no error
-} // end of DoExtendedDateTime
+  // see if we have a time, and if so, process that  
+  if ($time)
+    {
+    
+    // extend the date
+    $error = DoExtendedTime ($time);
+    if ($error != "")
+      return $error;
+    } // end of having a time too
+  else 
+    $time = "";
+      
+  // assemble the fixed date/time    
+  $thedate = $date . " " . $time;
+  return "";  // no error
+  } // end of DoExtendedDateTime
 
 function DoExtendedTime(& $thetime)
-{
-// get rid of leading/trailing spaces, make lowercase
-$thetime = trim (strtolower ($thetime));
-
-// no time? given up
-if ($thetime == "")
-  return "";
-
-// get rid of multiple spaces
-$thetime = str_replace ("  ", " ", $thetime);
-
-// allow decimal places instead of colons
-$thetime = str_replace (".", ":", $thetime);
-
-// look for a space
-$items = explode (" ", $thetime);
-
-// first, let them enter hours only (eg. 11) (convert to 11:00)
-$time = $items [0];
-if (!strstr ($time, ":"))
-  $time .= ":00";
-
-if (count ($items) > 2)
-  return "Time must be in format '11', '11:45' or '11:45 am/pm'";
+  {
+  // get rid of leading/trailing spaces, make lowercase
+  $thetime = trim (strtolower ($thetime));
   
-// look for am/pm  
-if (count ($items) == 2)
-  $am_pm = trim ($items [1]);
-else
-  $am_pm = "";
+  // no time? given up
+  if ($thetime == "")
+    return "";
   
-// leading zero (eg. 06:30 forces it to be am not pm)
-if (ereg ("^0", $time))
-  $am_pm = "am";
+  // get rid of multiple spaces
+  $thetime = str_replace ("  ", " ", $thetime);
   
-// don't let them slip in alphas or other stuff into the middle of a number
-if (!ereg ("^[0-9\:]+$", $time))
-   return "Time must consist of HH:MM or HH:MM:SS";
-
-// put out hour:minute:second
-$items = explode (":", trim ($time));
-
-$hour = $items [0];
-if (count ($items) > 1)
-  $min = $items [1];
-else
-  $min = 0;
+  // allow decimal places instead of colons
+  $thetime = str_replace (".", ":", $thetime);
   
-if (count ($items) > 2)
-  $sec = $items [2];
-else
-  $sec = 0;
+  // look for a space
+  $items = explode (" ", $thetime);
   
-if ($am_pm)
-  {    
-  switch ($am_pm)
-    {
-    case "am":
-    case "a":
-      break;    // do nothing
-      
-    case "pm":
-    case "p":
-      if ($hour < 12) // make afternoon
-        $hour += 12;
-      break;  
-      
-    default: return "Time must consist of HH:MM am/pm or HH:MM:SS am/pm";
-  } // end of switch 
+  // first, let them enter hours only (eg. 11) (convert to 11:00)
+  $time = $items [0];
+  if (!strstr ($time, ":"))
+    $time .= ":00";
   
-} // end of am/pm
-else
-  if ($hour < 8)  // assume a time like 6:30 is 6:30 pm
-    $hour += 12;
-
-$time = $hour . ":" . $min . ":" . $sec;
-$thetime = $time;
-return "";  // no error
-} // end of DoExtendedTime
+  if (count ($items) > 2)
+    return "Time must be in format '11', '11:45' or '11:45 am/pm'";
+    
+  // look for am/pm  
+  if (count ($items) == 2)
+    $am_pm = trim ($items [1]);
+  else
+    $am_pm = "";
+    
+  // leading zero (eg. 06:30 forces it to be am not pm)
+  if (ereg ("^0", $time))
+    $am_pm = "am";
+    
+  // don't let them slip in alphas or other stuff into the middle of a number
+  if (!ereg ("^[0-9\:]+$", $time))
+     return "Time must consist of HH:MM or HH:MM:SS";
+  
+  // put out hour:minute:second
+  $items = explode (":", trim ($time));
+  
+  $hour = $items [0];
+  if (count ($items) > 1)
+    $min = $items [1];
+  else
+    $min = 0;
+    
+  if (count ($items) > 2)
+    $sec = $items [2];
+  else
+    $sec = 0;
+    
+  if ($am_pm)
+    {    
+    switch ($am_pm)
+      {
+      case "am":
+      case "a":
+        break;    // do nothing
+        
+      case "pm":
+      case "p":
+        if ($hour < 12) // make afternoon
+          $hour += 12;
+        break;  
+        
+      default: return "Time must consist of HH:MM am/pm or HH:MM:SS am/pm";
+    } // end of switch 
+    
+  } // end of am/pm
+  else
+    if ($hour < 8)  // assume a time like 6:30 is 6:30 pm
+      $hour += 12;
+  
+  $time = $hour . ":" . $min . ":" . $sec;
+  $thetime = $time;
+  return "";  // no error
+  } // end of DoExtendedTime
 
 /*
 

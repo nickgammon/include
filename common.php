@@ -287,7 +287,7 @@ function CheckSessionID ()
 function CheckAdminSession ()
   {
   global $HTTP_GET_VARS, $HTTP_POST_VARS, $HTTP_COOKIE_VARS, $HTTP_SERVER_VARS; 
-  global $userinfo;
+  global $userinfo, $userid;
   
   $adminsession = $HTTP_POST_VARS ['session'];
   if (empty ($adminsession))

@@ -235,7 +235,7 @@ function OpenMailDatabase ()
 
 function GetControlItems ()
   {
-  global $control, $_SERVER;
+  global $control;
   
   $result = mysql_query ("SELECT * FROM control") 
     or MajorProblem ("Select of control table failed: " . mysql_error ());
@@ -286,22 +286,21 @@ function CheckSessionID ()
 
 function CheckAdminSession ()
   {
-  global $HTTP_GET_VARS, $HTTP_POST_VARS, $HTTP_COOKIE_VARS, $HTTP_SERVER_VARS; 
   global $userinfo, $userid;
   
-  $adminsession = $HTTP_POST_VARS ['session'];
+  $adminsession = $_POST ['session'];
   if (empty ($adminsession))
-    $adminsession = $HTTP_GET_VARS ['session'];
+    $adminsession = $_GET ['session'];
   if (empty ($adminsession))
-    $adminsession = $HTTP_COOKIE_VARS ['session'];
+    $adminsession = $_COOKIE ['session'];
   
   $userinfo = "";
     
   // if they are logging on, let them 
   
-  $adminaction = trim ($HTTP_POST_VARS ['adminaction']);
-  $username = trim ($HTTP_POST_VARS ['username']);
-  $password = trim ($HTTP_POST_VARS ['password']);
+  $adminaction = trim ($_POST ['adminaction']);
+  $username = trim ($_POST ['username']);
+  $password = trim ($_POST ['password']);
   
   if ($adminaction == "logon")   
     {
@@ -320,9 +319,9 @@ function CheckAdminSession ()
       {
               
      // try and work out their IP address
-      $remote_ip = $HTTP_SERVER_VARS ['REMOTE_ADDR'];
+      $remote_ip = $_SERVER ['REMOTE_ADDR'];
       if (!$remote_ip)
-        $remote_ip = $HTTP_ENV_VARS ['REMOTE_ADDR'];
+        $remote_ip = $_ENV ['REMOTE_ADDR'];
         
         
       if ($userinfo ['required_ip'])
@@ -369,7 +368,7 @@ function CheckAdminSession ()
     // if the user is found, and their session was the same one found in the cookie
     // we don't need to pass sessions on URLs, which makes them look better
     
-    if ($userinfo ['session'] == $HTTP_COOKIE_VARS ['session'])
+    if ($userinfo ['session'] == $_COOKIE ['session'])
       $userinfo ['have_cookie_ok'] = true;   // don't need to pass sessions on links
     } // end of reading that user OK
     
@@ -399,8 +398,6 @@ function GetUserColours ()
 
 function ForumUserLoginFailure ($username, $password, $remote_ip)
   {
-  global $HTTP_GET_VARS, $HTTP_POST_VARS, $HTTP_COOKIE_VARS, 
-         $HTTP_SERVER_VARS, $HTTP_ENV_VARS, $_SERVER; 
   global $foruminfo, $blocked, $banned_ip, $MAX_LOGIN_FAILURES, $MAX_UNKNOWN_USER_FAILURES;
  
   $username = strtolower ($username);
@@ -503,34 +500,32 @@ function ForumUserLoginFailure ($username, $password, $remote_ip)
 
 function CheckForumToken ()
   {
-  global $HTTP_GET_VARS, $HTTP_POST_VARS, $HTTP_COOKIE_VARS, 
-         $HTTP_SERVER_VARS, $HTTP_ENV_VARS, $_SERVER; 
   global $foruminfo, $blocked, $banned_ip;
   
   
-  $forumtoken = $HTTP_POST_VARS ['token'];
+  $forumtoken = $_POST ['token'];
   if (empty ($forumtoken))
-    $forumtoken = $HTTP_GET_VARS ['token'];
+    $forumtoken = $_GET ['token'];
   if (empty ($forumtoken))
-    $forumtoken = $HTTP_COOKIE_VARS ['token'];
+    $forumtoken = $_COOKIE ['token'];
 
   $foruminfo = "";
     
   // try and work out their IP address
-  $remote_ip = $HTTP_SERVER_VARS ['REMOTE_ADDR'];
+  $remote_ip = $_SERVER ['REMOTE_ADDR'];
   if (!$remote_ip)
-    $remote_ip = $HTTP_ENV_VARS ['REMOTE_ADDR'];
+    $remote_ip = $_ENV ['REMOTE_ADDR'];
   
   // if they are logging on, let them 
   
-  $action = trim ($HTTP_POST_VARS ['action']);
+  $action = trim ($_POST ['action']);
 
   // get rid of quotes so they can paste from the email like this: "Nick Gammon"
-  $username = stripslashes ($HTTP_POST_VARS ['username']);
+  $username = stripslashes ($_POST ['username']);
   $username = str_replace ("\"", " ", $username);
   $username = addslashes (trim ($username));  // in case their name is O'Grady
 
-  $password = stripslashes ($HTTP_POST_VARS ['password']);
+  $password = stripslashes ($_POST ['password']);
   $password = str_replace ("\"", " ", $password);
   $password = addslashes (trim ($password));
     
@@ -563,9 +558,9 @@ function CheckForumToken ()
     {
       
     // try and work out their IP address
-    $remote_ip = $HTTP_SERVER_VARS ['REMOTE_ADDR'];
+    $remote_ip = $_SERVER ['REMOTE_ADDR'];
     if (!$remote_ip)
-      $remote_ip = $HTTP_ENV_VARS ['REMOTE_ADDR'];
+      $remote_ip = $_ENV ['REMOTE_ADDR'];
     
     $server_name = $_SERVER["HTTP_HOST"];
       
@@ -704,7 +699,7 @@ function CheckForumToken ()
       // if the user is found, and their token was the same one found in the cookie
       // we don't need to pass tokens on URLs, which makes them look better
       
-      if ($tokeninfo ['token'] == $HTTP_COOKIE_VARS ['token'])
+      if ($tokeninfo ['token'] == $_COOKIE ['token'])
         $foruminfo ['have_cookie_ok'] = true;   // don't need to pass tokens on links
       }
     mysql_free_result ($result);  
@@ -851,18 +846,17 @@ function MessageHead ($title, $keywords, $otherheaderhtml)
   {
 global $control, $foruminfo;
 global $bbsubject_id, $bbtopic_id, $bbsection_id;
-global $HTTP_GET_VARS, $HTTP_POST_VARS;
 
 if ($title == "%FORUM_NAME%")
   {
     
   // let them use just "id=x" on the URL
   
-  if ($HTTP_GET_VARS ['id']) 
-    $bbsubject_id = $HTTP_GET_VARS ['id'];
+  if ($_GET ['id']) 
+    $bbsubject_id = $_GET ['id'];
   else
-  if ($HTTP_POST_VARS ['id']) 
-    $bbsubject_id = $HTTP_POST_VARS ['id'];
+  if ($_POST ['id']) 
+    $bbsubject_id = $_POST ['id'];
       
   // get better title (put section/topic/subject into it)
   
@@ -1048,12 +1042,11 @@ function ShowArray ($name, $thearray, $recurse = false)
   
 function DebugVars ()
   { 
-  global $HTTP_GET_VARS, $HTTP_POST_VARS, $HTTP_COOKIE_VARS, $HTTP_SERVER_VARS; 
   echo "<hr/>\n";
-  ShowArray ("HTTP_POST_VARS", $HTTP_POST_VARS, true);
-  ShowArray ("HTTP_GET_VARS", $HTTP_GET_VARS);
-  ShowArray ("HTTP_COOKIE_VARS", $HTTP_COOKIE_VARS);
-  ShowArray ("HTTP_SERVER_VARS", $HTTP_SERVER_VARS);
+  ShowArray ("HTTP_POST_VARS", $_POST, true);
+  ShowArray ("HTTP_GET_VARS", $_GET);
+  ShowArray ("HTTP_COOKIE_VARS", $_COOKIE);
+  ShowArray ("HTTP_SERVER_VARS", $_SERVER);
   ShowArray ("GLOBALS", $GLOBALS);
   echo "<hr/>\n";
   } // end of DebugVars  
@@ -1850,11 +1843,11 @@ function ValidateField ($value, $type)
 
 function ValidateOneField ($name, $type, $notnull, $maxsize, &$specials)
   {
-  global $HTTP_POST_VARS, $have_error;
+  global $have_error;
  
   // remove leading/trailing spaces
-  $HTTP_POST_VARS [$name] = trim ($HTTP_POST_VARS [$name]);
-  $value = stripslashes ($HTTP_POST_VARS [$name]); // get value
+  $_POST [$name] = trim ($_POST [$name]);
+  $value = stripslashes ($_POST [$name]); // get value
 
   // check for empty on NOT NULL fields
   if (!strlen ($value))
@@ -2060,21 +2053,21 @@ function GetSQLcount ($query, $select = "SELECT count(*) FROM ")
 // Added because Superb.Net recompiled PHP without --enable-track-vars
 
 /*
-reset ($HTTP_GET_VARS);
-while (list ($name, $value) = each ($HTTP_GET_VARS))
-    $HTTP_GET_VARS [$name] = addslashes ($HTTP_GET_VARS [$name]);
+reset ($_GET);
+while (list ($name, $value) = each ($_GET))
+    $_GET [$name] = addslashes ($_GET [$name]);
     
-reset ($HTTP_POST_VARS);
-while (list ($name, $value) = each ($HTTP_POST_VARS))
-    $HTTP_POST_VARS [$name] = addslashes ($HTTP_POST_VARS [$name]);
+reset ($_POST);
+while (list ($name, $value) = each ($_POST))
+    $_POST [$name] = addslashes ($_POST [$name]);
     
-reset ($HTTP_COOKIE_VARS);
-while (list ($name, $value) = each ($HTTP_COOKIE_VARS))
-    $HTTP_COOKIE_VARS [$name] = addslashes ($HTTP_COOKIE_VARS [$name]);
+reset ($_COOKIE);
+while (list ($name, $value) = each ($_COOKIE))
+    $_COOKIE [$name] = addslashes ($_COOKIE [$name]);
 
-extract ($HTTP_GET_VARS, EXTR_OVERWRITE);
-extract ($HTTP_POST_VARS, EXTR_OVERWRITE);
-extract ($HTTP_COOKIE_VARS, EXTR_OVERWRITE);
+extract ($_GET, EXTR_OVERWRITE);
+extract ($_POST, EXTR_OVERWRITE);
+extract ($_COOKIE, EXTR_OVERWRITE);
 */
 
 import_request_variables ("GPC");
@@ -2530,12 +2523,11 @@ function audit ($bbaudit_type_id,   // what action it is (eg. add, change, delet
                 $bbtopic_id = "",   // which topic
                 $extra = "")        // extras, like the text of the message
   {
-  global $HTTP_SERVER_VARS, $HTTP_ENV_VARS;
-  
+ 
   // try and work out their IP address
-  $ip = $HTTP_SERVER_VARS ['REMOTE_ADDR'];
+  $ip = $_SERVER ['REMOTE_ADDR'];
   if (!$ip)
-    $ip = $HTTP_ENV_VARS ['REMOTE_ADDR'];
+    $ip = $_ENV ['REMOTE_ADDR'];
   
   if (!$bbpost_id)
     $bbpost_id = "NULL";

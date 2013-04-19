@@ -819,16 +819,20 @@ function Init ($title,
   // HTML control items
   GetControlItems ();
        
-  MessageHead ($title, $keywords, $otherheaderhtml);
+  // empty title means we are doing a "printable" page
+  if ($title)
+    {
+    MessageHead ($title, $keywords, $otherheaderhtml);
   
-  // we check the session ID here because it outputs HTML which has to come
-  // after the header (eg. the fact that you are logged on)
+    // we check the session ID here because it outputs HTML which has to come
+    // after the header (eg. the fact that you are logged on)
+    
+    CheckSessionID ();
+      
+    if ($viewsource == "yes")
+      ShowSource ($PATH_TRANSLATED);
+    }
   
-  CheckSessionID ();
-    
-  if ($viewsource == "yes")
-    ShowSource ($PATH_TRANSLATED);
-    
   } // end of Init
  
 //----------------------------------------------------------------------------

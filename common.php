@@ -2564,7 +2564,7 @@ function audit ($bbaudit_type_id,   // what action it is (eg. add, change, delet
   if (mysql_affected_rows () == 0)
     Problem ("Could not insert audit record");
   
-  }
+  } // end of audit
 
 /* ********************************************************************************   
  getIPaddress - find the current user's IP address
@@ -2587,17 +2587,18 @@ $TABLE_AUDIT_CHANGE  = 2;
 $TABLE_AUDIT_DELETE  = 3;
 
 /* ********************************************************************************   
-   edittableAudit - saves history of searches
+   edittableAudit - saves history database updates (add / change / delete)
    ********************************************************************************  */    
-function edittableAudit ($audit_type_id, $table, $primary_key)
+function edittableAudit ($audit_type_id, $table, $primary_key, $comment="")
   {
   global $userinfo;
   
   // try and work out their IP address
-  $userid = $userinfo ['userid'];
-  $ip     = mysql_real_escape_string (getIPaddress ());
-  $table  = mysql_real_escape_string ($table);
-  $primary_key = mysql_real_escape_string ($primary_key);
+  $userid       = $userinfo ['userid'];
+  $ip           = mysql_real_escape_string (getIPaddress ());
+  $table        = mysql_real_escape_string ($table);
+  $primary_key  = mysql_real_escape_string ($primary_key);
+  $comment      = mysql_real_escape_string ($comment);
     
   $query =  "INSERT INTO audit ("
           . " audit_date, "
@@ -2605,19 +2606,21 @@ function edittableAudit ($audit_type_id, $table, $primary_key)
           . " audit_table, "
           . " user_id, " 
           . " ip, "
-          . " primary_key "
+          . " primary_key, "
+          . " comment "
           . " ) VALUES ( "
           . " NOW(), "
           . " $audit_type_id, "
           . " '$table', "
           . " $userid, "
           . " '$ip', "
-          . " '$primary_key' "
+          . " '$primary_key', "
+          . " '$comment' "
           . ")";
   
   $result = mysql_query ($query) or Problem ("Audit failed: " . mysql_error ());
   if (mysql_affected_rows () == 0)
     Problem ("Could not insert audit record");
-}
+  } // end of edittableAudit
     
 ?>

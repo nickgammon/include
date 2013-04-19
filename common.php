@@ -2566,4 +2566,58 @@ function audit ($bbaudit_type_id,   // what action it is (eg. add, change, delet
   
   }
 
+/* ********************************************************************************   
+ getIPaddress - find the current user's IP address
+ ********************************************************************************  */        
+function getIPaddress ()
+  {
+  // try and work out their IP address
+  $ip = $_SERVER ['REMOTE_ADDR'];
+  if (!$ip)
+    $ip = $_ENV ['REMOTE_ADDR'];
+
+  return $ip;
+} // end of getIPaddress
+  
+
+// audit types
+
+$TABLE_AUDIT_ADD     = 1;
+$TABLE_AUDIT_CHANGE  = 2;
+$TABLE_AUDIT_DELETE  = 3;
+
+/* ********************************************************************************   
+   edittableAudit - saves history of searches
+   ********************************************************************************  */    
+function edittableAudit ($audit_type_id, $table, $primary_key)
+  {
+  global $userinfo;
+  
+  // try and work out their IP address
+  $userid = $userinfo ['userid'];
+  $ip     = mysql_real_escape_string (getIPaddress ());
+  $table  = mysql_real_escape_string ($table);
+  $primary_key = mysql_real_escape_string ($primary_key);
+    
+  $query =  "INSERT INTO audit ("
+          . " audit_date, "
+          . " audit_type_id, "
+          . " audit_table, "
+          . " user_id, " 
+          . " ip, "
+          . " primary_key "
+          . " ) VALUES ( "
+          . " NOW(), "
+          . " $audit_type_id, "
+          . " '$table', "
+          . " $userid, "
+          . " '$ip', "
+          . " '$primary_key' "
+          . ")";
+  
+  $result = mysql_query ($query) or Problem ("Audit failed: " . mysql_error ());
+  if (mysql_affected_rows () == 0)
+    Problem ("Could not insert audit record");
+}
+    
 ?>

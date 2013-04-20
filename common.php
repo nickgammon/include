@@ -2140,8 +2140,8 @@ function DoExtendedDate (& $thedate)
   // get rid of multiple spaces
   $thedate = str_replace ("  ", " ", $thedate);
   
-  // look for 4 digit year (eg. 1980)
-  if (ereg ("^([0-9]{4})$", $thedate, $matches))
+  // look for 4 digit year (eg. 1980, 1980s)
+  if (ereg ("^([0-9]{4})s?$", $thedate, $matches))
     {
     $thedate = $matches [1] . "-01-01";
     return "";
@@ -2565,9 +2565,7 @@ function audit ($bbaudit_type_id,   // what action it is (eg. add, change, delet
   {
  
   // try and work out their IP address
-  $ip = $_SERVER ['REMOTE_ADDR'];
-  if (!$ip)
-    $ip = $_ENV ['REMOTE_ADDR'];
+  $ip = getIPaddress ();
   
   if (!$bbpost_id)
     $bbpost_id = "NULL";

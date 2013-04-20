@@ -42,6 +42,23 @@ $COLOUR_TIMING_BGND = "#008000";  // green
 
 DefaultColours ();
 
+$MONTHS = array 
+  (
+   1 => 'january',  
+   2 => 'february',  
+   3 => 'march',  
+   4 => 'april',  
+   5 => 'may',  
+   6 => 'june',  
+   7 => 'july',  
+   8 => 'august',  
+   9 => 'september',  
+  10 => 'october',  
+  11 => 'november',  
+  12 => 'december',  
+  );  // end of array
+
+  
 function DefaultColours ()
   {
   global $colours;
@@ -2099,13 +2116,13 @@ function ordinal ($number)
 
  function checkSQLdate ($thedate, $originalDate)
   {
-  $result = mysql_query ("SELECT DATE_ADD($thedate, INTERVAL 0 DAY) AS validatedDate") 
+  $result = mysql_query ("SELECT DATE_ADD('$thedate', INTERVAL 0 DAY) AS validatedDate") 
     or Problem ("Select of date failed: " . mysql_error ());
   $row = mysql_fetch_array ($result);
   mysql_free_result ($result);    
   
   if (!$row || !$row ['validatedDate'])
-    return "Date '$originalDate' is not a valid date.";
+    return "Date '$originalDate' ($thedate) is not a valid date.";
         
   return "";      
   } // end of checkSQLdate
@@ -2113,6 +2130,8 @@ function ordinal ($number)
 // extended date functions
 function DoExtendedDate (& $thedate)
   {
+  global $MONTHS;
+  
   $originalDate = trim ($thedate);
   
   // get rid of leading/trailing spaces, make lowercase
@@ -2121,6 +2140,39 @@ function DoExtendedDate (& $thedate)
   // get rid of multiple spaces
   $thedate = str_replace ("  ", " ", $thedate);
   
+  // look for 4 digit year (eg. 1980)
+  if (ereg ("^([0-9]{4})$", $thedate, $matches))
+    {
+    $thedate = $matches [1] . "-01-01";
+    return "";
+    } // end of something like: 1800
+      
+  // look for month year (eg. Jan 1980)
+  if (ereg ("^([A-Za-z]+) ([0-9]{4})$", $thedate, $matches))
+    {
+    $month = $matches [1];
+    reset ($MONTHS);
+    $count = 0;
+    while (list ($monthnum, $monthname) = each ($MONTHS))
+      {
+      // look for partial match - do whole lot in case of ambiguity (eg. ju)
+      if ($month == substr ($monthname, 0, strlen ($month)))
+        {
+        $foundmonth = $monthnum;
+        $count++;  
+        }  // end of found a match
+      }  // end of trying each month
+    
+    // count of zero means it wasn't amonth, count of > 1 means ambiguous(eg. Ju)
+    if ($count == 1)
+      {
+      // success - convert back and return
+      $thedate = $matches [2] . "-" . $foundmonth . "-01";
+      return "";
+      }  
+      
+    } // end of something like: jan 1800
+    
   // try ISO date, like +1 day, -1 day, next thursday, last monday
   //
   // 1 year
@@ -2200,42 +2252,42 @@ function DoExtendedDate (& $thedate)
        $seconds += 60 * 60 * 24;  // onwards a day
        }
      
-     // our array now has all 7 days indexed by the day name (eg. Monday)
+   // our array now has all 7 days indexed by the day name (eg. Monday)
+   
+    reset ($daynames);
+    $count = 0;
+    while (list ($dayname, $daydate) = each ($daynames))
+      {
+      // look for partial match - do whole lot in case of ambiguity (eg. t(hursday))
+      if ($day == substr ($dayname, 0, strlen ($day)))
+        {
+        $founddate = $daydate;
+        // and pull out a week later
+        $founddate_week = $daynames_week [$dayname];
+        $count++;  
+        }  // end of found a match
+      }  // end of trying each day
+  
+    if ($count == 0)
+       return "Day name of \"$day\" not recognised, try 'Monday', 'Tuesday', etc.";
+    if ($count > 1)
+      return "Day named \"$day\" is ambiguous - please use longer name";
      
-      reset ($daynames);
-      $count = 0;
-      while (list ($dayname, $daydate) = each ($daynames))
-        {
-        // look for partial match - do whole lot in case of ambiguity (eg. t(hursday))
-        if ($day == substr ($dayname, 0, strlen ($day)))
-          {
-          $founddate = $daydate;
-          // and pull out a week later
-          $founddate_week = $daynames_week [$dayname];
-          $count++;  
-          }  // end of found a match
-        }  // end of trying each day
+    // found one match - use the corresponding date
     
-      if ($count == 0)
-         return "Day name of \"$day\" not recognised, try 'Monday', 'Tuesday', etc.";
-      if ($count > 1)
-        return "Day named \"$day\" is ambiguous - please use longer name";
-       
-      // found one match - use the corresponding date
-      
-      // first see if they followed it by the word 'week'
-      $word = trim($items [1]);
-      if (count ($items) == 2 && $word != "")
+    // first see if they followed it by the word 'week'
+    $word = trim($items [1]);
+    if (count ($items) == 2 && $word != "")
+      {
+      if ($word == substr ('week', 0, strlen ($word)))
         {
-        if ($word == substr ('week', 0, strlen ($word)))
-          {
-          $thedate = $founddate_week;
-          return "";
-          }   // end of the word week (or an abbreviatio)        
-        } // end of having a second word
-        
-      $thedate = $founddate;
-      return "";
+        $thedate = $founddate_week;
+        return "";
+        }   // end of the word week (or an abbreviatio)        
+      } // end of having a second word
+      
+    $thedate = $founddate;
+    return "";
     }   // end of alpha day 
   
   // don't let them slip in alphas or other stuff into the middle of a day
@@ -2281,26 +2333,10 @@ function DoExtendedDate (& $thedate)
   
   // if non-numeric month, see if we can recognise the month name, either in full or in part
   if (!ereg ("^[0-9]+$", $month))
-    {
-    $months = array 
-      (
-       1 => 'january',  
-       2 => 'february',  
-       3 => 'march',  
-       4 => 'april',  
-       5 => 'may',  
-       6 => 'june',  
-       7 => 'july',  
-       8 => 'august',  
-       9 => 'september',  
-      10 => 'october',  
-      11 => 'november',  
-      12 => 'december',  
-      );  // end of array
-  
-    reset ($months);
+    {  
+    reset ($MONTHS);
     $count = 0;
-    while (list ($monthnum, $monthname) = each ($months))
+    while (list ($monthnum, $monthname) = each ($MONTHS))
       {
       // look for partial match - do whole lot in case of ambiguity (eg. ju)
       if ($month == substr ($monthname, 0, strlen ($month)))

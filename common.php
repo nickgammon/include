@@ -58,6 +58,23 @@ $MONTHS = array
   12 => 'december',  
   );  // end of array
 
+$DAYS_IN_MONTHS = array 
+  (
+   1 => 31,  
+   2 => 28,  
+   3 => 31,  
+   4 => 30,  
+   5 => 31,  
+   6 => 30,  
+   7 => 31,  
+   8 => 31,  
+   9 => 30,  
+  10 => 31,  
+  11 => 30,  
+  12 => 31,  
+  );  // end of array
+  
+  
   
 function DefaultColours ()
   {
@@ -2128,9 +2145,9 @@ function ordinal ($number)
   } // end of checkSQLdate
   
 // extended date functions
-function DoExtendedDate (& $thedate)
+function DoExtendedDate (& $thedate, $defaultEndOfPeriod = false)
   {
-  global $MONTHS;
+  global $MONTHS, $DAYS_IN_MONTHS;
   
   $originalDate = trim ($thedate);
   
@@ -2143,7 +2160,10 @@ function DoExtendedDate (& $thedate)
   // look for 4 digit year (eg. 1980, 1980s)
   if (ereg ("^([0-9]{4})s?$", $thedate, $matches))
     {
-    $thedate = $matches [1] . "-01-01";
+    if ($defaultEndOfPeriod)
+      $thedate = $matches [1] . "-12-31";
+    else
+      $thedate = $matches [1] . "-01-01";
     return "";
     } // end of something like: 1800
       
@@ -2167,7 +2187,10 @@ function DoExtendedDate (& $thedate)
     if ($count == 1)
       {
       // success - convert back and return
-      $thedate = $matches [2] . "-" . $foundmonth . "-01";
+      if ($defaultEndOfPeriod)
+        $thedate = $matches [2] . "-" . $foundmonth . "-" . $DAYS_IN_MONTHS [$foundmonth];
+      else
+        $thedate = $matches [2] . "-" . $foundmonth . "-01";
       return "";
       }  
       

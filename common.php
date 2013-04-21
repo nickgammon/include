@@ -341,13 +341,9 @@ function CheckAdminSession ()
 
     $md5_password = md5 ($password);
     
-    $result = mysql_query ("SELECT * FROM user "
+    $userinfo = dbQueryOne ("SELECT * FROM user "
                          . "WHERE username = '$username' "
-                         . "AND password = '$md5_password'") 
-      or Problem ("Select of user failed: " . mysql_error ());
-    
-    $userinfo = mysql_fetch_array ($result);
-    mysql_free_result ($result);  
+                         . "AND password = '$md5_password'");
     
     if ($userinfo)
       {
@@ -375,8 +371,7 @@ function CheckAdminSession ()
              . "'" . strftime ("%Y-%m-%d %H:%M:%S", utctime()) . "' "
              . "WHERE userid = $userid";
       
-      $result = mysql_query ($query)
-        or Problem ("Update of user failed: " . mysql_error ());
+      dbUpdate ($query);
   
       $userinfo ['session'] = $session; 
       $expiry = $userinfo ['cookie_expiry'];
@@ -393,10 +388,9 @@ function CheckAdminSession ()
   if (empty ($adminsession))    // not logged on yet
     return;   // no session, and not logging in
   
-  $result = mysql_query ("SELECT * FROM user WHERE session = '$adminsession'") 
-    or Problem ("Select of session failed: " . mysql_error ());
+  $userinfo = dbQueryOne ("SELECT * FROM user WHERE session = '$adminsession'");
       
-  if ($userinfo = mysql_fetch_array ($result)) // will be empty if no match
+  if ($userinfo) // will be empty if no match
     {
         
     // if the user is found, and their session was the same one found in the cookie
@@ -405,8 +399,6 @@ function CheckAdminSession ()
     if ($userinfo ['session'] == $_COOKIE ['session'])
       $userinfo ['have_cookie_ok'] = true;   // don't need to pass sessions on links
     } // end of reading that user OK
-    
-  mysql_free_result ($result);  
     
   } // end of CheckAdminSession  
 
@@ -446,13 +438,13 @@ function ForumUserLoginFailure ($username, $password, $remote_ip)
        . "NOW(), "
        . "'$remote_ip' );";
 
-  $result = mysql_query ($query) or Problem ("Insert into bbuser_login_failure failed: " . mysql_error ()); 
+  dbUpdate ($query);
    
   $query = "UPDATE bbuser SET "
          . "count_failed_logins = count_failed_logins + 1 "
          . "WHERE username = '$username' ";
     
-  $result = mysql_query ($query) or Problem ("Updating failed login count failed: " . mysql_error ()); 
+  dbUpdate ($query);
 
   // clear old login failure tracking records (so they can reset by waiting a day)
   $query = "DELETE FROM bbuser_login_failure "
@@ -460,7 +452,7 @@ function ForumUserLoginFailure ($username, $password, $remote_ip)
          . "failure_ip = '$remote_ip' AND "
          . "date_failed < DATE_ADD(NOW(), INTERVAL -1 DAY) ";
          
-  $result = mysql_query ($query) or Problem ("Clearing of bbuser_login_failure failed: " . mysql_error ()); 
+  dbUpdate ($query);
         
   // see how many times they failed from this IP address
   $query = "SELECT count(*) AS counter "
@@ -468,9 +460,7 @@ function ForumUserLoginFailure ($username, $password, $remote_ip)
           . "WHERE failure_ip  = '$remote_ip' "
           . "AND username = '$username'";
                            
-  $result = mysql_query ($query) or Problem ("Select of bbuser_login_failure failed: " . mysql_error ());
-  $failure_row = mysql_fetch_array ($result);
-  mysql_free_result ($result);
+  $failure_row = dbQueryOne ($query);
               
   if ($failure_row ['counter'] > $MAX_LOGIN_FAILURES)
     {
@@ -478,26 +468,18 @@ function ForumUserLoginFailure ($username, $password, $remote_ip)
     $query = "INSERT INTO bbbanned_ip (ip_address, date_banned, reason) "
            . "VALUES ( '$remote_ip', NOW(), 'Too many forum login failures for: $username' )";
     // don't check query, maybe already on file
-    mysql_query ($query);
+    dbUpdate ($query);
     }
 
   // Extra code to allow for bots trying non-existent usernames:
       
   // see if user exists
-  $query = "SELECT username FROM bbuser WHERE username = '$username' ";
-                           
-  $result = mysql_query ($query) or Problem ("Select of bbuser failed: " . mysql_error ());
-  $row = mysql_fetch_array ($result);
-  mysql_free_result ($result);
+  $row = dbQueryOne ("SELECT username FROM bbuser WHERE username = '$username' ");
   
   if ($row)
     return;  // username exists, all is OK
     
-  $query = "SELECT * FROM bbsuspect_ip WHERE ip_address = '$remote_ip' ";
-                           
-  $result = mysql_query ($query) or Problem ("Select of bbsuspect_ip failed: " . mysql_error ());
-  $row = mysql_fetch_array ($result);
-  mysql_free_result ($result);
+  $row = dbQueryOne ("SELECT * FROM bbsuspect_ip WHERE ip_address = '$remote_ip' ");
   
   if ($row)
     {
@@ -507,26 +489,22 @@ function ForumUserLoginFailure ($username, $password, $remote_ip)
       // now block that IP address
       $query = "INSERT INTO bbbanned_ip (ip_address, date_banned, reason) "
              . "VALUES ( '$remote_ip', NOW(), 'Too many attempts to login to forum with unknown username' )";
-      mysql_query ($query);
+      dbUpdate ($query);
       // get rid of from bbuser_login_failure 
-      $query = "DELETE FROM bbuser_login_failure WHERE failure_ip = '$remote_ip' ";
-      mysql_query ($query);
+      dbUpdate ("DELETE FROM bbuser_login_failure WHERE failure_ip = '$remote_ip' ");
       // get rid of from bbsuspect_ip
-      $query = "DELETE FROM bbsuspect_ip WHERE ip_address ='$remote_ip'";
-      mysql_query ($query);
+      dbUpdate ("DELETE FROM bbsuspect_ip WHERE ip_address ='$remote_ip'");
       }
     else
       {
       // increment counter - haven't hit limit yet
-      $query = "UPDATE bbsuspect_ip SET count = count + 1 WHERE ip_address ='$remote_ip'";
-      mysql_query ($query);
+      dbUpdate ("UPDATE bbsuspect_ip SET count = count + 1 WHERE ip_address ='$remote_ip'");
       }  
       
-    }
+    } // if already on file
   else
     {
-    $query = "INSERT INTO bbsuspect_ip (ip_address, count) VALUES ('$remote_ip', 1)";
-    mysql_query ($query);
+    dbUpdate ("INSERT INTO bbsuspect_ip (ip_address, count) VALUES ('$remote_ip', 1)");
     }
   
             
@@ -569,17 +547,9 @@ function CheckForumToken ()
          . "date_banned < DATE_ADD(NOW(), INTERVAL -1 DAY) AND "
          . "reason LIKE 'Too many forum login failures for%' ";
          
-  $result = mysql_query ($query)
-    or Problem ("Clearing of bbbanned_ip failed: " . mysql_error ()); 
-  
-  $query = "SELECT * "
-         . "FROM bbbanned_ip "
-         . "WHERE ip_address  = '$remote_ip'";
+  dbUpdate ($query);
                            
-  $result = mysql_query ($query) 
-      or Problem ("Select of banned ip address failed: " . mysql_error ());
-  $banned_row = mysql_fetch_array ($result);
-  mysql_free_result ($result);
+  $banned_row = dbQueryOne ("SELECT * FROM bbbanned_ip WHERE ip_address  = '$remote_ip'") ;
 
   if ($banned_row)  
     {
@@ -600,14 +570,10 @@ function CheckForumToken ()
       
     $md5_password = md5 ($password);
     
-    $result = mysql_query ("SELECT *, "
+    $foruminfo = dbQueryOne ("SELECT *, "
                          . "TO_DAYS(NOW()) - TO_DAYS(date_registered) AS days_on FROM bbuser "
                          . "WHERE username = '$username' "
-                         . "AND password = '$md5_password'") 
-      or Problem ("Select of user failed: " . mysql_error ());
-    
-    $foruminfo = mysql_fetch_array ($result);
-    mysql_free_result ($result);  
+                         . "AND password = '$md5_password'");
     
     if ($foruminfo)
       {
@@ -625,16 +591,8 @@ function CheckForumToken ()
           {
           return;  // don't generate a cookie
           }
-        
-      $query = "SELECT * "
-             . "FROM bbbanned_ip "
-             . "WHERE ip_address  = '$remote_ip'";
                                
-      $result = mysql_query ($query) 
-          or Problem ("Select of banned ip address failed: " . mysql_error ());
-      $banned_row = mysql_fetch_array ($result);
-      mysql_free_result ($result);
-    
+      $banned_row = dbQueryOne ("SELECT * FROM bbbanned_ip WHERE ip_address  = '$remote_ip'"); 
       if ($banned_row)  
         {
         $banned_ip = true;    // can't do it
@@ -654,15 +612,11 @@ function CheckForumToken ()
              . "  last_remote_ip = '$remote_ip' "
              . "WHERE bbuser_id = $bbuser_id";
       
-      $result = mysql_query ($query)
-        or Problem ("Update of bbuser failed: " . mysql_error ());
+      dbUpdate ($query);
   
-      $query = "DELETE FROM bbusertoken "
-             . "WHERE bbuser_id = $bbuser_id "
-             . "AND date_expires <= NOW()";
+      $query = "DELETE FROM bbusertoken WHERE bbuser_id = $bbuser_id AND date_expires <= NOW()";
       
-      $result = mysql_query ($query)
-        or Problem ("Delete from bbusertoken failed: " . mysql_error ());
+      dbUpdate ($query);
         
       $expiry = $foruminfo ['cookie_expiry'];
       if (!$expiry)
@@ -680,8 +634,7 @@ function CheckForumToken ()
              . "'$server_name', "
              . "DATE_ADD(NOW(), INTERVAL '$days' DAY) );";
      
-      $result = mysql_query ($query)
-        or Problem ("Insert into bbusertoken failed: " . mysql_error ());
+      dbUpdate ($query);
        
       $foruminfo ['token'] = $token; 
       if ($foruminfo ['use_cookies'])   // only if wanted  
@@ -690,12 +643,10 @@ function CheckForumToken ()
       // clear login failure tracking records (so they don't accumulate)
       $query = "DELETE FROM bbuser_login_failure "
              . "WHERE username = '$username' AND failure_ip = '$remote_ip'";
-      $result = mysql_query ($query)
-        or Problem ("Clearing of bbuser_login_failure failed: " . mysql_error ()); 
+      dbUpdate ($query);
                 
       // get rid of from bbsuspect_ip - this IP seems OK now
-      $query = "DELETE FROM bbsuspect_ip WHERE ip_address ='$remote_ip'";
-      mysql_query ($query);
+      dbUpdate ("DELETE FROM bbsuspect_ip WHERE ip_address ='$remote_ip'");
         
       GetUserColours ();
       } // end of user on file
@@ -713,22 +664,20 @@ function CheckForumToken ()
  
   // first look up token in bbusertoken (this allows for multiple logins)
   
-  $tokenresult = mysql_query ("SELECT * FROM bbusertoken WHERE token = '$forumtoken' "
-                             . "AND date_expires >= NOW()" )
-    or Problem ("Select of forum token failed: " . mysql_error ());
+  $tokeninfo = dbQueryOne ("SELECT * FROM bbusertoken WHERE token = '$forumtoken' "
+                             . "AND date_expires >= NOW()" );
  
   // if found, use user id in the bbusertoken table to find the forum user id
   
-  if ($tokeninfo = mysql_fetch_array ($tokenresult)) // will be empty if no match
+  if ($tokeninfo) // will be empty if no match
     {
     $id = $tokeninfo ['bbuser_id'];
     
-    $result = mysql_query ("SELECT *, "
+    $foruminfo = dbQueryOne ("SELECT *, "
                          . "TO_DAYS(NOW()) - TO_DAYS(date_registered) AS days_on FROM bbuser "
-                         . "WHERE bbuser_id = '$id'") 
-       or Problem ("Select of forum user failed: " . mysql_error ());
+                         . "WHERE bbuser_id = '$id'"); 
       
-    if ($foruminfo = mysql_fetch_array ($result)) // will be empty if no match
+    if ($foruminfo) // will be empty if no match
       {
       // if the user is found, and their token was the same one found in the cookie
       // we don't need to pass tokens on URLs, which makes them look better
@@ -736,11 +685,8 @@ function CheckForumToken ()
       if ($tokeninfo ['token'] == $_COOKIE ['token'])
         $foruminfo ['have_cookie_ok'] = true;   // don't need to pass tokens on links
       }
-    mysql_free_result ($result);  
     
     } // end of reading that user OK
-    
-  mysql_free_result ($tokenresult);  
 
   // check if they carried a good token to a bad IP  
   if ($foruminfo ['required_ip'])
@@ -766,11 +712,8 @@ function LogOff ()
   srand ((double) microtime () * 1000000);
   $session = md5 (uniqid (rand ()));
   
-  $query = "UPDATE user SET session = '$session' "
-          . "WHERE userid = " . $userinfo ['userid'];
-  $result = mysql_query ($query)
-    or Problem ("Update of user failed: " . mysql_error ());
-
+  $query = "UPDATE user SET session = '$session' WHERE userid = " . $userinfo ['userid'];
+  dbUpdate ($query);
   $userinfo = "";    // user info is no good
     
   } // end of LogOff
@@ -1028,17 +971,13 @@ Return a status name from an ID
 function GetStatusName ($statusid, &$statusname)
   {
 
-  $result = mysql_query ("SELECT longdescription FROM status "
-                       . "WHERE statusid = $statusid"
-                        ) 
-      or die ("Select of status name failed: " . mysql_error ());
+  $row = dbQueryOne ("SELECT longdescription FROM status WHERE statusid = $statusid");
   
-  if ($row = mysql_fetch_row ($result))
-    $statusname = $row[0];
+  if ($row)
+    $statusname = $row [0];
   else
     $statusname = "Unknown status";
 
-  mysql_free_result ($result);
   } // end of GetstatusName
   
 function Problem ($why)
@@ -1640,8 +1579,7 @@ function ShowList ($query,      // SQL query
 {
 global $PHP_SELF;
                       
-$result = mysql_query ($query) 
-    or Problem ("Select failed: " . mysql_error ());
+$result = dbQuery ($query);
 
 $count = mysql_num_rows ($result);
 
@@ -1945,11 +1883,7 @@ function ShowTablesToEdit ()
   // see if this user can edit *all* tables  
   
   $userid = $userinfo ["userid"];
-  $result = mysql_query ("SELECT * FROM access "
-                       . "WHERE userid = $userid AND tablename = '%'") 
-    or Problem ("Select of access failed: " . mysql_error ());
-  $row = mysql_fetch_array ($result);
-  mysql_free_result ($result);  
+  $row = dbQueryOne ("SELECT * FROM access WHERE userid = $userid AND tablename = '%'");
 
   if ($row)
     {  
@@ -1971,9 +1905,7 @@ function ShowTablesToEdit ()
   else
     {
     // find the tables he can edit
-    $result = mysql_query ("SELECT * FROM access "
-                         . "WHERE userid = $userid AND can_select = 1") 
-      or Problem ("Select of access failed: " . mysql_error ());
+    $result = dbQuery ("SELECT * FROM access WHERE userid = $userid AND can_select = 1");
     while ($row = mysql_fetch_array ($result))
       {
       $table = $row ['tablename'];
@@ -2014,8 +1946,7 @@ function MailAdmins ($subject, $message, $link, $condition, $bbuser_id = 0)
   if ($foruminfo ['bbuser_id'])
     $query .= "AND bbuser_id <> " . $foruminfo ['bbuser_id'];
   
-  $result = mysql_query ($query) 
-      or Problem ("Select of admins failed: " . mysql_error ());
+  $result = dbQuery ($query);
        
   while ($row = mysql_fetch_array ($result))
     {
@@ -2078,13 +2009,8 @@ function utctime ()
 
 function GetSQLcount ($query, $select = "SELECT count(*) FROM ")
   {
-    
-  $result = mysql_query ($select . $query) 
-      or Problem ("Select count failed: " . mysql_error ());
-  $row = mysql_fetch_row ($result);    
+  $row = dbQueryOne ($select . $query);
   $count = $row [0];
-  mysql_free_result ($result);
-    
   return ($count);
   } // end of GetSQLcount
 
@@ -2133,10 +2059,7 @@ function ordinal ($number)
 
  function checkSQLdate ($thedate, $originalDate)
   {
-  $result = mysql_query ("SELECT DATE_ADD('$thedate', INTERVAL 0 DAY) AS validatedDate") 
-    or Problem ("Select of date failed: " . mysql_error ());
-  $row = mysql_fetch_array ($result);
-  mysql_free_result ($result);    
+  $row = dbQueryOne ("SELECT DATE_ADD('$thedate', INTERVAL 0 DAY) AS validatedDate");
   
   if (!$row || !$row ['validatedDate'])
     return "Date '$originalDate' ($thedate) is not a valid date.";
@@ -2620,8 +2543,7 @@ function audit ($bbaudit_type_id,   // what action it is (eg. add, change, delet
           . " '$ip' "
           . ")";
   
-  $result = mysql_query ($query) 
-    or Problem ("Audit failed: " . mysql_error ());
+  dbUpdate ($query);
   if (mysql_affected_rows () == 0)
     Problem ("Could not insert audit record");
   
@@ -2679,9 +2601,81 @@ function edittableAudit ($audit_type_id, $table, $primary_key, $comment="")
           . " '$comment' "
           . ")";
   
-  $result = mysql_query ($query) or Problem ("Audit failed: " . mysql_error ());
+  dbUpdate ($query);
   if (mysql_affected_rows () == 0)
     Problem ("Could not insert audit record");
   } // end of edittableAudit
     
+function showSQLerror ($sql)
+  {
+  echo "<hr>\n";
+  echo "<h2><font color=darkred>Problem with SQL</font></h2>\n";
+  echo (htmlspecialchars (mysql_error ()));
+  echo "<hr>\n";
+  bTable (1);
+  bRow ();
+  echo "<td><mono>\n";
+  echo (htmlspecialchars ($sql). "\n");
+  echo "</mono></td>\n";
+  eRow ();
+  eTable ();
+  echo "<hr><b>Backtrace</b>\n";
+      
+  echo "<ol>\n";
+  $bt = debug_backtrace ();
+  $count = sizeof($bt);
+  for ($i = 2; $i < $count; $i++) 
+    {
+    $item = $bt [$i];
+    echo "<li>\n";
+    echo "<ul>\n";
+    echo ("<li>" . "Function: " . htmlspecialchars ($item ['function']));
+    echo ("<li>" . "Called from: " . htmlspecialchars ($item ['file']));
+    echo ("<li>" . "Line: " . htmlspecialchars ($item ['line']));
+    echo "</ul><p>\n";
+    }
+  echo "</ol>\n";
+  echo "<hr>\n";
+  
+  // bail out
+  Problem ("SQL statement failed.");
+  } // end of showSQLerror
+  
+// Do a database query that returns a single row
+// return that row, or false (doesn't need freeing)
+// (eg. SELECT ... FROM) where you expect a single result
+function dbQueryOne ($sql)
+  {
+  $result = mysql_query ($sql);
+  // false here means a bad query
+  if (!$result)
+    showSQLerror ($sql);
+    
+  $row = mysql_fetch_array ($result);
+  mysql_free_result ($result);  
+  return $row;
+  }  // end of dbQueryOne
+
+// Do a database query that updates the database. 
+// eg. UPDATE, INSERT INTO, DELETE FROM etc.
+// Doesn't return a result.
+function dbUpdate ($sql)
+  {
+  $result = mysql_query ($sql);
+  // false here means a bad query
+  if (!$result)
+    showSQLerror ($sql);
+  }  // end of dbUpdate
+    
+// Do a database query that returns multiple rows
+// return the result variable which must later be freed
+function dbQuery ($sql)
+  {
+  $result = mysql_query ($sql);
+  // false here means a bad query
+  if (!$result)
+    showSQLerror ($sql);
+  return $result;
+  }  // end of dbQuery  
+  
 ?>

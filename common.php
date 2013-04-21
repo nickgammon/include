@@ -1716,8 +1716,8 @@ function ValidateDate ($thedate)
   if (count ($items) != 3)
      return "Date must consist of YYYY-MM-DD";
      
-  if ($items [0] < 1900 || $items [0] > 2100)
-     return "Year must be in range 1900 to 2100";
+  if ($items [0] < 1800 || $items [0] > 2100)
+     return "Year must be in range 1800 to 2100";
   
   if ($items [1] < 1 || $items [1] > 12)
      return "Month must be in range 1 to 12";

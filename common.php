@@ -2005,15 +2005,6 @@ function utctime ()
   return time () + ($minuteswest * 60); // add in time-zone correction in minutes
   } // end of utctime  
 
-// general function for getting a count of something
-
-function GetSQLcount ($query, $select = "SELECT count(*) FROM ")
-  {
-  $row = dbQueryOne ($select . $query);
-  $count = $row [0];
-  return ($count);
-  } // end of GetSQLcount
-
 // Added because Superb.Net recompiled PHP without --enable-track-vars
 
 /*
@@ -2677,5 +2668,14 @@ function dbQuery ($sql)
     showSQLerror ($sql);
   return $result;
   }  // end of dbQuery  
-  
+
+// general function for getting a count of something
+
+function GetSQLcount ($query, $select = "SELECT count(*) FROM ")
+  {
+  $row = dbQueryOne ($select . $query);
+  $count = $row [0];
+  return ($count);
+  } // end of GetSQLcount
+      
 ?>

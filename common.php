@@ -341,18 +341,14 @@ function CheckAdminSession ()
 
     $md5_password = md5 ($password);
     
-    $userinfo = dbQueryOne ("SELECT * FROM user "
-                         . "WHERE username = '$username' "
-                         . "AND password = '$md5_password'");
+    $userinfo = dbQueryOne ("SELECT * FROM user WHERE username = '$username' "
+                          . "AND password = '$md5_password'");
     
     if ($userinfo)
       {
               
      // try and work out their IP address
-      $remote_ip = $_SERVER ['REMOTE_ADDR'];
-      if (!$remote_ip)
-        $remote_ip = $_ENV ['REMOTE_ADDR'];
-        
+      $remote_ip = getIPaddress ();
         
       if ($userinfo ['required_ip'])
         if ($userinfo ['required_ip'] != $remote_ip)
@@ -524,9 +520,7 @@ function CheckForumToken ()
   $foruminfo = "";
     
   // try and work out their IP address
-  $remote_ip = $_SERVER ['REMOTE_ADDR'];
-  if (!$remote_ip)
-    $remote_ip = $_ENV ['REMOTE_ADDR'];
+  $remote_ip = getIPaddress ();
   
   // if they are logging on, let them 
   
@@ -535,11 +529,11 @@ function CheckForumToken ()
   // get rid of quotes so they can paste from the email like this: "Nick Gammon"
   $username = stripslashes ($_POST ['username']);
   $username = str_replace ("\"", " ", $username);
-  $username = addslashes (trim ($username));  // in case their name is O'Grady
+  $username = fixsql (trim ($username));  // in case their name is O'Grady
 
   $password = stripslashes ($_POST ['password']);
   $password = str_replace ("\"", " ", $password);
-  $password = addslashes (trim ($password));
+  $password = fixsql (trim ($password));
     
   // clear old login IP ban records (so they can reset by waiting a day)
   $query = "DELETE FROM bbbanned_ip "
@@ -562,9 +556,7 @@ function CheckForumToken ()
     {
       
     // try and work out their IP address
-    $remote_ip = $_SERVER ['REMOTE_ADDR'];
-    if (!$remote_ip)
-      $remote_ip = $_ENV ['REMOTE_ADDR'];
+    $remote_ip = getIPaddress ();
     
     $server_name = $_SERVER["HTTP_HOST"];
       
@@ -1642,14 +1634,14 @@ function ValidateInt ($theint)
   // look for leading sign
   if ($theint [0] == '+' || $theint [0] == '-')
     $theint = substr ($theint, 1);    // remove sign
-  if (!strlen ($theint) || !ereg ("^[0-9]+$", $theint))
+  if (!strlen ($theint) || !preg_match ("|^[0-9]+$|", $theint))
     return "Field must be numeric";
   } // end of ValidateInt
 
 // validate booleans
 function ValidateBool ($thebool)
   {
-  if (!strlen ($thebool) || !ereg ("^[0-1]$", $thebool))
+  if (!strlen ($thebool) || !preg_match ("|^[0-1]$|", $thebool))
     return "Field must be '0' or '1'";
   } // end of ValidateBool
 
@@ -1663,7 +1655,7 @@ function ValidateReal ($thereal)
     $thereal = substr ($thereal, 1);    // remove sign
   
   $items = explode (".", trim ($thereal));  // don't want two decimal points
-  if (count ($items) > 2 || !strlen ($thereal) || !ereg ("^[0-9.]+$", $thereal))
+  if (count ($items) > 2 || !strlen ($thereal) || !preg_match ("|^[0-9.]+$|", $thereal))
     return "Field must be numeric";
   } // end of ValidateReal
 
@@ -1676,12 +1668,12 @@ function ValidateColour ($thecolour)
   if ($thecolour [0] == '#')
     {
     $thecolour = substr ($thecolour, 1);    // remove #
-    if (!strlen ($thecolour) || !ereg ("^[A-Fa-f0-9]+$", $thecolour))
+    if (!strlen ($thecolour) || !preg_match ("|^[A-Fa-f0-9]+$|", $thecolour))
       return "Field must colour name or #hex_colour";
     }
   else
     {    
-    if (!strlen ($thecolour) || !ereg ("^[A-Za-z0-9]+$", $thecolour))
+    if (!strlen ($thecolour) || !preg_match ("|^[A-Za-z0-9]+$|", $thecolour))
       return "Field must colour name or #hex_colour";
     }
     
@@ -1692,7 +1684,7 @@ function ValidateFont ($thefont)
   {
   $thecolour = trim ($thefont); // ensure no leading spaces etc.
 
-  if (!strlen ($thefont) || !ereg ("^[-A-Za-z0-9 ,_]+$", $thefont))
+  if (!strlen ($thefont) || !preg_match ("|^[-A-Za-z0-9 ,_]+$|", $thefont))
     return "Invalid characters in font name";
     
   } // end of ValidateFont
@@ -1716,7 +1708,7 @@ function ValidateDate ($thedate)
   $thedate = trim ($thedate); // ensure no leading spaces etc.
   
   // don't let them slip in alphas or other stuff into the middle of a number
-  if (!ereg ("^[0-9\-]+$", $thedate))
+  if (!preg_match ("|^[0-9\-]+$|", $thedate))
      return "Date must consist of YYYY-MM-DD";
     
   $items = explode ("-", trim ($thedate));
@@ -1742,7 +1734,7 @@ function ValidateTime ($thetime)
     
     
   // don't let them slip in alphas or other stuff into the middle of a number
-  if (!ereg ("^[0-9\:]+$", $thetime))
+  if (!preg_match ("|^[0-9\:]+$|", $thetime))
      return "Time must consist of HH:MM or HH:MM:SS";
 
   $items = explode (":", trim ($thetime));
@@ -1885,12 +1877,13 @@ function ShowTablesToEdit ()
   $userid = $userinfo ["userid"];
   $row = dbQueryOne ("SELECT * FROM access WHERE userid = $userid AND tablename = '%'");
 
+  echo "<p>ach!";
   if ($row)
     {  
     // we can edit all tables, so get a list of them
     GetDatabaseName ($databasename);
                            
-    $result = doQuery ("SHOW TABLES FROM " . $databasename) ;
+    $result = dbQuery ("SHOW TABLES FROM " . $databasename) ;
       
     while ($row = mysqli_fetch_row ($result))
       {
@@ -2009,15 +2002,15 @@ function utctime ()
 /*
 reset ($_GET);
 while (list ($name, $value) = each ($_GET))
-    $_GET [$name] = addslashes ($_GET [$name]);
+    $_GET [$name] = fixsql ($_GET [$name]);
     
 reset ($_POST);
 while (list ($name, $value) = each ($_POST))
-    $_POST [$name] = addslashes ($_POST [$name]);
+    $_POST [$name] = fixsql ($_POST [$name]);
     
 reset ($_COOKIE);
 while (list ($name, $value) = each ($_COOKIE))
-    $_COOKIE [$name] = addslashes ($_COOKIE [$name]);
+    $_COOKIE [$name] = fixsql ($_COOKIE [$name]);
 
 extract ($_GET, EXTR_OVERWRITE);
 extract ($_POST, EXTR_OVERWRITE);
@@ -2071,7 +2064,7 @@ function DoExtendedDate (& $thedate, $defaultEndOfPeriod = false)
   $thedate = str_replace ("  ", " ", $thedate);
   
   // look for 4 digit year (eg. 1980, 1980s)
-  if (ereg ("^([0-9]{4})s?$", $thedate, $matches))
+  if (preg_match ("|^([0-9]{4})s?$|", $thedate, $matches))
     {
     if ($defaultEndOfPeriod)
       $thedate = $matches [1] . "-12-31";
@@ -2081,7 +2074,7 @@ function DoExtendedDate (& $thedate, $defaultEndOfPeriod = false)
     } // end of something like: 1800
       
   // look for month year (eg. Jan 1980)
-  if (ereg ("^([A-Za-z]+) ([0-9]{4})$", $thedate, $matches))
+  if (preg_match ("|^([A-Za-z]+) ([0-9]{4})$|", $thedate, $matches))
     {
     $month = $matches [1];
     reset ($MONTHS);
@@ -2122,7 +2115,7 @@ function DoExtendedDate (& $thedate, $defaultEndOfPeriod = false)
   
   // we will take a simple number (eg. 23) as a day not a time
   // also exclude straight alphas as it sometimes got "mon" wrong
-  if (!ereg ("^[0-9]+$", $thedate) && !ereg ("^[A-Za-z]+$", $thedate))
+  if (!preg_match ("|^[0-9]+$|", $thedate) && !preg_match ("|^[A-Za-z]+$|", $thedate))
     {
     $converteddate = strtotime ($thedate);
     
@@ -2171,7 +2164,7 @@ function DoExtendedDate (& $thedate, $defaultEndOfPeriod = false)
   $day = trim($items [0]);
      
   // look for alpha day name (eg. Monday)
-  if (ereg ("^[a-z]+$", $day) && count ($items) < 3)
+  if (preg_match ("|^[a-z]+$|", $day) && count ($items) < 3)
     {
      $daynames = "";
      $seconds = utctime();
@@ -2227,7 +2220,7 @@ function DoExtendedDate (& $thedate, $defaultEndOfPeriod = false)
     }   // end of alpha day 
   
   // don't let them slip in alphas or other stuff into the middle of a day
-  if (!ereg ("^[0-9]+$", $day))
+  if (!preg_match ("|^[0-9]+$|", $day))
      return "Day must consist of numbers (or 'Monday', 'Tuesday' etc.) - you supplied \"$day\"";
   
   // get the month
@@ -2249,7 +2242,7 @@ function DoExtendedDate (& $thedate, $defaultEndOfPeriod = false)
     {
     $year = strftime ("%Y", utctime()); 
     // in case we added 1 to current month
-    if (ereg ("^[0-9]+$", $month) && $month > 12)
+    if (preg_match ("|^[0-9]+$|", $month) && $month > 12)
       {
       $year = $year + 1;
       $month = 1;
@@ -2257,7 +2250,7 @@ function DoExtendedDate (& $thedate, $defaultEndOfPeriod = false)
     }
     
   // don't let them slip in alphas or other stuff into the middle of a year
-  if (!ereg ("^[0-9]+$", $year))
+  if (!preg_match ("|^[0-9]+$|", $year))
      return "Year must consist of numbers, you supplied \"$year\"";
   
   // 2-digit year supplied? Assume current century
@@ -2268,7 +2261,7 @@ function DoExtendedDate (& $thedate, $defaultEndOfPeriod = false)
     } // end of 2-digit year
   
   // if non-numeric month, see if we can recognise the month name, either in full or in part
-  if (!ereg ("^[0-9]+$", $month))
+  if (!preg_match ("|^[0-9]+$|", $month))
     {  
     reset ($MONTHS);
     $count = 0;
@@ -2315,7 +2308,7 @@ function DoExtendedDateTime (& $thedate)
   // 2 days
   
   // we will take a simple number (eg. 23) as a day not a time
-  if (!ereg ("^[0-9]+$", $thedate))
+  if (!preg_match ("|^[0-9]+$|", $thedate))
     {
     $converteddate = strtotime ($thedate);
     if ($converteddate)
@@ -2415,11 +2408,11 @@ function DoExtendedTime(& $thetime)
     $am_pm = "";
     
   // leading zero (eg. 06:30 forces it to be am not pm)
-  if (ereg ("^0", $time))
+  if (preg_match ("|^0|", $time))
     $am_pm = "am";
     
   // don't let them slip in alphas or other stuff into the middle of a number
-  if (!ereg ("^[0-9\:]+$", $time))
+  if (!preg_match ("|^[0-9\:]+$|", $time))
      return "Time must consist of HH:MM or HH:MM:SS";
   
   // put out hour:minute:second
@@ -2499,7 +2492,8 @@ function audit ($bbaudit_type_id,   // what action it is (eg. add, change, delet
                 $bbtopic_id = "",   // which topic
                 $extra = "")        // extras, like the text of the message
   {
- 
+  global $dblink;
+  
   // try and work out their IP address
   $ip = getIPaddress ();
   
@@ -2510,8 +2504,8 @@ function audit ($bbaudit_type_id,   // what action it is (eg. add, change, delet
   if (!$bbtopic_id)
     $bbtopic_id = "NULL";
 
-  $extra = addslashes ($extra);
-  $ip = addslashes ($ip);
+  $extra = fixsql ($extra);
+  $ip = fixsql ($ip);
     
   $query =  "INSERT INTO bbaudit ("
           . " audit_date, "
@@ -2534,7 +2528,7 @@ function audit ($bbaudit_type_id,   // what action it is (eg. add, change, delet
           . ")";
   
   dbUpdate ($query);
-  if (mysqli_affected_rows () == 0)
+  if (mysqli_affected_rows ($dblink) == 0)
     Problem ("Could not insert audit record");
   
   } // end of audit
@@ -2564,14 +2558,14 @@ $TABLE_AUDIT_DELETE  = 3;
    ********************************************************************************  */    
 function edittableAudit ($audit_type_id, $table, $primary_key, $comment="")
   {
-  global $userinfo;
+  global $userinfo, $dblink;
   
   // try and work out their IP address
   $userid       = $userinfo ['userid'];
-  $ip           = mysql_real_escape_string (getIPaddress ());
-  $table        = mysql_real_escape_string ($table);
-  $primary_key  = mysql_real_escape_string ($primary_key);
-  $comment      = mysql_real_escape_string ($comment);
+  $ip           = fixsql (getIPaddress ());
+  $table        = fixsql ($table);
+  $primary_key  = fixsql ($primary_key);
+  $comment      = fixsql ($comment);
     
   $query =  "INSERT INTO audit ("
           . " audit_date, "
@@ -2592,7 +2586,7 @@ function edittableAudit ($audit_type_id, $table, $primary_key, $comment="")
           . ")";
   
   dbUpdate ($query);
-  if (mysqli_affected_rows () == 0)
+  if (mysqli_affected_rows ($dblink) == 0)
     Problem ("Could not insert audit record");
   } // end of edittableAudit
     
@@ -2685,5 +2679,11 @@ function GetSQLcount ($query, $select = "SELECT count(*) FROM ")
   $count = $row [0];
   return ($count);
   } // end of GetSQLcount
-      
+
+function fixsql ($sql)
+  {
+  global $dblink;
+  
+  return mysqli_real_escape_string ($dblink, $sql);
+  } // end of fixsql      
 ?>

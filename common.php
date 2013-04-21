@@ -244,16 +244,16 @@ function GetDatabaseName (&$thename)
   
 function OpenDatabase ($dbserver, $dbuser, $dbname, $dbpassword)
   {
-  global $current_database_name;
+  global $current_database_name, $dblink;
   
   // save database name in case needed later
   $current_database_name = $dbname;
     
-  $link = mysql_pconnect ($dbserver, $dbuser, $dbpassword) 
-      or MajorProblem ("Cannot connect to server $dbserver: " . mysql_error ());
+  $dblink = mysqli_connect($dbserver, $dbuser, $dbpassword, $dbname);
+  
+  if (mysqli_connect_errno())
+    MajorProblem ("Cannot connect to server $dbserver: " . mysqli_connect_error());
       
-  mysql_select_db ($dbname) 
-      or MajorProblem ("Cannot select database $dbname: " . mysql_error ());
   } // end of OpenDatabase  
 
 function OpenMailDatabase ()
@@ -269,15 +269,15 @@ function OpenMailDatabase ()
 
 function GetControlItems ()
   {
-  global $control;
+  global $control, $dblink;
   
-  $result = mysql_query ("SELECT * FROM control") 
-    or MajorProblem ("Select of control table failed: " . mysql_error ());
+  $result = mysqli_query ($dblink, "SELECT * FROM control") 
+    or MajorProblem ("Select of control table failed: " . mysqli_connect_error ());
 
-  while ($row = mysql_fetch_array ($result))
+  while ($row = mysqli_fetch_array ($result))
     $control [$row ['item']] = $row ['contents'];
     
-  mysql_free_result ($result);  
+  mysqli_free_result ($result);  
  
   $control ['forum_url'] = "http://" . $_SERVER ["HTTP_HOST"] . "/forum";
   }
@@ -1581,7 +1581,7 @@ global $PHP_SELF;
                       
 $result = dbQuery ($query);
 
-$count = mysql_num_rows ($result);
+$count = mysqli_num_rows ($result);
 
 if ($count)
   echo $block_preamble . "\n";
@@ -1589,7 +1589,7 @@ if ($count)
 if (!$page)
   $page = $PHP_SELF;
   
-while ($row = mysql_fetch_array ($result))
+while ($row = mysqli_fetch_array ($result))
   {
   echo $line_preamble;
   $summarydata = $row [$summary];
@@ -1629,7 +1629,7 @@ if ($show_count)
   echo "</b></p>";
   }  // end of searching for something
 
-mysql_free_result ($result);
+mysqli_free_result ($result);
 
 return $count;
 } // end of ShowList   
@@ -1890,29 +1890,28 @@ function ShowTablesToEdit ()
     // we can edit all tables, so get a list of them
     GetDatabaseName ($databasename);
                            
-    $result = mysql_list_tables ($databasename) 
-        or Problem ("List tables failed: " . mysql_error ());
+    $result = doQuery ("SHOW TABLES FROM " . $databasename) ;
       
-    while ($row = mysql_fetch_row ($result))
+    while ($row = mysqli_fetch_row ($result))
       {
       $table = $row [0];
       echo "<option value=\"$table\">$table\n";
       } // end of doing each row
     
-    mysql_free_result ($result);
+    mysqli_free_result ($result);
     
     }  // end of being able to edit all tables
   else
     {
     // find the tables he can edit
     $result = dbQuery ("SELECT * FROM access WHERE userid = $userid AND can_select = 1");
-    while ($row = mysql_fetch_array ($result))
+    while ($row = mysqli_fetch_array ($result))
       {
       $table = $row ['tablename'];
       echo "<option value=\"$table\">$table\n";
       } // end of doing each row
       
-    mysql_free_result ($result);  
+    mysqli_free_result ($result);  
     
     } // end of being able to edit *some* tables
     
@@ -1948,7 +1947,7 @@ function MailAdmins ($subject, $message, $link, $condition, $bbuser_id = 0)
   
   $result = dbQuery ($query);
        
-  while ($row = mysql_fetch_array ($result))
+  while ($row = mysqli_fetch_array ($result))
     {
     $notifyname = $row ['username'];
     $notifyemail = $row ['email'];
@@ -1988,7 +1987,7 @@ function MailAdmins ($subject, $message, $link, $condition, $bbuser_id = 0)
 
     } // end of having loop
     
-  mysql_free_result ($result);
+  mysqli_free_result ($result);
   
   } // end of MailAdmins
   
@@ -2535,7 +2534,7 @@ function audit ($bbaudit_type_id,   // what action it is (eg. add, change, delet
           . ")";
   
   dbUpdate ($query);
-  if (mysql_affected_rows () == 0)
+  if (mysqli_affected_rows () == 0)
     Problem ("Could not insert audit record");
   
   } // end of audit
@@ -2593,15 +2592,17 @@ function edittableAudit ($audit_type_id, $table, $primary_key, $comment="")
           . ")";
   
   dbUpdate ($query);
-  if (mysql_affected_rows () == 0)
+  if (mysqli_affected_rows () == 0)
     Problem ("Could not insert audit record");
   } // end of edittableAudit
     
 function showSQLerror ($sql)
   {
+  global $dblink;
+
   echo "<hr>\n";
   echo "<h2><font color=darkred>Problem with SQL</font></h2>\n";
-  echo (htmlspecialchars (mysql_error ()));
+  echo (htmlspecialchars (mysqli_error ($dblink)));
   echo "<hr>\n";
   bTable (1);
   bRow ();
@@ -2620,9 +2621,9 @@ function showSQLerror ($sql)
     $item = $bt [$i];
     echo "<li>\n";
     echo "<ul>\n";
-    echo ("<li>" . "Function: " . htmlspecialchars ($item ['function']));
-    echo ("<li>" . "Called from: " . htmlspecialchars ($item ['file']));
-    echo ("<li>" . "Line: " . htmlspecialchars ($item ['line']));
+    echo ("<li>" . "Function: "     . htmlspecialchars ($item ['function']));
+    echo ("<li>" . "Called from: "  . htmlspecialchars ($item ['file']));
+    echo ("<li>" . "Line: "         . htmlspecialchars ($item ['line']));
     echo "</ul><p>\n";
     }
   echo "</ol>\n";
@@ -2637,13 +2638,15 @@ function showSQLerror ($sql)
 // (eg. SELECT ... FROM) where you expect a single result
 function dbQueryOne ($sql)
   {
-  $result = mysql_query ($sql);
+  global $dblink;
+  
+  $result = mysqli_query ($dblink, $sql);
   // false here means a bad query
   if (!$result)
     showSQLerror ($sql);
     
-  $row = mysql_fetch_array ($result);
-  mysql_free_result ($result);  
+  $row = mysqli_fetch_array ($result);
+  mysqli_free_result ($result);  
   return $row;
   }  // end of dbQueryOne
 
@@ -2652,7 +2655,9 @@ function dbQueryOne ($sql)
 // Doesn't return a result.
 function dbUpdate ($sql)
   {
-  $result = mysql_query ($sql);
+  global $dblink;
+
+  $result = mysqli_query ($dblink, $sql);
   // false here means a bad query
   if (!$result)
     showSQLerror ($sql);
@@ -2662,13 +2667,16 @@ function dbUpdate ($sql)
 // return the result variable which must later be freed
 function dbQuery ($sql)
   {
-  $result = mysql_query ($sql);
+  global $dblink;
+
+  $result = mysqli_query ($dblink, $sql);
   // false here means a bad query
   if (!$result)
     showSQLerror ($sql);
+    
   return $result;
   }  // end of dbQuery  
-
+  
 // general function for getting a count of something
 
 function GetSQLcount ($query, $select = "SELECT count(*) FROM ")

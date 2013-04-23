@@ -2610,7 +2610,7 @@ function showSQLerror ($sql)
   echo "<ol>\n";
   $bt = debug_backtrace ();
   $count = sizeof($bt);
-  for ($i = 2; $i < $count; $i++) 
+  for ($i = 1; $i < $count; $i++) 
     {
     $item = $bt [$i];
     echo "<li>\n";

@@ -29,6 +29,9 @@ Copyright © 2001 Nick Gammon.
   See the file gpl.txt for the full GNU General Public License.
 */
 
+// save doing this in every file
+$action      = getGPC ('action');
+
 $MAX_LOGIN_FAILURES = 5;  // number of times you can get your password wrong for a username
 $MAX_UNKNOWN_USER_FAILURES = 10;  // number of times an IP address can try a non-existent username
 
@@ -320,9 +323,9 @@ function CheckSessionID ()
 
 function CheckAdminSession ()
   {
-  global $userinfo, $userid;
-  
-  $adminsession = $_POST ['session'];
+  global $userinfo, $userid, $adminaction, $username;
+
+  // do NOT get POST variable or we switch users when editing the user table
   if (empty ($adminsession))
     $adminsession = $_GET ['session'];
   if (empty ($adminsession))
@@ -332,12 +335,13 @@ function CheckAdminSession ()
     
   // if they are logging on, let them 
   
-  $adminaction = trim ($_POST ['adminaction']);
-  $username = trim ($_POST ['username']);
-  $password = trim ($_POST ['password']);
+  $adminaction = trim (getPG ('adminaction'));
   
   if ($adminaction == "logon")   
     {
+
+    $username    = trim ($_POST ['username']);
+    $password    = trim ($_POST ['password']);
 
     $md5_password = md5 ($password);
     
@@ -389,6 +393,13 @@ function CheckAdminSession ()
   if ($userinfo) // will be empty if no match
     {
         
+      /*
+  echo '<p>Here is some debugging info:';
+  echo '<pre>';
+  print_r($userinfo);
+  echo '</pre>';
+      */
+      
     // if the user is found, and their session was the same one found in the cookie
     // we don't need to pass sessions on URLs, which makes them look better
     
@@ -768,7 +779,7 @@ function Init ($title,
   header("Content-type: text/html; charset=utf-8");
   header("Cache-Control: no-cache, must-revalidate"); // HTTP/1.1
   header("Expires: Mon, 26 Jul 1997 05:00:00 GMT"); // Date in the past
-
+ 
   if ($doingMail = $mail)  // this assignment is intentional
     OpenMailDatabase ();
   else
@@ -2017,7 +2028,7 @@ extract ($_POST, EXTR_OVERWRITE);
 extract ($_COOKIE, EXTR_OVERWRITE);
 */
 
-import_request_variables ("GPC");
+//import_request_variables ("GPC");
 
 // turns numbers into their ordinal versions (eg. 1 becomes 1st, 23 becomes 23rd)
 
@@ -2686,4 +2697,27 @@ function fixsql ($sql)
   
   return mysqli_real_escape_string ($dblink, $sql);
   } // end of fixsql      
+  
+function getGPC ($name)
+  {
+  if ($_GET [$name])
+    return $_GET [$name];
+  if ($_POST [$name])
+    return $_POST [$name];
+  if ($_COOKIE [$name])
+    return $_COOKIE [$name];
+  
+  return false;
+  }  // getGPC
+  
+function getPG ($name)
+  {
+  if ($_POST [$name])
+    return $_POST [$name];
+  if ($_GET [$name])
+    return $_GET [$name];
+  
+  return false;
+  }  // getPG
+    
 ?>

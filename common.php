@@ -1230,12 +1230,14 @@ function FormSession ()
 // check we can do something
 function Permission ($todo)
   {
-  global $userinfo, $ADMIN_DIRECTORY;
+  global $userinfo, $ADMIN_DIRECTORY, $PHP_SELF;
+  
+  $PHP_SELF = $_SERVER['PHP_SELF'];   
   
   if (!$userinfo [$todo])
     {
     echo "<p>";
-    hLink ("Log on", $ADMIN_DIRECTORY . "logon.php");
+    hLink ("Log on", $ADMIN_DIRECTORY . "logon.php?returnto=" . urlencode ($_SERVER ['REQUEST_URI']));
     echo "</p>\n";
     Problem ("Permission denied");
    }

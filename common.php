@@ -324,6 +324,7 @@ function CheckSessionID ()
 function CheckAdminSession ()
   {
   global $userinfo, $userid, $adminaction, $username;
+  global $TABLE_AUDIT_LOGON;
 
   // do NOT get POST variable or we switch users when editing the user table
   if (empty ($adminsession))
@@ -379,6 +380,10 @@ function CheckAdminSession ()
         $expiry = 60 * 60 * 24 * 7;    // expire in 7 days as default
       if ($userinfo ['use_cookies'])   // only if wanted  
         setcookie ('session', $userinfo ['session'], utctime() + $expiry, "/");
+      
+      // audit logons
+      edittableAudit ($TABLE_AUDIT_LOGON, 'user', $userid);
+        
       } // end of user on file
 
       return;   // end of logon process
@@ -711,12 +716,18 @@ function CheckForumToken ()
 function LogOff ()
   {
   global $userinfo;
+  global $TABLE_AUDIT_LOGOFF;
+  
   // generate another random token - they won't know that one!
   srand ((double) microtime () * 1000000);
   $session = md5 (uniqid (rand ()));
   
   $query = "UPDATE user SET session = '$session' WHERE userid = " . $userinfo ['userid'];
   dbUpdate ($query);
+  
+  // audit log offs
+  edittableAudit ($TABLE_AUDIT_LOGOFF, 'user',  $userinfo ['userid']);
+  
   $userinfo = "";    // user info is no good
     
   } // end of LogOff
@@ -2565,6 +2576,9 @@ function getIPaddress ()
 $TABLE_AUDIT_ADD     = 1;
 $TABLE_AUDIT_CHANGE  = 2;
 $TABLE_AUDIT_DELETE  = 3;
+$TABLE_AUDIT_LOGON   = 4;
+$TABLE_AUDIT_LOGOFF  = 5;
+$TABLE_AUDIT_ACCESS  = 6;  // access rights change
 
 /* ********************************************************************************   
    edittableAudit - saves history database updates (add / change / delete)

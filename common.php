@@ -2518,7 +2518,6 @@ function audit ($bbaudit_type_id,   // what action it is (eg. add, change, delet
   {
   global $dblink;
   
-  // try and work out their IP address
   $ip = getIPaddress ();
   
   if (!$bbpost_id)
@@ -2587,7 +2586,6 @@ function edittableAudit ($audit_type_id, $table, $primary_key, $comment="")
   {
   global $userinfo, $dblink;
   
-  // try and work out their IP address
   $userid       = $userinfo ['userid'];
   $ip           = fixsql (getIPaddress ());
   $table        = fixsql ($table);
@@ -2616,6 +2614,62 @@ function edittableAudit ($audit_type_id, $table, $primary_key, $comment="")
   if (mysqli_affected_rows ($dblink) == 0)
     Problem ("Could not insert audit record");
   } // end of edittableAudit
+    
+/* ********************************************************************************   
+   SaveOneRecord - gets the SQL needed to replace the changed record
+   ********************************************************************************  */      
+function SaveOneRecord ($table, $primary_key_name, $primary_key)
+  {
+  global $DATABASE_SERVER, $GENERAL_DATABASE_USER, $GENERAL_DATABASE_NAME, $GENERAL_DATABASE_PASSWORD;
+  
+  exec ("mysqldump -u'$GENERAL_DATABASE_USER' " .
+      " -p'$GENERAL_DATABASE_PASSWORD' " .
+      " -h'$DATABASE_SERVER' " .
+      " '$GENERAL_DATABASE_NAME' '$table' " .
+      " --where='$primary_key_name=$primary_key' --compact -t -c ",
+      $sql, $returnvar);
+  
+  if ($returnvar)
+    Problem ("Got error $returnvar executing mysqldump to save undo information");
+  
+  return $sql [0];
+  } // end of SaveOneRecord
+  
+/* ********************************************************************************   
+   edittableWriteUndo - writes the SQL needed to replace the changed record
+   ********************************************************************************  */    
+function edittableWriteUndo ($audit_type_id, $table, $primary_key, $sql )
+  {
+  global $userinfo, $dblink;
+    
+  $userid       = $userinfo ['userid'];
+  $ip           = fixsql (getIPaddress ());
+  $table        = fixsql ($table);
+  $primary_key  = fixsql ($primary_key);
+  $fixedSql     = fixsql ($sql);
+    
+  $query =  "INSERT INTO undo_data ("
+          . " undo_date, "
+          . " audit_type_id, "
+          . " undo_table, "
+          . " user_id, " 
+          . " ip, "
+          . " primary_key, "
+          . " saved_sql "
+          . " ) VALUES ( "
+          . " NOW(), "
+          . " $audit_type_id, "
+          . " '$table', "
+          . " $userid, "
+          . " '$ip', "
+          . " '$primary_key', "
+          . " '$fixedSql' "
+          . ")";
+  
+  dbUpdate ($query);
+  if (mysqli_affected_rows ($dblink) == 0)
+    Problem ("Could not insert undo record");
+  } // end of edittableWriteUndo
     
 function showSQLerror ($sql)
   {

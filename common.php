@@ -1373,7 +1373,7 @@ function ShowTable ($table, $params, $specials)
   $contents = "";	// in case no items
         
   $first_input = true;
-  
+    
   reset ($table);
   while (list ($label, $contents) = each ($table))
     {
@@ -1393,6 +1393,13 @@ function ShowTable ($table, $params, $specials)
     $comment = "";
     $htmlcomment = "";
     $description = $label;
+    $required = false;
+    $size = false;
+    $maxlength = false;
+    $rows = false;
+    $cols = false;
+    $values = "";
+    
 //    $bold = false;
         
     // if the word is in the array, then it is enabled
@@ -1573,7 +1580,7 @@ function ShowTable ($table, $params, $specials)
             echo "autofocus ";
             $first_input = false;  
             } // end of first one
-         if (isset ($required))
+         if ($required)
             echo "required ";
           echo "/>\n";
           break;    // end of default input type

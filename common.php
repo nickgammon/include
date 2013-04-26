@@ -327,9 +327,9 @@ function CheckAdminSession ()
   global $TABLE_AUDIT_LOGON;
 
   // do NOT get POST variable or we switch users when editing the user table
-  if (empty ($adminsession))
+  if (empty ($adminsession) && isset ($_GET ['session']))
     $adminsession = $_GET ['session'];
-  if (empty ($adminsession))
+  if (empty ($adminsession) && isset ($_COOKIE ['session']))
     $adminsession = $_COOKIE ['session'];
   
   $userinfo = "";
@@ -527,11 +527,7 @@ function CheckForumToken ()
   global $foruminfo, $blocked, $banned_ip;
   
   
-  $forumtoken = $_POST ['token'];
-  if (empty ($forumtoken))
-    $forumtoken = $_GET ['token'];
-  if (empty ($forumtoken))
-    $forumtoken = $_COOKIE ['token'];
+  $forumtoken = GetPGC ('token');
 
   $foruminfo = "";
     
@@ -540,14 +536,14 @@ function CheckForumToken ()
   
   // if they are logging on, let them 
   
-  $action = trim ($_POST ['action']);
+  $action = GetP ('action');
 
   // get rid of quotes so they can paste from the email like this: "Nick Gammon"
-  $username = stripslashes ($_POST ['username']);
+  $username = stripslashes (GetP ('username'));
   $username = str_replace ("\"", " ", $username);
   $username = fixsql (trim ($username));  // in case their name is O'Grady
 
-  $password = stripslashes ($_POST ['password']);
+  $password = stripslashes (GetP ('password'));
   $password = str_replace ("\"", " ", $password);
   $password = fixsql (trim ($password));
     
@@ -697,12 +693,12 @@ function CheckForumToken ()
     } // end of reading that user OK
 
   // check if they carried a good token to a bad IP  
-  if ($foruminfo ['required_ip'])
+  if (isset ($foruminfo ['required_ip']))
     if ($foruminfo ['required_ip'] != $remote_ip)
       $foruminfo = "";
         
   // check for a problem user logging in
-  if ($foruminfo ['blocked'])
+  if (isset ($foruminfo ['blocked']))
     {
     $blocked = true;    // can't do it
     $foruminfo = "";
@@ -767,13 +763,17 @@ function Init ($title,
                $dbpassword = "",
                $otherheaderhtml = "")
   {
-  global $userinfo, $logoff, $control, 
+  global $userinfo, $logoff, $control, $PHP_SELF,
          $viewsource, $PATH_TRANSLATED, $pagestarttime, $doingMail;
          
   // default databases         
   global $DATABASE_SERVER, $GENERAL_DATABASE_USER, 
          $GENERAL_DATABASE_NAME, $GENERAL_DATABASE_PASSWORD;
 
+  $PHP_SELF = $_SERVER['PHP_SELF'];   
+         
+  date_default_timezone_set('Australia/ACT');
+  
   // take defaults if necessary
    if ($dbserver == "")
      $dbserver = $DATABASE_SERVER;
@@ -846,13 +846,9 @@ if ($title == "%FORUM_NAME%")
   {
     
   // let them use just "id=x" on the URL
-  
-  if ($_GET ['id']) 
-    $bbsubject_id = $_GET ['id'];
-  else
-  if ($_POST ['id']) 
-    $bbsubject_id = $_POST ['id'];
       
+  $bbsubject_id = GetGP ('id');
+ 
   // get better title (put section/topic/subject into it)
   
   $title = $control ['forum_name'];
@@ -869,10 +865,8 @@ $head = str_replace ("<%TITLE%>", htmlspecialchars ($title), $control ['head']);
 $head = str_replace ("<%KEYWORDS%>", htmlspecialchars ($keywords), $head); 
 
 
-if ($foruminfo ['font'])
+if (isset ($foruminfo ['font']))
   $control ['font'] = '<font face="' . $foruminfo ['font'] . '" size="-1">';
-
- 
 
 // build up CSS styles for user-supplied text and background colours
 
@@ -882,7 +876,7 @@ $font_string = "\n" .
 
 // if they specified a colour for their body, don't use the default
 
-if ($foruminfo ['colour_text'])
+if (isset ($foruminfo ['colour_text']))
    $font_string .= $foruminfo ['colour_text']; 
 else
    $font_string .= $control ['colour_text'];
@@ -892,7 +886,7 @@ $font_string .= '; }' . "\n" .
  
 // ditto for background
 
-if ($foruminfo ['colour_body'])
+if (isset ($foruminfo ['colour_body']))
   {
   $font_string .=  $foruminfo ['colour_body'] .  ";\n" ;
   $font_string .= "background-image: none; }\n";
@@ -902,7 +896,7 @@ else
 
 // and take custom font
 
-if ($foruminfo ['font'])
+if (isset ($foruminfo ['font']))
   {
   $font_string .=  '  body { font-family: ';
   $font_string .=  $foruminfo ['font'] .  ";\n" ;
@@ -935,9 +929,9 @@ $endtime = getmicrotime ();
 $diff = $endtime - $pagestarttime;
 
 if (!empty ($userinfo) || $doingMail || 
-    $foruminfo ['admin'] || 
-    $foruminfo ['moderator_topic'] ||
-    $foruminfo ['moderator_section'])
+    isset ($foruminfo ['admin']) || 
+    isset ($foruminfo ['moderator_topic']) ||
+    isset ($foruminfo ['moderator_section']))
   {
   echo "<p></p><table border=\"0\" cellpadding=\"5\"> "
      . "<tr bgcolor=\"$COLOUR_TIMING_BGND\"> <td><font color=\"$COLOUR_TIMING_TEXT\"><b>\n";
@@ -1163,17 +1157,19 @@ function LI ()
 function shLink (&$result, $description, $destination, $params="", $newwindow=false)
   {
   global $userinfo, $viewsource, $foruminfo;
+  $token = "";
+  $session = "";
     
-  if (!$foruminfo ['have_cookie_ok'])
+  if (!isset ($foruminfo ['have_cookie_ok']) && isset ($foruminfo ['token']))
     $token = $foruminfo ['token'];
-  if (!$userinfo ['have_cookie_ok'])
+  if (!isset ($userinfo ['have_cookie_ok']) && isset ($userinfo ['session']))
     $session = $userinfo ['session'];
     
-  if ($session && $token)
+  if (isset ($session) && isset ($token))
     $session = "?session=$session&amp;token=$token";
-  else if ($session)
+  else if (isset ($session))
     $session = "?session=$session";
-  else if ($token)
+  else if (isset ($token))
     $session = "?token=$token";
   else
     $session = "";
@@ -1213,7 +1209,7 @@ function hLink ($description, $destination, $params="", $newwindow=false)
 function ForumSession ()
   {
   global $foruminfo;
-  if (!$foruminfo ['have_cookie_ok'])
+  if (!isset ($foruminfo ['have_cookie_ok']))
     if (!empty ($foruminfo))
       {
       $token = $foruminfo ['token'];
@@ -1226,7 +1222,7 @@ function FormSession ()
   {
   global $userinfo, $viewsource;
   
-  if (!$userinfo ['have_cookie_ok'])
+  if (!isset ($userinfo ['have_cookie_ok']))
     if (!empty ($userinfo))
     {
     $session = $userinfo ['session'];
@@ -1317,29 +1313,36 @@ function ShowTable ($table, $params, $specials)
     return;
     }
 
-  $tableparam = $params ['table'];    // args for table
-  if (!isset ($tableparam))
+  if (isset ($params ['table']))
+    $tableparam = $params ['table'];    // args for table
+  else
     $tableparam="border=\"0\" cellpadding=\"5\""; // default
 
-  $rowparam = $params ['row'];    // args for each row
-  if (!isset ($rowparam))
+  if (isset ($params ['row']))
+    $rowparam = $params ['row'];    // args for each row
+  else
     $rowparam="valign=\"top\"";         // default
 
-  $LHcolparam = $params ['LH'];    // args for LH column
-  if (!isset ($LHcolparam))
+  if (isset ($params ['LH']))
+    $LHcolparam = $params ['LH'];    // args for LH column
+  else
     $LHcolparam="valign=\"top\" align=\"right\"";         // default
 
-  $RHcolparam = $params ['RH'];    // args for RH column
-  if (!isset ($RHcolparam))
+  if (isset ($params ['RH']))
+    $RHcolparam = $params ['RH'];    // args for RH column
+  else
     $RHcolparam="valign=\"top\"";         // default
       
-  $bfont = $params ['font'];    // font definition
-  
-//  if (!isset ($bfont))
-//    $bfont="<font size=\"-1\">";         // default
-
-  if (!empty ($bfont))    // must terminate the font definition
+  if (isset ($params ['font']))
+    {
+    $bfont = $params ['font'];    // font definition
     $efont = "</font>";
+    }     
+  else
+    {
+    $bfont = "";
+    $efont = "";
+   }
   
   // sanity check - we can't have errors for non-input fields
 
@@ -1349,12 +1352,15 @@ function ShowTable ($table, $params, $specials)
     reset ($specials);
     while (list ($label, $contents) = each ($specials))
       {
-      $error = $contents ['error'];
-      if ($error && $error != '*' && !$contents ['input'])
+      if (isset ($contents ['error']))
         {
-        ShowError ("Implementation error - error message \"$error\" for field \"$label\""
-                 . " however this field is not an input field.");
-        $implementation_error = true;
+        $error = $contents ['error'];
+        if ($error != '*' && !$contents ['input'])
+          {
+          ShowError ("Implementation error - error message \"$error\" for field \"$label\""
+                   . " however this field is not an input field.");
+          $implementation_error = true;
+          }
         }
       } // end of checking specials
   
@@ -1373,7 +1379,11 @@ function ShowTable ($table, $params, $specials)
     {
    
     // any special processing for this item?
-    $special = $specials [$label];
+    if (isset ($specials [$label]))
+      $special = $specials [$label];
+    else
+      $special = "";
+      
     $html = false;
     $heading = false;
     $breaks = false;
@@ -1388,22 +1398,50 @@ function ShowTable ($table, $params, $specials)
     // if the word is in the array, then it is enabled
     if (is_array ($special))
       {
-      $html = $special ['html'];                  // HTML encoded
-      $heading = $special ['heading'];            // this row is heading
-      $breaks = $special ['breaks'];              // line breaks wanted
-      $inputname = $special ['input'];            // name of input field
-      $size = $special ['size'];                  // size of it on screen
-      $maxlength = $special ['maxlength'];        // max length of it
-      $type = $special ['type'];                  // type of input (text, password, combo, multiline, bool)
-      $values = $special ['values'];              // values for combo box
-      $rows =   $special ['rows'];                // rows in multiline box
-      $cols =   $special ['cols'];                // cols in multiline box
-      $error = $special ['error'];                // this row is in error
-      $comment = $special ['comment'];            // comment pertaining to this row
-      $required = $special ['required'];          // is field required?
-      $htmlcomment = $special ['htmlcomment'];    // HTML comment pertaining to this row
+      if (isset ($special ['html']))
+        $html = $special ['html'];                  // HTML encoded
+        
+      if (isset ($special ['heading']))
+        $heading = $special ['heading'];            // this row is heading
+        
+      if (isset ($special ['breaks']))
+        $breaks = $special ['breaks'];              // line breaks wanted
+        
+      if (isset ($special ['input']))
+        $inputname = $special ['input'];            // name of input field
+        
+      if (isset ($special ['size']))
+        $size = $special ['size'];                  // size of it on screen
+        
+      if (isset ($special ['maxlength']))
+        $maxlength = $special ['maxlength'];        // max length of it
+        
+      if (isset ($special ['type']))
+        $type = $special ['type'];                  // type of input (text, password, combo, multiline, bool)
+        
+      if (isset ($special ['values']))
+        $values = $special ['values'];              // values for combo box
+        
+      if (isset ($special ['rows']))
+        $rows =   $special ['rows'];                // rows in multiline box
+        
+      if (isset ($special ['cols']))
+        $cols =   $special ['cols'];                // cols in multiline box
+        
+      if (isset ($special ['error']))
+        $error = $special ['error'];                // this row is in error
+        
+      if (isset ($special ['comment']))
+        $comment = $special ['comment'];            // comment pertaining to this row
+        
+      if (isset ($special ['required']))
+        $required = $special ['required'];          // is field required?
+        
+      if (isset ($special ['htmlcomment']))
+        $htmlcomment = $special ['htmlcomment'];    // HTML comment pertaining to this row
+        
 //      $bold = $special ['bold'];                  // is description in bold?
-      if ($special ['description'])
+      if (isset ($special ['description']))
         $description = $special ['description'];  // description of this row
       
       if (empty ($type))
@@ -1535,7 +1573,7 @@ function ShowTable ($table, $params, $specials)
             echo "autofocus ";
             $first_input = false;  
             } // end of first one
-         if ($required)
+         if (isset ($required))
             echo "required ";
           echo "/>\n";
           break;    // end of default input type
@@ -1615,10 +1653,9 @@ while ($row = mysqli_fetch_array ($result))
 
   // ------ excerpt -------
 
-  $excerpt = $row ["excerpt"];
-  
-  if (!empty ($excerpt))
+  if (isset ($row ["excerpt"]))
     {
+    $excerpt = $row ["excerpt"];
     bList (); // indent
     echo "<font size=-2>";
     if ($row ['html'])
@@ -1627,7 +1664,9 @@ while ($row = mysqli_fetch_array ($result))
     echo ("\n</font><br>\n"); 
     eList ();   // unindent
     }
-    
+  else
+    $excerpt = "";
+      
   } // end of reading each row
 
 if ($count)
@@ -2770,24 +2809,59 @@ function fixsql ($sql)
   
 function getGPC ($name)
   {
-  if ($_GET [$name])
-    return $_GET [$name];
-  if ($_POST [$name])
-    return $_POST [$name];
-  if ($_COOKIE [$name])
-    return $_COOKIE [$name];
-  
+  if (isset ($_GET [$name]))
+    return trim ($_GET [$name]);
+  if (isset ($_POST [$name]))
+    return trim ($_POST [$name]);
+  if (isset ($_COOKIE [$name]))
+    return trim ($_COOKIE [$name]);
   return false;
   }  // getGPC
   
+function getGP ($name)
+  {
+  if (isset ($_GET [$name]))
+    return trim ($_GET [$name]);
+  if (isset ($_POST [$name]))
+    return trim ($_POST [$name]);
+  return false;
+  }  // getGP
+    
+function getPGC ($name)
+  {
+  if (isset ($_POST [$name]))
+    return trim ($_POST [$name]);
+  if (isset ($_GET [$name]))
+    return trim ($_GET [$name]);
+  if (isset ($_COOKIE [$name]))
+    return trim ($_COOKIE [$name]);
+  return false;
+  }  // getPGC
+    
 function getPG ($name)
   {
-  if ($_POST [$name])
-    return $_POST [$name];
-  if ($_GET [$name])
-    return $_GET [$name];
+  if (isset ($_POST [$name]))
+    return trim ($_POST [$name]);
+  if (isset ($_GET [$name]))
+    return trim ($_GET [$name]);
   
   return false;
   }  // getPG
+    
+function getP ($name)
+  {
+  if (isset ($_POST [$name]))
+    return trim ($_POST [$name]);
+  
+  return false;
+  }  // getP
+    
+function getG ($name)
+  {
+  if (isset ($_GET [$name]))
+    return trim ($_GET [$name]);
+  
+  return false;
+  }  // getG
     
 ?>

@@ -327,7 +327,7 @@ function CheckAdminSession ()
   global $TABLE_AUDIT_LOGON;
 
   // do NOT get POST variable or we switch users when editing the user table
-  if (empty ($adminsession) && isset ($_GET ['session']))
+  if (isset ($_GET ['session']))
     $adminsession = $_GET ['session'];
   if (empty ($adminsession) && isset ($_COOKIE ['session']))
     $adminsession = $_COOKIE ['session'];
@@ -1165,11 +1165,11 @@ function shLink (&$result, $description, $destination, $params="", $newwindow=fa
   if (!isset ($userinfo ['have_cookie_ok']) && isset ($userinfo ['session']))
     $session = $userinfo ['session'];
     
-  if (isset ($session) && isset ($token))
+  if ($session && $token)
     $session = "?session=$session&amp;token=$token";
-  else if (isset ($session))
+  else if ($session)
     $session = "?session=$session";
-  else if (isset ($token))
+  else if ($token)
     $session = "?token=$token";
   else
     $session = "";
@@ -2275,7 +2275,11 @@ function DoExtendedDate (& $thedate, $defaultEndOfPeriod = false)
     // found one match - use the corresponding date
     
     // first see if they followed it by the word 'week'
-    $word = trim($items [1]);
+    if (isset ($items [1]))
+      $word = trim($items [1]);
+    else
+      $word = "";
+      
     if (count ($items) == 2 && $word != "")
       {
       if ($word == substr ('week', 0, strlen ($word)))

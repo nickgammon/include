@@ -934,9 +934,9 @@ if (!empty ($userinfo) || $doingMail ||
     isset ($foruminfo ['moderator_section']))
   {
   echo "<p></p><table border=\"0\" cellpadding=\"5\"> "
-     . "<tr bgcolor=\"$COLOUR_TIMING_BGND\"> <td><font color=\"$COLOUR_TIMING_TEXT\"><b>\n";
+     . "<tr bgcolor=\"$COLOUR_TIMING_BGND\"> <td><font color=\"$COLOUR_TIMING_TEXT\">\n";
   printf ("<b>Page execution time: %6.3f seconds</b>\n", $diff);
-  echo "</b></font></td></tr></table><p></p>\n";
+  echo "</font></td></tr></table><p></p>\n";
   }
   
 echo $control ['tail'];
@@ -968,7 +968,7 @@ global $pagestarttime, $userinfo, $doingMail, $foruminfo;
 if (!empty ($userinfo) ||
     $foruminfo ['admin'])
   {
-  echo "<br>Debug: " . nl2br (htmlspecialchars ($what)) . "<br>\n";
+  echo "<br>Debug: " . nl2br_http (htmlspecialchars ($what)) . "<br>\n";
   }
   }     // end of DebugSomething
   
@@ -1027,13 +1027,13 @@ function ShowArray ($name, $thearray, $recurse = false)
   
 function DebugVars ()
   { 
-  echo "<hr/>\n";
+  echo "<hr>\n";
   ShowArray ("HTTP_POST_VARS", $_POST, true);
   ShowArray ("HTTP_GET_VARS", $_GET);
   ShowArray ("HTTP_COOKIE_VARS", $_COOKIE);
   ShowArray ("HTTP_SERVER_VARS", $_SERVER);
   ShowArray ("GLOBALS", $GLOBALS);
-  echo "<hr/>\n";
+  echo "<hr>\n";
   } // end of DebugVars  
   
 //----------------------------------------------------------------------------
@@ -1071,14 +1071,14 @@ function eRow ()
 function tHead ($text, $fontsize=-1, $align="left", $colspan=1)
   {
   echo "<th align=\"$align\" colspan=\"$colspan\"><font size=\"$fontsize\">"
-      . nl2br (htmlspecialchars ($text))
+      . nl2br_http (htmlspecialchars ($text))
       . "</font></th>\n";
   }  // end of tHead
 
 // table heading extra - add extra HTML (eg. class, colspan) 
 function tHeadx ($text, $extra="")
   {
-  echo "<th $extra> " . nl2br (htmlspecialchars ($text)) . "</th>\n";
+  echo "<th $extra> " . nl2br_http (htmlspecialchars ($text)) . "</th>\n";
   }  // end of tHeadx
 
 // table heading (HTML) - with class specified  
@@ -1098,7 +1098,7 @@ function tHeadH ($text, $fontsize=-1, $align="left", $colspan=1)
 // table data extra - add extra HTML (eg. class, colspan) 
 function tDatax ($text, $extra="")
   {
-  echo "<td $extra> " . nl2br (htmlspecialchars ($text)) . "</td>\n";
+  echo "<td $extra> " . nl2br_http (htmlspecialchars ($text)) . "</td>\n";
   }  // end of tDatax
 
 // table data extra (HTML) - add extra HTML (eg. class, colspan) 
@@ -1111,7 +1111,7 @@ function tDataHx ($text, $extra="")
 function tData ($text, $fontsize=-1, $align="left", $colspan=1)
   {
   echo "<td align=\"$align\" colspan=\"$colspan\"><font size=\"$fontsize\">"
-      . nl2br (htmlspecialchars ($text))
+      . nl2br_http (htmlspecialchars ($text))
       . "</font></td>\n";
   } // end of tData 
 
@@ -1150,7 +1150,7 @@ function eOList ()
 // list item
 function LI ()
   {
-  echo "<li/>";
+  echo "<li>";
   } // end of LI
 
 // returns an hlink in a string
@@ -1468,7 +1468,7 @@ function ShowTable ($table, $params, $specials)
     
     // if 'breaks' then they want to keep line breaks
     if ($breaks)
-      $contents = nl2br (htmlentities ($contents));
+      $contents = nl2br_http (htmlentities ($contents));
     else if (!$html)
       $contents = htmlspecialchars ($contents);
       
@@ -1597,7 +1597,7 @@ function ShowTable ($table, $params, $specials)
     if (!empty ($comment))
       {
       echo "<br><font size=\"-2\">";
-      echo (nl2br (htmlentities($comment)));
+      echo (nl2br_http (htmlentities($comment)));
       echo ("\n</font>\n"); 
       }
 
@@ -2950,5 +2950,9 @@ function getTz ()
   return 0;  // not logged in? Assume UTC
 }
 
+function nl2br_http ($text)
+  {
+  return str_replace ("\n", "<br>", $text);
+  } // end of nl2br_http
   
 ?>

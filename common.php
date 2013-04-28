@@ -2940,6 +2940,18 @@ function isLoggedOnToForum ()
   return $foruminfo ['bbuser_id'];
   } // end of isLoggedOnToForum
 
+function canUpdate ()
+{
+ global $access;
+ return isset ($access ['can_update']) && $access ['can_update'];
+} // end of canUpdate
+
+function canInsert ()
+{
+ global $access;
+ return isset ($access ['can_insert']) && $access ['can_insert'];
+} // end of canInsert
+
 function getTz ()
 {
   global $foruminfo;

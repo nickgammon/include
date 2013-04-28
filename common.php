@@ -2874,5 +2874,81 @@ function getG ($name)
   
   return false;
   }  // getG
+ 
+function isAdmin ()
+ {
+ global $foruminfo;
+ return isset ($foruminfo ['admin']) && $foruminfo ['admin']; 
+ } // end of isAdmin 
+ 
+function isGlobalModerator ()
+ {
+ global $foruminfo;
+ return isset ($foruminfo ['global_moderator']) && $foruminfo ['global_moderator']; 
+ } // end of isGlobalModerator
+ 
+function isAdminOrModerator ()
+{
+  global $foruminfo, $headingrow;
+  
+  if (!isset ($foruminfo) || !$foruminfo)
+    return false;
+   
+  if (isAdmin () || isGlobalModerator ())
+    return true;
+
+  if (!isset ($headingrow) || !$headingrow)
+    return false;
+      
+  if (isset ($foruminfo ['moderator_topic']) && isset ($headingrow ['bbtopic_id']))
+  if ($foruminfo ['moderator_topic'] == $headingrow ['bbtopic_id'])
+    return true;
     
+  if (isset ($foruminfo ['moderator_section']) && isset ($headingrow ['bbsection_id']))
+  if ($foruminfo ['moderator_section'] == $headingrow ['bbsection_id'])
+    return true;
+    
+  return false;
+} // end of isAdminOrModerator
+
+function isSubjectAuthor ()
+{
+  global $foruminfo, $subjectrow;
+
+  if (!isset ($foruminfo) || !$foruminfo)
+    return false;
+    
+  if (!isset ($subjectrow) || !$subjectrow)
+    return false;
+  
+  if (!isset ($foruminfo ['bbuser_id']))
+    return false;
+    
+  if (!isset ($subjectrow ['author']))
+    return false;
+    
+  return $foruminfo ['bbuser_id'] == $subjectrow ['author'];  
+} // end of isAuthor
+
+function isLoggedOnToForum ()
+  {
+  global $foruminfo;
+
+  if (!isset ($foruminfo) || !$foruminfo)
+    return false;
+  
+  return $foruminfo ['bbuser_id'];
+  } // end of isLoggedOnToForum
+
+function getTz ()
+{
+  global $foruminfo;
+  
+  if (isset ($foruminfo ['time_zone']))
+    return $foruminfo ['time_zone'];
+    
+  return 0;  // not logged in? Assume UTC
+}
+
+  
 ?>

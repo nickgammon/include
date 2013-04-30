@@ -2937,7 +2937,7 @@ function isLoggedOn ()
   if (!isset ($userinfo) || !$userinfo)
     return false;
   
-  return $userinfo ['userid'];
+  return $userinfo ['logged_on'];
   } // end of isLoggedOn
   
 function isLoggedOnToForum ()

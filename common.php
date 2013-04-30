@@ -2930,6 +2930,16 @@ function isSubjectAuthor ()
   return $foruminfo ['bbuser_id'] == $subjectrow ['author'];  
 } // end of isAuthor
 
+function isLoggedOn ()
+  {
+  global $userinfo;
+
+  if (!isset ($userinfo) || !$userinfo)
+    return false;
+  
+  return $userinfo ['userid'];
+  } // end of isLoggedOn
+  
 function isLoggedOnToForum ()
   {
   global $foruminfo;

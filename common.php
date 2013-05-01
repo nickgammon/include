@@ -2934,7 +2934,7 @@ function isLoggedOn ()
   {
   global $userinfo;
 
-  if (!isset ($userinfo) || !$userinfo)
+  if (!isset ($userinfo) || !$userinfo || !isset ($userinfo ['logged_on']))
     return false;
   
   return $userinfo ['logged_on'];

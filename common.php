@@ -787,7 +787,6 @@ function Init ($title,
   // note when we started, for timing purposes
   $pagestarttime = getmicrotime ();
  
-  header("Content-type: text/html; charset=utf-8");
   header("Cache-Control: no-cache, must-revalidate"); // HTTP/1.1
   header("Expires: Mon, 26 Jul 1997 05:00:00 GMT"); // Date in the past
  
@@ -806,10 +805,15 @@ function Init ($title,
   $control ['timeformat'] = "%r";  // default time format
   $control ['datetimeformat'] = "%e %b %Y %r";  // default date/time format
   $control ['shortdatetimeformat'] = "%e %b %r";  // default short date/time format
+  $control ['encoding'] = "UTF-8";  // character encoding
   
   // HTML control items
   GetControlItems ();
-       
+
+  $encoding = $control ['encoding'];
+  
+  header("Content-type: text/html; charset=$encoding");
+         
   // empty title means we are doing a "printable" page
   if ($title)
     {

@@ -1245,7 +1245,7 @@ function Permission ($todo)
   
   $PHP_SELF = $_SERVER['PHP_SELF'];   
   
-  if (!$userinfo [$todo])
+  if (!$userinfo || !$userinfo [$todo])
     {
     echo "<p>";
     hLink ("Log on", $ADMIN_DIRECTORY . "logon.php?returnto=" . urlencode ($_SERVER ['REQUEST_URI']));
@@ -2957,14 +2957,20 @@ function isLoggedOnToForum ()
 function canUpdate ()
 {
  global $access;
- return isset ($access ['can_update']) && $access ['can_update'];
+ return isset ($access ['can_update']) && $access ['can_update'] && !ServerReadOnly ();
 } // end of canUpdate
 
 function canInsert ()
 {
  global $access;
- return isset ($access ['can_insert']) && $access ['can_insert'];
+ return isset ($access ['can_insert']) && $access ['can_insert'] && !ServerReadOnly ();
 } // end of canInsert
+
+function canDelete ()
+{
+ global $access;
+ return isset ($access ['can_delete']) && $access ['can_delete'] && !ServerReadOnly ();
+} // end of canDelete
 
 function getTz ()
 {
@@ -2981,4 +2987,22 @@ function nl2br_http ($text)
   return str_replace ("\n", "<br>", $text);
   } // end of nl2br_http
   
+function ServerReadOnly ()
+{
+ return (is_file ($_SERVER['DOCUMENT_ROOT'] . "ReadOnly.txt"));
+} // end of ServerReadOnly
+
+/* ********************************************************************************   
+ IsReadOnly - shows a message if the server is read-only (the backup server)
+ ********************************************************************************  */      
+function IsReadOnly ($align = 'left')
+  {
+  if (ServerReadOnly ())
+    {
+    echo ("<p style=\"text-align:$align; color:saddlebrown; font-size:x-small;\">This is the stand-by server. It is read-only.</p>");
+    return true;
+  }
+  return false;        
+} // end of IsReadOnly
+
 ?>

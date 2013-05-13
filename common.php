@@ -2989,7 +2989,8 @@ function nl2br_http ($text)
   
 function ServerReadOnly ()
 {
- return (is_file ($_SERVER['DOCUMENT_ROOT'] . "ReadOnly.txt"));
+ return (is_file (str_replace ("//", "/", 
+	$_SERVER['DOCUMENT_ROOT'] . '/ReadOnly.txt')));
 } // end of ServerReadOnly
 
 /* ********************************************************************************   

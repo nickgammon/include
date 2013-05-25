@@ -3006,4 +3006,38 @@ function IsReadOnly ($align = 'left')
   return false;        
 } // end of IsReadOnly
 
+/* ********************************************************************************   
+ ShowBackupDays - shows number of days since the last backup
+ ********************************************************************************  */      
+function ShowBackupDays ()
+  {
+  /*
+    find when last backup
+  */  
+   
+  $query = "SELECT contents FROM control WHERE item = 'last_backup'";   
+  $row = dbQueryOne ($query); 
+  $last_backup_time = $row [0];
+    
+  /*
+    calculate days since last backup
+  */  
+    
+  $query = "SELECT TO_DAYS(NOW()) - TO_DAYS('$last_backup_time')";   
+     
+  $row = dbQueryOne ($query);
+  
+  $days_since_backup = $row [0];
+  
+  if ($days_since_backup <= 0)
+    echo "<p><font size=1 color=darkgreen>Last off-site backup: today.</font></p>";
+  else if ($days_since_backup == 1)
+    echo "<p><font size=1 color=darkgreen>Last off-site backup: yesterday.</font></p>";
+  else if ($days_since_backup > 6)
+    echo "<p><font color=red><b>Last off-site backup $days_since_backup days ago.</b></font></p>";
+  else
+    echo "<p><font size=1 color=darkgreen>Last off-site backup $days_since_backup days ago.</font></p>";
+
+  } // end of Show_Backup_Days
+  
 ?>

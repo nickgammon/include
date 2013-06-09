@@ -2680,7 +2680,7 @@ function SaveOneRecord ($table, $primary_key_name, $primary_key)
       " -p'$GENERAL_DATABASE_PASSWORD' " .
       " -h'$DATABASE_SERVER' " .
       " '$GENERAL_DATABASE_NAME' '$table' " .
-      " --where='$primary_key_name=$primary_key' --compact -t -c ",
+      " --where=\"$primary_key_name='$primary_key'\" --compact -t -c ",
       $sql, $returnvar);
   
   if ($returnvar)

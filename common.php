@@ -528,7 +528,7 @@ function CheckForumToken ()
   
   
   $forumtoken = GetPGC ('token');
-
+  
   $foruminfo = "";
     
   // try and work out their IP address
@@ -698,14 +698,14 @@ function CheckForumToken ()
       $foruminfo = "";
         
   // check for a problem user logging in
-  if (isset ($foruminfo ['blocked']))
+  if (isset ($foruminfo ['blocked']) && $foruminfo ['blocked'])
     {
     $blocked = true;    // can't do it
     $foruminfo = "";
     }
   else
     GetUserColours ();
-        
+    
   } // end of CheckForumToken  
 
 // log off by changing the session id
@@ -1887,10 +1887,15 @@ function ValidateOneField ($name, $type, $notnull, $maxsize, &$specials)
   {
   global $have_error;
  
-  // remove leading/trailing spaces
-  $_POST [$name] = trim ($_POST [$name]);
-  $value = stripslashes ($_POST [$name]); // get value
-
+  if (isset ($_POST [$name]))
+    {
+    // remove leading/trailing spaces
+    $_POST [$name] = trim ($_POST [$name]);
+    $value = stripslashes ($_POST [$name]); // get value
+    }
+  else
+    $value = "";
+    
   // check for empty on NOT NULL fields
   if (!strlen ($value))
     {

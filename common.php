@@ -1503,7 +1503,20 @@ function ShowTable ($table, $params, $specials)
             } // end of each item
           echo "</select>\n";
           break;    // end of combo box
-        
+
+        case 'list':
+          echo "<select name=\"$inputname\" size=\"$rows\">\n";
+          reset ($values);
+          while (list ($selectvalue, $selectdescription) = each ($values))
+            {
+            echo "<option value=\"$selectvalue\" ";
+            if ($contents == $selectvalue)
+              echo "selected ";
+            echo "/>$selectdescription\n";
+            } // end of each item
+          echo "</select>\n";
+          break;    // end of list box
+                  
         case 'multiline':
           echo "<textarea name=\"$inputname\" wrap=\"virtual\" ";
           if (isset ($rows))

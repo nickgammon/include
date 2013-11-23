@@ -293,7 +293,7 @@ in, otherwise it isn't necessary.
 
 */
 
-function CheckSessionID ()
+function CheckSessionID ($noHTML = false)
   {
   global $control, $userinfo, $adminaction, $ADMIN_DIRECTORY;
 
@@ -309,6 +309,10 @@ function CheckSessionID ()
     }
    
   $userinfo ["logged_on"] = true;
+  
+  if ($noHTML)
+    return;
+    
   echo "<p align=\"right\"><font size=\"1\">Logged on as <b>"
      . $userinfo ["username"]
      . "</b>&nbsp;&nbsp;";
@@ -761,7 +765,8 @@ function Init ($title,
                $dbuser = "", 
                $dbname = "",
                $dbpassword = "",
-               $otherheaderhtml = "")
+               $otherheaderhtml = "",
+               $noContentType = false)
   {
   global $userinfo, $logoff, $control, $PHP_SELF,
          $viewsource, $PATH_TRANSLATED, $pagestarttime, $doingMail;
@@ -812,6 +817,13 @@ function Init ($title,
 
   $encoding = $control ['encoding'];
   
+  // for CSV files etc.
+  if ($noContentType)
+    {
+    CheckSessionID (true);
+    return;
+    }
+    
   header("Content-type: text/html; charset=$encoding");
          
   // empty title means we are doing a "printable" page
@@ -827,6 +839,8 @@ function Init ($title,
     if ($viewsource == "yes")
       ShowSource ($PATH_TRANSLATED);
     }
+  else
+    CheckSessionID (true);
   
   } // end of Init
  

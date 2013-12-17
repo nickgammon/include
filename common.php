@@ -399,6 +399,7 @@ function HandleAuthenticator ()
   $publicUID = substr ($decodedToken, 0, 6);
   $encryptedToken = substr ($decodedToken, 6);
   
+  /*
   // the public user ID is not encrypted
   $publicUID_converted = ord ($publicUID [0]) + 
                         (ord ($publicUID [1]) <<  8) +
@@ -407,23 +408,23 @@ function HandleAuthenticator ()
                         (ord ($publicUID [4]) << 32) +
                         (ord ($publicUID [5]) << 40); 
 
-/*                                                
-   echo "<p>Public ID = ";
-   echo (bin2hex ($publicUID));
-   echo "<p>";
+                        */
+                    
+   $publicUID_converted = bin2hex ($publicUID);
    
-   echo "<p>Public ID converted = ";
+   /*   
+   echo "<p>publicUID_converted = ";
    echo ($publicUID_converted);
    echo "<p>";
-
+   
    echo "<p>encryptedToken = ";
    echo (bin2hex ($encryptedToken));
    echo "<p>";
+  */
   
-   */
    
   // see if this user is on file (for the desired username)      
-  $authrow = dbQueryOne ("SELECT * FROM authenticator WHERE User = $userid AND Public_UID = $publicUID_converted");
+  $authrow = dbQueryOne ("SELECT * FROM authenticator WHERE User = $userid AND Public_UID = '$publicUID_converted'");
       
   if (!$authrow)
     {
@@ -470,6 +471,7 @@ function HandleAuthenticator ()
     return false;
     }
     
+  /*
   // the private user ID is the first 6 bytes (0 to 5)
   $privateUID = ord ($decrypted [0]) + 
                (ord ($decrypted [1]) <<  8) +
@@ -478,13 +480,17 @@ function HandleAuthenticator ()
                (ord ($decrypted [4]) << 32) +
                (ord ($decrypted [5]) << 40); 
     
-   /*
-   echo "<p>Private ID converted = ";
-   echo ($privateUID);
-   echo "<p>";
    */
+   
+   $privateUID_converted = bin2hex (substr ($decrypted, 0, 6));
+               
+
+   echo "<p>Private ID converted = ";
+   echo ($privateUID_converted);
+   echo "<p>";
+  
           
-   if ($privateUID != $authrow ['Secret_UID'])
+   if ($privateUID_converted != $authrow ['Secret_UID'])
     {
     $log_on_error = "Authentication failed (Wrong secret user ID)"; 
     return false;
@@ -530,7 +536,10 @@ function HandleAuthenticator ()
    $Auth_ID = $authrow ['Auth_ID'];
    
    // update database so we don't use this token again
-   dbUpdate ("UPDATE authenticator SET Counter = $totalCount WHERE Auth_ID = $Auth_ID");
+   dbUpdate ("UPDATE authenticator SET " .
+            " Counter = $totalCount, " .
+            " Date_Last_Used = NOW() " .
+            " WHERE Auth_ID = $Auth_ID");
    
    return true;
   } // end of HandleAuthenticator

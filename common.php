@@ -43,6 +43,8 @@ $COLOUR_ERROR_BGND = "#A52A2A"; // brown
 $COLOUR_TIMING_TEXT = "#FFFFFF";  // white
 $COLOUR_TIMING_BGND = "#008000";  // green
 
+$log_on_error = "That username/password combination is not on file";
+
 DefaultColours ();
 
 $MONTHS = array 
@@ -323,13 +325,224 @@ function CheckSessionID ($noHTML = false)
     
   } // end of CheckSessionID  
 
+	
+// for the Yubikey
+function crc16 ($data, $len)
+ {
+	$crc = 0xFFFF;
+	for ($pos = 0; $pos < $len; $pos++)
+		{
+		$crc ^= ord ($data [$pos]);
+		for ($i = 0; $i < 8; $i++)
+			{
+			$j = $crc & 1;
+			$crc >>= 1;
+			if ($j)
+			 $crc ^= 0x8408;
+			}  // end of for each bit
+		} // end of for each byte
+
+	return $crc;
+ }  // end of crc16
+  
+ function modHexDecode($token) 
+	{
+  $TRANSKEY = "cbdefghijklnrtuv"; // translation key used to ModHex a string
+  
+ 	$tokLen = strlen($token); 			// length of the token
+	$decoded = "";									// decoded string to be returned
+ 
+	// strings must have an even length
+	if ( $tokLen % 2 != 0 ) 
+  	return FALSE;
+ 
+	for ($i = 0; $i < $tokLen; $i += 2 ) 
+	  {
+    $high = strpos ($TRANSKEY, $token [$i]);
+    $low  = strpos ($TRANSKEY, $token [$i + 1]);
+    
+    // if there's an invalid character in the encoded $token, fail here.
+    if ( $high === FALSE || $low === FALSE )
+    				return FALSE;
+    
+    $decoded .= chr(($high << 4) | $low);
+	}
+	return $decoded;
+} // end of modHexDecode
+  
+function HandleAuthenticator ()
+  {
+  global $userinfo, $userid, $adminaction, $username;
+  global $log_on_error;
+  $authenticator  = trim ($_POST ['authenticator']);
+    
+  if (strlen ($authenticator) == 0)
+    {          
+    $log_on_error = "Authenticator required"; 
+    return false;
+    }
+
+  if (strlen ($authenticator) != 44)
+    {          
+    $log_on_error = "Authenticator token wrong length"; 
+    return false;
+    }
+    
+  $decodedToken = modHexDecode($authenticator);
+  
+  if (!$decodedToken)
+    {          
+    $log_on_error = "Authenticator token incorrect format"; 
+    return false;
+    }
+    
+  $publicUID = substr ($decodedToken, 0, 6);
+  $encryptedToken = substr ($decodedToken, 6);
+  
+  // the public user ID is not encrypted
+  $publicUID_converted = ord ($publicUID [0]) + 
+                        (ord ($publicUID [1]) <<  8) +
+                        (ord ($publicUID [2]) << 16) +
+                        (ord ($publicUID [3]) << 24) +
+                        (ord ($publicUID [4]) << 32) +
+                        (ord ($publicUID [5]) << 40); 
+
+/*                                                
+   echo "<p>Public ID = ";
+   echo (bin2hex ($publicUID));
+   echo "<p>";
+   
+   echo "<p>Public ID converted = ";
+   echo ($publicUID_converted);
+   echo "<p>";
+
+   echo "<p>encryptedToken = ";
+   echo (bin2hex ($encryptedToken));
+   echo "<p>";
+  
+   */
+   
+  // see if this user is on file (for the desired username)      
+  $authrow = dbQueryOne ("SELECT * FROM authenticator WHERE User = $userid AND Public_UID = $publicUID_converted");
+      
+  if (!$authrow)
+    {
+    $log_on_error = "That authenticator is not on file"; 
+    return false;
+    }
+
+   /*
+   echo "<p>AES_key = ";
+   echo ($authrow ['AES_key']);
+   echo "<p>";
+   
+   echo "<p>AES_key = ";
+   echo (bin2hex (pack('H*',$authrow ['AES_key'])));
+   echo "<p>";
+   
+  */
+                  
+  $decrypted = mcrypt_decrypt (MCRYPT_RIJNDAEL_128 , 
+                                pack('H*',$authrow ['AES_key']), 
+                                $encryptedToken, 
+                                MCRYPT_MODE_CBC, 
+                                str_repeat("\0", 16));
+    
+   /*
+   echo "<p>decrypted = ";
+   echo (bin2hex ($decrypted));
+   echo "<p>";
+     
+   */
+       
+   $crc = crc16 ($decrypted, 16);
+
+   /*
+   echo ( ($crc));
+   echo ( $crc == 0xf0b8 ? " OK" : " bad ");
+   echo "<p>";
+    
+   */
+   
+   if ($crc != 0xf0b8)
+    {
+    $log_on_error = "Authentication failed (CRC check)"; 
+    return false;
+    }
+    
+  // the private user ID is the first 6 bytes (0 to 5)
+  $privateUID = ord ($decrypted [0]) + 
+               (ord ($decrypted [1]) <<  8) +
+               (ord ($decrypted [2]) << 16) +
+               (ord ($decrypted [3]) << 24) +
+               (ord ($decrypted [4]) << 32) +
+               (ord ($decrypted [5]) << 40); 
+    
+   /*
+   echo "<p>Private ID converted = ";
+   echo ($privateUID);
+   echo "<p>";
+   */
+          
+   if ($privateUID != $authrow ['Secret_UID'])
+    {
+    $log_on_error = "Authentication failed (Wrong secret user ID)"; 
+    return false;
+    }
+              
+  // the session counter is the next 2 bytes (6 to 7)
+  $sessionCounter = ord ($decrypted [6]) + 
+                   (ord ($decrypted [7]) << 8);
+
+  /*                   
+  echo "<p>Session counter = ";
+   echo ($sessionCounter);
+   echo "<p>";
+    
+   */
+                  
+  // the timestamp is the next 3 bytes (8 to 10)
+  $timeStamp = ord ($decrypted [8]) + 
+              (ord ($decrypted [9]) <<  8) +
+              (ord ($decrypted [10]) << 16);
+                
+  // now the use counter (byte 11)
+  $useCounter = ord ($decrypted [11]);
+   
+  /*
+   echo "<p>Use counter = ";
+   echo ($useCounter);
+   echo "<p>";
+  
+   */
+   
+  // random number is 12 and 13
+  // CRC is 14 and 15 (giving a total of 16)
+  
+  $totalCount =  ($sessionCounter << 8) + $useCounter;
+          
+  if ($totalCount <= $authrow ['Counter'])
+    {
+    $log_on_error = "Authentication failed (token re-used)"; 
+    return false;
+    }
+  
+   $Auth_ID = $authrow ['Auth_ID'];
+   
+   // update database so we don't use this token again
+   dbUpdate ("UPDATE authenticator SET Counter = $totalCount WHERE Auth_ID = $Auth_ID");
+   
+   return true;
+  } // end of HandleAuthenticator
+  
 // this is for an *adminstrative* logon, eg. to edit SQL tables etc.
 
 function CheckAdminSession ()
   {
   global $userinfo, $userid, $adminaction, $username;
   global $TABLE_AUDIT_LOGON;
-
+  global $log_on_error;
+  
   // do NOT get POST variable or we switch users when editing the user table
   if (isset ($_GET ['session']))
     $adminsession = $_GET ['session'];
@@ -345,8 +558,8 @@ function CheckAdminSession ()
   if ($adminaction == "logon")   
     {
 
-    $username    = trim ($_POST ['username']);
-    $password    = trim ($_POST ['password']);
+    $username       = trim ($_POST ['username']);
+    $password       = trim ($_POST ['password']);
 
     $md5_password = md5 ($password);
     
@@ -365,11 +578,20 @@ function CheckAdminSession ()
           $userinfo = "";
           Problem ("You cannot log on from the IP address $remote_ip"); 
           }
+      $userid = $userinfo ['userid'];
                 
+      $authrow = dbQueryOne ("SELECT COUNT(*) AS counter FROM authenticator WHERE User = $userid");
+      
+      if ($authrow ['counter'] > 0 )
+       if (!HandleAuthenticator ())
+         {
+         $userinfo = "";
+         return;  // failed authentication
+         }
+        
       // generate session
       srand ((double) microtime () * 1000000);
       $session = md5 (uniqid (rand ()));
-      $userid = $userinfo ['userid'];
       
       $query = "UPDATE user SET session = '$session', "
              . "date_logged_on = "

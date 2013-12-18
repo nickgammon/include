@@ -370,31 +370,20 @@ function crc16 ($data, $len)
 	return $decoded;
 } // end of modHexDecode
   
-function HandleAuthenticator ()
+function HandleAuthenticator ($userid)
   {
-  global $userinfo, $userid, $adminaction, $username;
-  global $log_on_error;
   $authenticator  = trim ($_POST ['authenticator']);
     
   if (strlen ($authenticator) == 0)
-    {          
-    $log_on_error = "Authenticator required"; 
-    return false;
-    }
+    return "Authenticator required"; 
 
   if (strlen ($authenticator) != 44)
-    {          
-    $log_on_error = "Authenticator token wrong length"; 
-    return false;
-    }
+    return "Authenticator token wrong length"; 
     
   $decodedToken = modHexDecode($authenticator);
   
   if (!$decodedToken)
-    {          
-    $log_on_error = "Authenticator token incorrect format"; 
-    return false;
-    }
+    return "Authenticator token incorrect format"; 
     
   $publicUID = substr ($decodedToken, 0, 6);
   $encryptedToken = substr ($decodedToken, 6);
@@ -402,14 +391,11 @@ function HandleAuthenticator ()
   // the public user ID is not encrypted
   $publicUID_converted = bin2hex ($publicUID);
    
-  // see if this user is on file (for the desired username)      
+  // see if this authenticator is on file (for the desired user id)      
   $authrow = dbQueryOne ("SELECT * FROM authenticator WHERE User = $userid AND Public_UID = '$publicUID_converted'");
       
   if (!$authrow)
-    {
-    $log_on_error = "That authenticator is not on file"; 
-    return false;
-    }
+    return "That authenticator is not on file"; 
                   
   $decrypted = mcrypt_decrypt (MCRYPT_RIJNDAEL_128 , 
                                 pack('H*',$authrow ['AES_key']), 
@@ -420,18 +406,12 @@ function HandleAuthenticator ()
    $crc = crc16 ($decrypted, 16);
    
    if ($crc != 0xf0b8)
-    {
-    $log_on_error = "Authentication failed (CRC check)"; 
-    return false;
-    }
+     return "Authentication failed (CRC check)"; 
    
    $privateUID_converted = bin2hex (substr ($decrypted, 0, 6));
 
    if ($privateUID_converted != $authrow ['Secret_UID'])
-    {
-    $log_on_error = "Authentication failed (Wrong secret user ID)"; 
-    return false;
-    }
+     return "Authentication failed (Wrong secret user ID)"; 
               
   // the session counter is the next 2 bytes (6 to 7)
   $sessionCounter = ord ($decrypted [6]) + 
@@ -451,10 +431,7 @@ function HandleAuthenticator ()
   $totalCount =  ($sessionCounter << 8) + $useCounter;
           
   if ($totalCount <= $authrow ['Counter'])
-    {
-    $log_on_error = "Authentication failed (token re-used)"; 
-    return false;
-    }
+    return "Authentication failed (token re-used)"; 
   
    $Auth_ID = $authrow ['Auth_ID'];
    
@@ -464,7 +441,7 @@ function HandleAuthenticator ()
             " Date_Last_Used = NOW() " .
             " WHERE Auth_ID = $Auth_ID");
    
-   return true;
+   return false;  // no problems
   } // end of HandleAuthenticator
   
 // this is for an *adminstrative* logon, eg. to edit SQL tables etc.
@@ -515,12 +492,15 @@ function CheckAdminSession ()
       $authrow = dbQueryOne ("SELECT COUNT(*) AS counter FROM authenticator WHERE User = $userid");
       
       if ($authrow ['counter'] > 0 )
-       if (!HandleAuthenticator ())
+       {
+       $log_on_error = HandleAuthenticator ($userid);
+       if ($log_on_error)
          {
          $userinfo = "";
          return;  // failed authentication
          }
-        
+       }
+      
       // generate session
       srand ((double) microtime () * 1000000);
       $session = md5 (uniqid (rand ()));

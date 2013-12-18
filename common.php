@@ -399,29 +399,8 @@ function HandleAuthenticator ()
   $publicUID = substr ($decodedToken, 0, 6);
   $encryptedToken = substr ($decodedToken, 6);
   
-  /*
   // the public user ID is not encrypted
-  $publicUID_converted = ord ($publicUID [0]) + 
-                        (ord ($publicUID [1]) <<  8) +
-                        (ord ($publicUID [2]) << 16) +
-                        (ord ($publicUID [3]) << 24) +
-                        (ord ($publicUID [4]) << 32) +
-                        (ord ($publicUID [5]) << 40); 
-
-                        */
-                    
-   $publicUID_converted = bin2hex ($publicUID);
-   
-   /*   
-   echo "<p>publicUID_converted = ";
-   echo ($publicUID_converted);
-   echo "<p>";
-   
-   echo "<p>encryptedToken = ";
-   echo (bin2hex ($encryptedToken));
-   echo "<p>";
-  */
-  
+  $publicUID_converted = bin2hex ($publicUID);
    
   // see if this user is on file (for the desired username)      
   $authrow = dbQueryOne ("SELECT * FROM authenticator WHERE User = $userid AND Public_UID = '$publicUID_converted'");
@@ -431,65 +410,23 @@ function HandleAuthenticator ()
     $log_on_error = "That authenticator is not on file"; 
     return false;
     }
-
-   /*
-   echo "<p>AES_key = ";
-   echo ($authrow ['AES_key']);
-   echo "<p>";
-   
-   echo "<p>AES_key = ";
-   echo (bin2hex (pack('H*',$authrow ['AES_key'])));
-   echo "<p>";
-   
-  */
                   
   $decrypted = mcrypt_decrypt (MCRYPT_RIJNDAEL_128 , 
                                 pack('H*',$authrow ['AES_key']), 
                                 $encryptedToken, 
                                 MCRYPT_MODE_CBC, 
                                 str_repeat("\0", 16));
-    
-   /*
-   echo "<p>decrypted = ";
-   echo (bin2hex ($decrypted));
-   echo "<p>";
-     
-   */
-       
-   $crc = crc16 ($decrypted, 16);
 
-   /*
-   echo ( ($crc));
-   echo ( $crc == 0xf0b8 ? " OK" : " bad ");
-   echo "<p>";
-    
-   */
+   $crc = crc16 ($decrypted, 16);
    
    if ($crc != 0xf0b8)
     {
     $log_on_error = "Authentication failed (CRC check)"; 
     return false;
     }
-    
-  /*
-  // the private user ID is the first 6 bytes (0 to 5)
-  $privateUID = ord ($decrypted [0]) + 
-               (ord ($decrypted [1]) <<  8) +
-               (ord ($decrypted [2]) << 16) +
-               (ord ($decrypted [3]) << 24) +
-               (ord ($decrypted [4]) << 32) +
-               (ord ($decrypted [5]) << 40); 
-    
-   */
    
    $privateUID_converted = bin2hex (substr ($decrypted, 0, 6));
-               
 
-   echo "<p>Private ID converted = ";
-   echo ($privateUID_converted);
-   echo "<p>";
-  
-          
    if ($privateUID_converted != $authrow ['Secret_UID'])
     {
     $log_on_error = "Authentication failed (Wrong secret user ID)"; 
@@ -500,13 +437,6 @@ function HandleAuthenticator ()
   $sessionCounter = ord ($decrypted [6]) + 
                    (ord ($decrypted [7]) << 8);
 
-  /*                   
-  echo "<p>Session counter = ";
-   echo ($sessionCounter);
-   echo "<p>";
-    
-   */
-                  
   // the timestamp is the next 3 bytes (8 to 10)
   $timeStamp = ord ($decrypted [8]) + 
               (ord ($decrypted [9]) <<  8) +
@@ -514,13 +444,6 @@ function HandleAuthenticator ()
                 
   // now the use counter (byte 11)
   $useCounter = ord ($decrypted [11]);
-   
-  /*
-   echo "<p>Use counter = ";
-   echo ($useCounter);
-   echo "<p>";
-  
-   */
    
   // random number is 12 and 13
   // CRC is 14 and 15 (giving a total of 16)

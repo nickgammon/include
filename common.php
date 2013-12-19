@@ -1101,10 +1101,7 @@ global $pagestarttime, $userinfo, $doingMail, $foruminfo;
 $endtime = getmicrotime ();
 $diff = $endtime - $pagestarttime;
 
-if (!empty ($userinfo) || $doingMail || 
-    $foruminfo ['admin'] || 
-    $foruminfo ['moderator_topic'] ||
-    $foruminfo ['moderator_section'])
+if (isAdminOrModerator ())
   {
   echo "<p><b><font color=\"darkgreen\">\n";
   printf ("Elapsed time $where: %6.3f seconds\n", $diff);

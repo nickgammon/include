@@ -2838,18 +2838,29 @@ function edittableAudit ($audit_type_id, $table, $primary_key, $comment="")
 function SaveOneRecord ($table, $primary_key_name, $primary_key)
   {
   global $DATABASE_SERVER, $GENERAL_DATABASE_USER, $GENERAL_DATABASE_NAME, $GENERAL_DATABASE_PASSWORD;
+  global $control;
   
-  exec ("mysqldump -u'$GENERAL_DATABASE_USER' " .
+  $mysqldump = $control ['mysqldump'];
+  $sql = array ();
+  
+  exec ("$mysqldump -u'$GENERAL_DATABASE_USER' " .
       " -p'$GENERAL_DATABASE_PASSWORD' " .
       " -h'$DATABASE_SERVER' " .
       " '$GENERAL_DATABASE_NAME' '$table' " .
-      " --where=\"$primary_key_name='$primary_key'\" --compact -t -c ",
+      " --where=\"$primary_key_name='$primary_key'\" " .
+      " --skip-add-drop-table --skip-add-locks --skip-comments " .
+      " --skip-disable-keys -t -c ",
       $sql, $returnvar);
-  
+        
   if ($returnvar)
     Problem ("Got error $returnvar executing mysqldump to save undo information");
   
-  return $sql [0];
+  // skip comments, blank lines
+  for ($i = 0; $i < count ($sql); $i++)
+    if (trim ($sql [$i]) && substr (trim ($sql[$i]), 0, 2) != '/*')
+      break;
+      
+  return $sql [$i];
   } // end of SaveOneRecord
   
 /* ********************************************************************************   

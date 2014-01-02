@@ -201,7 +201,6 @@ function DefaultColours ()
   reset ($colours);
   while (list ($colourname, $value) = each ($colours))
     $colours [$colourname] ['current'] = $value ['default'];
-
   
    } // end of DefaultColours
 
@@ -370,7 +369,7 @@ function crc16 ($data, $len)
 	return $decoded;
 } // end of modHexDecode
   
-function HandleAuthenticator ($userid)
+function HandleAuthenticator ($userid, $authenticator_table)
   {
   $authenticator  = trim ($_POST ['authenticator']);
     
@@ -392,7 +391,7 @@ function HandleAuthenticator ($userid)
   $publicUID_converted = bin2hex ($publicUID);
    
   // see if this authenticator is on file (for the desired user id)      
-  $authrow = dbQueryOne ("SELECT * FROM authenticator WHERE User = $userid AND Public_UID = '$publicUID_converted'");
+  $authrow = dbQueryOne ("SELECT * FROM $authenticator_table WHERE User = $userid AND Public_UID = '$publicUID_converted'");
       
   if (!$authrow)
     return "That authenticator is not on file"; 
@@ -436,7 +435,7 @@ function HandleAuthenticator ($userid)
    $Auth_ID = $authrow ['Auth_ID'];
    
    // update database so we don't use this token again
-   dbUpdate ("UPDATE authenticator SET " .
+   dbUpdate ("UPDATE $authenticator_table SET " .
             " Counter = $totalCount, " .
             " Date_Last_Used = NOW() " .
             " WHERE Auth_ID = $Auth_ID");
@@ -493,7 +492,7 @@ function CheckAdminSession ()
       
       if ($authrow ['counter'] > 0 )
        {
-       $log_on_error = HandleAuthenticator ($userid);
+       $log_on_error = HandleAuthenticator ($userid, 'authenticator');
        if ($log_on_error)
          {
          $userinfo = "";
@@ -660,9 +659,220 @@ function ForumUserLoginFailure ($username, $password, $remote_ip)
             
   }  // end of ForumUserLoginFailure
 
+function completeForumLogon ($bbuser_id)
+{
+  global $foruminfo, $blocked, $banned_ip, $control;
+  // try and work out their IP address
+  $remote_ip = getIPaddress ();
+  
+  $server_name = $_SERVER["HTTP_HOST"];
+
+  $foruminfo = dbQueryOne ("SELECT *, "
+                       . "TO_DAYS(NOW()) - TO_DAYS(date_registered) AS days_on FROM bbuser "
+                       . "WHERE bbuser_id = '$bbuser_id'");
+
+  $username = $foruminfo ['username'];                      
+  // generate token
+  srand ((double) microtime () * 1000000);
+  $token = md5 (uniqid (rand ()));
+    
+  $query = "UPDATE bbuser SET "
+         . "  token = NULL, "
+         . "  date_logged_on = "
+         . "  '" . strftime ("%Y-%m-%d %H:%M:%S", utctime()) . "', "
+         . "  last_remote_ip = '$remote_ip' "
+         . "WHERE bbuser_id = $bbuser_id";
+  
+  dbUpdate ($query);
+
+  $query = "DELETE FROM bbusertoken WHERE bbuser_id = $bbuser_id AND date_expires <= NOW()";
+  
+  dbUpdate ($query);
+    
+  $expiry = $foruminfo ['cookie_expiry'];
+  if (!$expiry)
+    $expiry = 60 * 60 * 24 * 7;    // expire in 7 days as default
+   
+  $days = ceil ($expiry / (60 * 60 * 24));
+  
+  $query = "INSERT INTO bbusertoken "
+         . "(bbuser_id, token, date_logged_on, last_remote_ip, server_name, date_expires) "
+         . "VALUES ("
+         . "$bbuser_id, "
+         . "'$token', "
+         . "NOW(), "
+         . "'$remote_ip', "
+         . "'$server_name', "
+         . "DATE_ADD(NOW(), INTERVAL '$days' DAY) );";
+ 
+  dbUpdate ($query);
+   
+  $foruminfo ['token'] = $token; 
+  if ($foruminfo ['use_cookies'])   // only if wanted  
+    setcookie ('token', $foruminfo ['token'], utctime() + $expiry, "/");
+    
+  // clear login failure tracking records (so they don't accumulate)
+  $query = "DELETE FROM bbuser_login_failure "
+         . "WHERE username = '$username' AND failure_ip = '$remote_ip'";
+  dbUpdate ($query);
+            
+  // get rid of from bbsuspect_ip - this IP seems OK now
+  dbUpdate ("DELETE FROM bbsuspect_ip WHERE ip_address ='$remote_ip'");
+    
+  GetUserColours ();
+ 
+                            
+} // end of completeForumLogon
+
+
+function doForumLogon()
+  {
+  global $foruminfo, $blocked, $banned_ip, $control;
+  global $PHP_SELF;
+      
+  // get rid of quotes so they can paste from the email like this: "Nick Gammon"
+  $username = stripslashes (GetP ('username'));
+  $username = str_replace ("\"", " ", $username);
+  $username = fixsql (trim ($username));  // in case their name is O'Grady
+
+  $password = stripslashes (GetP ('password'));
+  $password = str_replace ("\"", " ", $password);
+  $password = fixsql (trim ($password));
+  
+  // try and work out their IP address
+  $remote_ip = getIPaddress ();
+  
+  $server_name = $_SERVER["HTTP_HOST"];
+    
+  $md5_password = md5 ($password);
+  
+  $foruminfo = dbQueryOne ("SELECT *, "
+                       . "TO_DAYS(NOW()) - TO_DAYS(date_registered) AS days_on FROM bbuser "
+                       . "WHERE username = '$username' "
+                       . "AND password = '$md5_password'");
+  
+  if (!$foruminfo)
+  {
+  ForumUserLoginFailure ($username, $password, $remote_ip);
+  return;
+  }   // end of not on file
+    
+  if ($foruminfo ['blocked'])
+    {
+    $blocked = true;    // can't do it
+    $foruminfo = "";
+    return; // give up
+    }
+    
+    
+  if ($foruminfo ['required_ip'])
+    if ($foruminfo ['required_ip'] != $remote_ip)
+      {
+      $foruminfo = "";
+      return;  // don't generate a cookie
+      }
+                           
+  $banned_row = dbQueryOne ("SELECT * FROM bbbanned_ip WHERE ip_address  = '$remote_ip'"); 
+  if ($banned_row)  
+    {
+    $banned_ip = true;    // can't do it
+    $foruminfo = "";
+    return; // give up
+    } // end of a match
+
+  $bbuser_id = $foruminfo ['bbuser_id'];
+                  
+  // generate token
+  srand ((double) microtime () * 1000000);
+  $token = md5 (uniqid (rand ()));
+  
+  // see if this guy needs authentication
+  $authrow = dbQueryOne ("SELECT COUNT(*) AS counter FROM authenticator_forum WHERE User = $bbuser_id");
+  
+  // no, so log them in
+  if ($authrow ['counter'] == 0 )
+    {
+    completeForumLogon ($bbuser_id);
+    return;
+    }     
+ 
+  // security check for when they respond
+  dbUpdate ("UPDATE authenticator_forum SET Token = '$token', Date_Token_Sent = NOW() WHERE User = $bbuser_id");
+    
+  // HTML control items
+  GetControlItems ();
+  
+  $encoding = $control ['encoding'];
+            
+  header("Content-type: text/html; charset=$encoding");
+  MessageHead ("Forum authentication", "", "");
+         
+  ?>
+  <form METHOD="post" ACTION="<?php echo $PHP_SELF;?>"> 
+  <table>
+  <tr>
+  <th align=right>Authenticator required:</th>
+  <td><input type=text name=authenticator size=64 maxlength=64 autofocus></td>
+  </tr>
+  <tr>
+  <td>
+  <input type=hidden name=action value="authenticator">
+  <?php
+  echo "<input type=hidden name=bbuser_id value=$bbuser_id>\n";
+  echo "<input type=hidden name=token value=\"$token\">\n";
+  ?>
+  <p><input Type=submit Value="Confirm"></p>
+  </td>
+  </tr>
+  </table>
+  </form>        
+  </html>
+  <?php
+    
+  MessageTail ();
+  die ();
+         
+  } // end of doForumLogon
+  
+function checkForumAuthenticator ()
+  {
+  global $foruminfo, $blocked, $banned_ip, $control;
+      
+  $bbuser_id  = GetP ('bbuser_id');
+  $token  = fixsql (GetP ('token'));
+  
+  CheckField ("forum user", $bbuser_id);
+  
+  // check user ID and token are OK
+  $authrow = dbQueryOne ("SELECT COUNT(*) AS counter FROM authenticator_forum " .
+                         "WHERE User = $bbuser_id ".
+                         "AND   Token = '$token' " .
+                         "AND   NOW() < DATE_ADD(Date_Token_Sent, INTERVAL 5 MINUTE) ");
+  
+  if ($authrow ['counter'] == 0)
+   {
+   $foruminfo = "";
+   return "Authenticator request out of date or invalid";  // that user id / token is not on file
+   }
+                          
+  $log_on_error = HandleAuthenticator ($bbuser_id, 'authenticator_forum');
+  if ($log_on_error)
+   {
+   $foruminfo = "";
+   return $log_on_error;  // failed authentication
+   }
+
+  // cancel that token string on the authenticator table
+  dbUpdate ("UPDATE authenticator_forum SET Token = '' WHERE User = $bbuser_id");
+  completeForumLogon ($bbuser_id);
+    
+  return false;
+  } // end of checkForumAuthenticator
+  
 function CheckForumToken ()
   {
   global $foruminfo, $blocked, $banned_ip;
+  global $log_on_error;
   
   
   $forumtoken = GetPGC ('token');
@@ -676,14 +886,6 @@ function CheckForumToken ()
   
   $action = GetP ('action');
 
-  // get rid of quotes so they can paste from the email like this: "Nick Gammon"
-  $username = stripslashes (GetP ('username'));
-  $username = str_replace ("\"", " ", $username);
-  $username = fixsql (trim ($username));  // in case their name is O'Grady
-
-  $password = stripslashes (GetP ('password'));
-  $password = str_replace ("\"", " ", $password);
-  $password = fixsql (trim ($password));
     
   // clear old login IP ban records (so they can reset by waiting a day)
   $query = "DELETE FROM bbbanned_ip "
@@ -704,103 +906,15 @@ function CheckForumToken ()
       
   if ($action == "logon")   
     {
-      
-    // try and work out their IP address
-    $remote_ip = getIPaddress ();
-    
-    $server_name = $_SERVER["HTTP_HOST"];
-      
-    $md5_password = md5 ($password);
-    
-    $foruminfo = dbQueryOne ("SELECT *, "
-                         . "TO_DAYS(NOW()) - TO_DAYS(date_registered) AS days_on FROM bbuser "
-                         . "WHERE username = '$username' "
-                         . "AND password = '$md5_password'");
-    
-    if ($foruminfo)
-      {
-      
-      if ($foruminfo ['blocked'])
-        {
-        $blocked = true;    // can't do it
-        $foruminfo = "";
-        return; // give up
-        }
-        
-        
-      if ($foruminfo ['required_ip'])
-        if ($foruminfo ['required_ip'] != $remote_ip)
-          {
-          return;  // don't generate a cookie
-          }
-                               
-      $banned_row = dbQueryOne ("SELECT * FROM bbbanned_ip WHERE ip_address  = '$remote_ip'"); 
-      if ($banned_row)  
-        {
-        $banned_ip = true;    // can't do it
-        $foruminfo = "";
-        return; // give up
-        } // end of a match
-                
-      // generate token
-      srand ((double) microtime () * 1000000);
-      $token = md5 (uniqid (rand ()));
-      $bbuser_id = $foruminfo ['bbuser_id'];
-            
-      $query = "UPDATE bbuser SET "
-             . "  token = NULL, "
-             . "  date_logged_on = "
-             . "  '" . strftime ("%Y-%m-%d %H:%M:%S", utctime()) . "', "
-             . "  last_remote_ip = '$remote_ip' "
-             . "WHERE bbuser_id = $bbuser_id";
-      
-      dbUpdate ($query);
-  
-      $query = "DELETE FROM bbusertoken WHERE bbuser_id = $bbuser_id AND date_expires <= NOW()";
-      
-      dbUpdate ($query);
-        
-      $expiry = $foruminfo ['cookie_expiry'];
-      if (!$expiry)
-        $expiry = 60 * 60 * 24 * 7;    // expire in 7 days as default
-       
-      $days = ceil ($expiry / (60 * 60 * 24));
-      
-      $query = "INSERT INTO bbusertoken "
-             . "(bbuser_id, token, date_logged_on, last_remote_ip, server_name, date_expires) "
-             . "VALUES ("
-             . "$bbuser_id, "
-             . "'$token', "
-             . "NOW(), "
-             . "'$remote_ip', "
-             . "'$server_name', "
-             . "DATE_ADD(NOW(), INTERVAL '$days' DAY) );";
-     
-      dbUpdate ($query);
-       
-      $foruminfo ['token'] = $token; 
-      if ($foruminfo ['use_cookies'])   // only if wanted  
-        setcookie ('token', $foruminfo ['token'], utctime() + $expiry, "/");
-        
-      // clear login failure tracking records (so they don't accumulate)
-      $query = "DELETE FROM bbuser_login_failure "
-             . "WHERE username = '$username' AND failure_ip = '$remote_ip'";
-      dbUpdate ($query);
-                
-      // get rid of from bbsuspect_ip - this IP seems OK now
-      dbUpdate ("DELETE FROM bbsuspect_ip WHERE ip_address ='$remote_ip'");
-        
-      GetUserColours ();
-      } // end of user on file
-     else
-       {
-       ForumUserLoginFailure ($username, $password, $remote_ip);
-       }
-
-     return;   // end of logon process
-    
+    doForumLogon ();
+    return;   // end of logon process
     } // end of logon wanted    
-
+  else if ($action == "authenticator")   
+    {
+    $log_on_error = checkForumAuthenticator ();
+    return;   // end of logon process
+    } // end of authenticator response   
+    
   if (empty ($forumtoken))    // not logged on yet
     return;   // no token, and not logging in
  

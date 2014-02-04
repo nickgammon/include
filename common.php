@@ -3281,11 +3281,24 @@ function ServerReadOnly ()
 	$_SERVER['DOCUMENT_ROOT'] . '/ReadOnly.txt')));
 } // end of ServerReadOnly
 
+function ServerPublic ()
+{
+ return (is_file (str_replace ("//", "/", 
+	$_SERVER['DOCUMENT_ROOT'] . '/PublicServer.txt')));
+} // end of ServerPublic
+
 /* ********************************************************************************   
  IsReadOnly - shows a message if the server is read-only (the backup server)
  ********************************************************************************  */      
 function IsReadOnly ($align = 'left')
   {
+    
+  if (ServerPublic ())
+    {
+    echo ("<p style=\"text-align:$align; color:saddlebrown; font-size:x-small;\">Public server.</p>");
+    return true;
+    }
+  
   if (ServerReadOnly ())
     {
     echo ("<p style=\"text-align:$align; color:saddlebrown; font-size:x-small;\">This is the stand-by server. It is read-only.</p>");

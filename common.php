@@ -3292,12 +3292,14 @@ function ServerPublic ()
  ********************************************************************************  */      
 function IsReadOnly ($align = 'left')
   {
-    
+  
+    /*  
   if (ServerPublic ())
     {
     echo ("<p style=\"text-align:$align; color:saddlebrown; font-size:x-small;\">Public server.</p>");
     return true;
     }
+  */
   
   if (ServerReadOnly ())
     {

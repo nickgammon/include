@@ -274,6 +274,7 @@ function OpenMailDatabase ()
 function GetControlItems ()
   {
   global $control, $dblink;
+  global $BODY_COLOUR, $HEADING_COLOUR;
   
   $result = mysqli_query ($dblink, "SELECT * FROM control") 
     or MajorProblem ("Select of control table failed: " . mysqli_connect_error ());
@@ -284,7 +285,14 @@ function GetControlItems ()
   mysqli_free_result ($result);  
  
   $control ['forum_url'] = "http://" . $_SERVER ["HTTP_HOST"] . "/forum";
-  }
+  $HEADING_COLOUR = '#72A2C9';
+  $BODY_COLOUR    = '#BBDEEA';
+  
+  if (isset ($control ['colour_table_heading']))
+    $HEADING_COLOUR = $control ['colour_table_heading'];
+  if (isset ($control ['colour_table_body']))
+    $BODY_COLOUR = $control ['colour_table_body'];
+  } // end of GetControlItems
 
 /*
 

@@ -625,7 +625,7 @@ function ForumUserLoginFailure ($username, $password, $remote_ip)
     $query = "INSERT INTO bbbanned_ip (ip_address, date_banned, reason) "
            . "VALUES ( '$remote_ip', NOW(), 'Too many forum login failures for: $username' )";
     // don't check query, maybe already on file
-    dbUpdate ($query);
+    dbUpdate ($query, false);
     }
 
   // Extra code to allow for bots trying non-existent usernames:
@@ -3078,13 +3078,13 @@ function dbQueryOne ($sql)
 // Do a database query that updates the database. 
 // eg. UPDATE, INSERT INTO, DELETE FROM etc.
 // Doesn't return a result.
-function dbUpdate ($sql)
+function dbUpdate ($sql, $showError = true)
   {
   global $dblink;
 
   $result = mysqli_query ($dblink, $sql);
   // false here means a bad query
-  if (!$result)
+  if (!$result && $showError)
     showSQLerror ($sql);
   }  // end of dbUpdate
     

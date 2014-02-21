@@ -79,7 +79,7 @@ $DAYS_IN_MONTHS = array
   12 => 31,  
   );  // end of array
   
-  
+$debugInfo = array ();
   
 function DefaultColours ()
   {

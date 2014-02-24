@@ -2943,7 +2943,7 @@ function edittableAudit ($audit_type_id, $table, $primary_key, $comment="")
           . " NOW(), "
           . " $audit_type_id, "
           . " '$table', "
-          . " $userid, "
+          . " '$userid', "
           . " '$ip', "
           . " '$primary_key', "
           . " '$comment' "

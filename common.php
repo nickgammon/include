@@ -3351,4 +3351,16 @@ function ShowBackupDays ()
 
   } // end of Show_Backup_Days
   
+/* ********************************************************************************   
+ ShowMessage - shows a message (in HTML) stored in the control file
+ ********************************************************************************  */      
+function ShowMessage ($which)
+  {
+  global $control; 
+    
+  echo ($control [$which] . "\n");
+  if (isLoggedOn ())
+    echo ("<p align=right><font size=1 color=darkgray>[$which]</font></p>\n");  
+  } // end of ShowMessage
+   
 ?>

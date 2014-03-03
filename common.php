@@ -3360,7 +3360,7 @@ function ShowMessage ($which)
     
   echo ($control [$which] . "\n");
   if (isLoggedOn ())
-    echo ("<p align=right><font size=1 color=darkgray>[$which]</font></p>\n");  
+    echo ("<p align=right><font size=1 color=gray>[$which]</font></p>\n");  
   } // end of ShowMessage
    
 ?>

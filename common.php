@@ -3357,9 +3357,27 @@ function ShowBackupDays ()
  ********************************************************************************  */      
 function ShowMessage ($which)
   {
-  global $control; 
+  global $control;
+  
+  $row = dbQueryOne ("SELECT * FROM message WHERE Item_Name = '$which'"); 
+  $colour = $row ['Box_Colour'];
+  if ($colour == 'message')
+    $colour = $control ['colour_message'];
     
-  echo ($control [$which] . "\n");
+  $html = $row ['HTML'];  
+  
+  // put into a table to make a nice box if wanted
+  if ($colour)
+    echo "<table border=\"0\" cellpadding=\"5\">\n" .
+         "<tr valign=\"top\" bgcolor=\"$colour\">\n" .
+         "<td>\n";
+    
+  echo ($html . "\n");
+  
+  // close the box
+  if ($colour)
+    echo "</td></tr></table>\n";
+  
   if (isLoggedOn ())
     echo ("<p align=right><font size=1 color=gray>[$which]</font></p>\n");  
   } // end of ShowMessage

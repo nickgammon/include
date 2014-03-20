@@ -292,6 +292,16 @@ function GetControlItems ()
     $HEADING_COLOUR = $control ['colour_table_heading'];
   if (isset ($control ['colour_table_body']))
     $BODY_COLOUR = $control ['colour_table_body'];
+    
+  // Set the timezone in the current script
+  date_default_timezone_set("Australia/Melbourne");
+
+  $dst = strftime ("%z", time());
+    
+  // fix time zone
+  if (preg_match ("|^([+-][0-9]{2})([0-9]{2})?$|", $dst, $matches))
+    dbUpdate ("SET time_zone = '" . $matches [1] . ":" . $matches [2] . "'");
+  
   } // end of GetControlItems
 
 /*

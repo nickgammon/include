@@ -3410,7 +3410,7 @@ function ShowMessage ($which)
     echo "<p><em>Warning</em>: Message " . htmlspecialchars ($which) . " does  not exist.\n";
     
   if (isLoggedOn ())
-    echo ("<p align=right><font size=1 color=gray>[$which]</font></p>\n");  
+    echo ("<p style=\"text-align:right;\"><span style=\"font-size:smaller; color:gray;\">[$which]</span></p>\n");  
   } // end of ShowMessage
    
 ?>

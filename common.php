@@ -762,11 +762,11 @@ function doForumLogon()
   global $PHP_SELF;
       
   // get rid of quotes so they can paste from the email like this: "Nick Gammon"
-  $username = stripslashes (GetP ('username'));
+  $username = GetP ('username');
   $username = str_replace ("\"", " ", $username);
   $username = fixsql (trim ($username));  // in case their name is O'Grady
 
-  $password = stripslashes (GetP ('password'));
+  $password = GetP ('password');
   $password = str_replace ("\"", " ", $password);
   $password = fixsql (trim ($password));
   
@@ -2194,7 +2194,7 @@ function ValidateOneField ($name, $type, $notnull, $maxsize, &$specials)
     {
     // remove leading/trailing spaces
     $_POST [$name] = trim ($_POST [$name]);
-    $value = stripslashes ($_POST [$name]); // get value
+    $value = $_POST [$name]; // get value
     }
   else
     $value = "";

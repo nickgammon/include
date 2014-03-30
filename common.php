@@ -345,13 +345,13 @@ function CheckSessionID ($noHTML = false)
   if ($noHTML)
     return;
     
-  echo "<p align=\"right\"><font size=\"1\">Logged on as <b>"
+  echo "<p style=\"font-size:x-small; text-align:right;\"> Logged on as <b>"
      . $userinfo ["username"]
      . "</b>&nbsp;&nbsp;";
   hLink ("(Menu)", $ADMIN_DIRECTORY . "logon.php");
   hLink ("(Log off)", $ADMIN_DIRECTORY . "logon.php", "adminaction=logoff");
   echo $control ['admin_links'];    // extra useful links
-  echo "</font></p>\n";
+  echo "</p>\n";
     
   } // end of CheckSessionID  
 
@@ -1230,10 +1230,15 @@ if (!empty ($userinfo) || $doingMail ||
     isset ($foruminfo ['moderator_topic']) ||
     isset ($foruminfo ['moderator_section']))
   {
-  echo "<p></p><table border=\"0\" cellpadding=\"5\"> "
-     . "<tr bgcolor=\"$COLOUR_TIMING_BGND\"> <td><font color=\"$COLOUR_TIMING_TEXT\">\n";
+  echo "<p>";
+  bTable (0);
+  echo "<tr style=\"vertical-align:middle; background-color:$COLOUR_TIMING_BGND; color:$COLOUR_TIMING_TEXT; \">\n";
+  echo "<td>\n";
   printf ("<b>Page execution time: %6.3f seconds</b>\n", $diff);
-  echo "</font></td></tr></table><p></p>\n";
+  echo "</td>";
+  eRow ();
+  eTable ();
+  echo "<p></p>\n";
   }
   
 echo $control ['tail'];
@@ -1337,7 +1342,8 @@ function DebugVars ()
 // begin table
 function bTable ($border=1, $cellpadding=5)
   {
-  echo "<table border=\"$border\" cellpadding=\"$cellpadding\">\n";
+//  echo "<table border=\"$border\" cellpadding=\"$cellpadding\">\n";
+  echo "<table style=\"border:$border" . "px solid black;\">\n";
   } // end of bTable
 
 // end table
@@ -1349,10 +1355,18 @@ function eTable ()
 // begin row
 function bRow ($bgcolor="same", $valign="top")  // azure
   {
+  /*
   if ($bgcolor == 'same')
     echo "<tr valign=\"$valign\">\n";  
   else
     echo "<tr valign=\"$valign\" bgcolor=\"$bgcolor\">\n";
+  */
+  
+  if ($bgcolor == 'same')
+    echo "<tr style=\"vertical-align:$valign;\">\n";  
+  else
+    echo "<tr style=\"vertical-align:$valign; background-color:$bgcolor\">\n";
+  
   } // end of bRow
   
 // end row  
@@ -1364,9 +1378,17 @@ function eRow ()
 // table heading  
 function tHead ($text, $fontsize=-1, $align="left", $colspan=1)
   {
+  /*
   echo "<th align=\"$align\" colspan=\"$colspan\"><font size=\"$fontsize\">"
       . nl2br_http (htmlspecialchars ($text))
       . "</font></th>\n";
+  */
+  
+ 
+  echo "<th style=\"text-align:$align; \" colspan=\"$colspan\">"
+      . nl2br_http (htmlspecialchars ($text))
+      . "</th>\n";
+  
   }  // end of tHead
 
 // table heading extra - add extra HTML (eg. class, colspan) 
@@ -1384,7 +1406,7 @@ function tHeadHx ($text, $extra="")
 // table heading - HTML
 function tHeadH ($text, $fontsize=-1, $align="left", $colspan=1)
   {
-  echo "<th align=\"$align\" colspan=\"$colspan\"><font size=\"$fontsize\">"
+  echo "<th text-align=\"$align\" colspan=\"$colspan\"><font size=\"$fontsize\">"
       . $text
       . "</font></th>\n";
   }  // end of tHeadH
@@ -1404,18 +1426,35 @@ function tDataHx ($text, $extra="")
 // table data  
 function tData ($text, $fontsize=-1, $align="left", $colspan=1)
   {
+    /*
   echo "<td align=\"$align\" colspan=\"$colspan\"><font size=\"$fontsize\">"
       . nl2br_http (htmlspecialchars ($text))
       . "</font></td>\n";
+      
+      */
+
+  echo "<td style=\"text-align:$align; font-size:smaller;\" colspan=\"$colspan\">"
+      . nl2br_http (htmlspecialchars ($text))
+      . "</td>\n";
+      
+            
   } // end of tData 
 
 // HTML table data  
 function tDataH ($text, $fontsize=-1, $align="left", $colspan=1)
   {
+    
+  /*
   echo "<td align=\"$align\" colspan=\"$colspan\"><font size=\"$fontsize\">"
       . $text
       . "</font></td>\n";
-  } // end of tDataH 
+  */
+
+  echo "<td style=\"text-align:$align; font-size:smaller;\" colspan=\"$colspan\">"
+      . $text
+      . "</td>\n";
+      
+   } // end of tDataH 
 
 // start unordered list
 function bList ()

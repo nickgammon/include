@@ -235,6 +235,17 @@ function ShowError ($theerror)
   echo "</b></font></td></tr></table>\n";
   } // end of ShowError
   
+function ShowWarningH ($theWarning)
+  {  
+  echo ("<p style=\"color:darkred; font-weight:bold;\">" . htmlspecialchars ($theWarning) . "\n");
+  } // end of ShowWarningH
+  
+function ShowWarning ($theWarning)
+  {  
+  ShowWarningH (htmlspecialchars ($theWarning));
+  } // end of ShowWarning
+
+  
 // Use this before database opened or if we cannot read styles
 function MajorProblem ($why)
   {
@@ -1406,9 +1417,9 @@ function tHeadHx ($text, $extra="")
 // table heading - HTML
 function tHeadH ($text, $fontsize=-1, $align="left", $colspan=1)
   {
-  echo "<th text-align=\"$align\" colspan=\"$colspan\"><font size=\"$fontsize\">"
+  echo "<th style=\" text-align:$align; \" colspan=\"$colspan\" >"
       . $text
-      . "</font></th>\n";
+      . "</th>\n";
   }  // end of tHeadH
   
 // table data extra - add extra HTML (eg. class, colspan) 
@@ -1431,9 +1442,11 @@ function tData ($text, $fontsize=-1, $align="left", $colspan=1)
       . nl2br_http (htmlspecialchars ($text))
       . "</font></td>\n";
       
+      // font-size:smaller;
+      
       */
 
-  echo "<td style=\"text-align:$align; font-size:smaller;\" colspan=\"$colspan\">"
+  echo "<td style=\"text-align:$align; \" colspan=\"$colspan\" >"
       . nl2br_http (htmlspecialchars ($text))
       . "</td>\n";
       
@@ -1448,9 +1461,12 @@ function tDataH ($text, $fontsize=-1, $align="left", $colspan=1)
   echo "<td align=\"$align\" colspan=\"$colspan\"><font size=\"$fontsize\">"
       . $text
       . "</font></td>\n";
+      
+      // font-size:smaller;
+      
   */
 
-  echo "<td style=\"text-align:$align; font-size:smaller;\" colspan=\"$colspan\">"
+  echo "<td style=\"text-align:$align; \" colspan=\"$colspan\">"
       . $text
       . "</td>\n";
       
@@ -3435,9 +3451,11 @@ function ShowMessage ($which)
     
     // put into a table to make a nice box if wanted
     if ($colour)
-      echo "<table border=\"0\" cellpadding=\"5\">\n" .
-           "<tr valign=\"top\" bgcolor=\"$colour\">\n" .
-           "<td>\n";
+      {
+      bTable (0);
+      echo "<tr style=\"vertical-align:middle; background-color:$colour; \">\n";
+      echo "<td>\n";
+      }
       
     echo ($html . "\n");
     

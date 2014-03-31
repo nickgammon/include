@@ -3404,13 +3404,13 @@ function ShowBackupDays ()
   $days_since_backup = $row [0];
   
   if ($days_since_backup <= 0)
-    echo "<p><font size=1 color=darkgreen>Last off-site backup: today.</font></p>";
+    echo "<p style=\"color:darkgreen; font-size:x-small;\">Last off-site backup: today.</p>";
   else if ($days_since_backup == 1)
-    echo "<p><font size=1 color=darkgreen>Last off-site backup: yesterday.</font></p>";
+    echo "<p style=\"color:darkgreen; font-size:x-small;\">Last off-site backup: yesterday.</p>";
   else if ($days_since_backup > 6)
-    echo "<p><font color=red><b>Last off-site backup $days_since_backup days ago.</b></font></p>";
+    echo "<p style=\"color:red; \"><b>Last off-site backup $days_since_backup days ago.</b></p>";
   else
-    echo "<p><font size=1 color=darkgreen>Last off-site backup $days_since_backup days ago.</font></p>";
+    echo "<p style=\"color:darkgreen; font-size:x-small;\">Last off-site backup $days_since_backup days ago.</p>";
 
   } // end of Show_Backup_Days
   

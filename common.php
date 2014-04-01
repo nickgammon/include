@@ -245,7 +245,26 @@ function ShowWarning ($theWarning)
   ShowWarningH (htmlspecialchars ($theWarning));
   } // end of ShowWarning
 
+function ColourEchoH ($theMessage, $theColour, $bold = false, $italic = false)
+  {  
+  if ($bold)
+    $boldStyle = "font-weight:bold;";
+  else
+    $boldStyle = "";
+    
+  if ($italic)
+    $italicStyle = "font-style:italic;";
+  else
+    $italicStyle = "";
+    
+  echo ("<span style=\"color:$theColour; $boldStyle $italicStyle\">" . $theMessage . "</span>");
+  } // end of ColourEchoH
   
+function ColourEcho ($theMessage, $theColour, $bold = false, $italic = false)
+  {  
+  ColourEchoH (htmlspecialchars ($theMessage), $theColour, $bold, $italic);  
+  } // end of ColourEcho  
+
 // Use this before database opened or if we cannot read styles
 function MajorProblem ($why)
   {

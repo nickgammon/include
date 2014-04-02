@@ -562,7 +562,7 @@ function CheckAdminSession ()
        }
       
       // generate session
-      srand ((double) microtime () * 1000000);
+      srand ((double) microtime (true) * 1000000);
       $session = md5 (uniqid (rand ()));
       
       $query = "UPDATE user SET session = '$session', "
@@ -2416,8 +2416,22 @@ function MailAdmins ($subject, $message, $link, $condition, $bbuser_id = 0)
                       "\n\n";
     else
       $section_note = "";
-
-    $mailresult = mail ($notifyname . " <" . $notifyemail . ">", 
+ 
+    $notifyemail = $notifyname . " <" . $notifyemail . ">";
+    $fromEmail = $control ['email_from'];
+    // find email domain
+    preg_match ("|@(.*)$|", $fromEmail, $matches);
+    
+    $message_id = '<' .
+                  time () .
+                  '-' .
+                  substr (md5 (rand()), 1, 15) . 
+                  '-' . 
+                  substr (md5($fromEmail . $notifyemail), 1, 15) . 
+                  '@' . $matches [1] .
+                  '>';
+              
+    $mailresult = mail ($notifyemail, 
           "$subject",
           "Hi $notifyname,\n\n" 
         . "$username has $message.\n\n"
@@ -2426,9 +2440,12 @@ function MailAdmins ($subject, $message, $link, $condition, $bbuser_id = 0)
         . $removal
         . $control ['email_signature'],
         // mail header
-        "From: " . $control ['email_from'] . "\r\n"
-      . "Content-type: text/plain\r\n"
-      . "X-mailer: PHP/" . phpversion()
+        "From: $fromEmail\r\n"
+      . "Reply-To: $fromEmail\r\n"
+      . "Content-Type: text/plain\r\n"
+      . "Message-Id: $message_id\r\n"
+      . "X-Mailer: PHP/" . phpversion(),
+        "-f$fromEmail"   // envelope-sender
         );
     
     if (!$mailresult)

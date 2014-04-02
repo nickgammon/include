@@ -237,12 +237,12 @@ function ShowError ($theerror)
   
 function ShowWarningH ($theWarning)
   {  
-  echo ("<p style=\"color:darkred; font-weight:bold;\">" . htmlspecialchars ($theWarning) . "\n");
+  echo ("<p style=\"color:darkred; font-weight:bold;\">" . $theWarning . "\n");
   } // end of ShowWarningH
   
 function ShowWarning ($theWarning)
   {  
-  ShowWarningH (htmlspecialchars ($theWarning));
+  ShowWarningH (nl2br_http (htmlspecialchars ($theWarning)));
   } // end of ShowWarning
 
 function ColourEchoH ($theMessage, $theColour, $bold = false, $italic = false)
@@ -2418,36 +2418,17 @@ function MailAdmins ($subject, $message, $link, $condition, $bbuser_id = 0)
       $section_note = "";
  
     $notifyemail = $notifyname . " <" . $notifyemail . ">";
-    $fromEmail = $control ['email_from'];
-    // find email domain
-    preg_match ("|@(.*)$|", $fromEmail, $matches);
-    
-    $message_id = '<' .
-                  time () .
-                  '-' .
-                  substr (md5 (rand()), 1, 15) . 
-                  '-' . 
-                  substr (md5($fromEmail . $notifyemail), 1, 15) . 
-                  '@' . $matches [1] .
-                  '>';
               
-    $mailresult = mail ($notifyemail, 
-          "$subject",
-          "Hi $notifyname,\n\n" 
-        . "$username has $message.\n\n"
-        . $section_note
-        . "You can view this at:\n\n  $forum_url$link\n\n\n\n"
-        . $removal
-        . $control ['email_signature'],
-        // mail header
-        "From: $fromEmail\r\n"
-      . "Reply-To: $fromEmail\r\n"
-      . "Content-Type: text/plain\r\n"
-      . "Message-Id: $message_id\r\n"
-      . "X-Mailer: PHP/" . phpversion(),
-        "-f$fromEmail"   // envelope-sender
-        );
-    
+    $mailresult = 
+      SendEmail ($notifyemail, 
+                 $subject,
+                 "$subject",
+                 "Hi $notifyname,\n\n" 
+               . "$username has $message.\n\n"
+               . $section_note
+               . "You can view this at:\n\n  $forum_url$link\n\n\n\n"
+               . $removal);
+       
     if (!$mailresult)
       Problem ("An error occurred sending an email message");
 
@@ -3505,5 +3486,40 @@ function ShowMessage ($which)
   if (isLoggedOn ())
     echo ("<p style=\"text-align:right;\"><span style=\"font-size:smaller; color:gray;\">[$which]</span></p>\n");  
   } // end of ShowMessage
-   
+
+/* ********************************************************************************   
+ SendEmail - sends an email with the appropriate mail headers added
+ ********************************************************************************  */      
+function SendEmail ($recipient, $subject, $message)
+{
+  global $control;
+  
+  $fromEmail = $control ['email_from'];
+  $signature = $control ['email_signature'];
+  
+  // find email domain
+  preg_match ("|@(.*)$|", $fromEmail, $matches);
+  
+  // make up a unique message id
+  $message_id = '<' .
+                time () .
+                '-' .
+                substr (md5 (rand()), 1, 15) . 
+                '-' . 
+                substr (md5($fromEmail . $recipient), 1, 15) . 
+                '@' . $matches [1] .
+                '>';
+  return
+     mail ($recipient, 
+           $subject,
+           $message . "\r\n\r\n" . $signature . "\r\n",
+            // mail header
+            "From: $fromEmail\r\n"
+          . "Reply-To: $fromEmail\r\n"
+          . "Content-type: text/plain\r\n"
+          . "Message-Id: $message_id\r\n"
+          . "X-mailer: PHP/" . phpversion(),
+            "-f$fromEmail"   // envelope-sender
+            ); 
+}  // end of sendEmail
 ?>

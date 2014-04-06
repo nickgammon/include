@@ -1414,10 +1414,14 @@ function tHead ($text, $fontsize=-1, $align="left", $colspan=1)
       . "</font></th>\n";
   */
   
- 
-  echo "<th style=\"text-align:$align; \" colspan=\"$colspan\">"
-      . nl2br_http (htmlspecialchars ($text))
-      . "</th>\n";
+  if ($colspan == 1)
+    echo "<th style=\"text-align:$align;\" >"
+        . nl2br_http (htmlspecialchars ($text))
+        . "</th>\n";
+  else 
+    echo "<th style=\"text-align:$align; \" colspan=\"$colspan\">"
+        . nl2br_http (htmlspecialchars ($text))
+        . "</th>\n";
   
   }  // end of tHead
 
@@ -1436,9 +1440,10 @@ function tHeadHx ($text, $extra="")
 // table heading - HTML
 function tHeadH ($text, $fontsize=-1, $align="left", $colspan=1)
   {
-  echo "<th style=\" text-align:$align; \" colspan=\"$colspan\" >"
-      . $text
-      . "</th>\n";
+  if ($colspan == 1)
+    echo "<th style=\" text-align:$align;\" >$text</th>\n";
+  else
+    echo "<th style=\" text-align:$align;\" colspan=\"$colspan\" >$text</th>\n";
   }  // end of tHeadH
   
 // table data extra - add extra HTML (eg. class, colspan) 
@@ -1465,10 +1470,14 @@ function tData ($text, $fontsize=-1, $align="left", $colspan=1)
       
       */
 
-  echo "<td style=\"text-align:$align; \" colspan=\"$colspan\" >"
-      . nl2br_http (htmlspecialchars ($text))
-      . "</td>\n";
-      
+  if ($colspan == 1)
+    echo "<td style=\"text-align:$align; \" >"
+        . nl2br_http (htmlspecialchars ($text))
+        . "</td>\n";
+  else        
+    echo "<td style=\"text-align:$align; \" colspan=\"$colspan\" >"
+        . nl2br_http (htmlspecialchars ($text))
+        . "</td>\n";
             
   } // end of tData 
 
@@ -1485,9 +1494,10 @@ function tDataH ($text, $fontsize=-1, $align="left", $colspan=1)
       
   */
 
-  echo "<td style=\"text-align:$align; \" colspan=\"$colspan\">"
-      . $text
-      . "</td>\n";
+  if ($colspan == 1)
+    echo "<td style=\"text-align:$align; \">$text</td>\n";
+  else
+    echo "<td style=\"text-align:$align; \" colspan=\"$colspan\">$text</td>\n";
       
    } // end of tDataH 
 

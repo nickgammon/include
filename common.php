@@ -237,7 +237,7 @@ function ShowError ($theerror)
   
 function ShowWarningH ($theWarning)
   {  
-  echo ("<p style=\"color:darkred; font-weight:bold;\">" . $theWarning . "\n");
+  echo ("<p style=\"color:darkred; font-weight:bold;\">" . $theWarning . "</p>\n");
   } // end of ShowWarningH
   
 function ShowWarning ($theWarning)

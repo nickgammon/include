@@ -47,6 +47,9 @@ $log_on_error = "That username/password combination is not on file";
 
 DefaultColours ();
 
+// initialize random numbers
+srand ((double) microtime (true));
+
 $MONTHS = array 
   (
    1 => 'january',  
@@ -562,7 +565,6 @@ function CheckAdminSession ()
        }
       
       // generate session
-      srand ((double) microtime (true) * 1000000);
       $session = md5 (uniqid (rand ()));
       
       $query = "UPDATE user SET session = '$session', "

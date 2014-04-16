@@ -3528,9 +3528,9 @@ function SendEmail ($recipient, $subject, $message)
             // mail header
             "From: $fromEmail\r\n"
           . "Reply-To: $fromEmail\r\n"
-          . "Content-type: text/plain\r\n"
+          . "Content-Type: text/plain\r\n"
           . "Message-Id: $message_id\r\n"
-          . "X-mailer: PHP/" . phpversion(),
+          . "X-Mailer: PHP/" . phpversion(),
             "-f$fromEmail"   // envelope-sender
             ); 
 }  // end of sendEmail

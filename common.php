@@ -2095,7 +2095,7 @@ function ValidateInt ($theint)
   $theint = trim ($theint); // ensure no leading spaces etc.
 
   // look for leading sign
-  if ($theint [0] == '+' || $theint [0] == '-')
+  if (strlen ($theint) > 0 && ($theint [0] == '+' || $theint [0] == '-'))
     $theint = substr ($theint, 1);    // remove sign
   if (!strlen ($theint) || !preg_match ("|^[0-9]+$|", $theint))
     return "Field must be numeric";

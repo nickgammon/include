@@ -388,49 +388,49 @@ function CheckSessionID ($noHTML = false)
     
   } // end of CheckSessionID  
 
-	
+  
 // for the Yubikey
 function crc16 ($data, $len)
  {
-	$crc = 0xFFFF;
-	for ($pos = 0; $pos < $len; $pos++)
-		{
-		$crc ^= ord ($data [$pos]);
-		for ($i = 0; $i < 8; $i++)
-			{
-			$j = $crc & 1;
-			$crc >>= 1;
-			if ($j)
-			 $crc ^= 0x8408;
-			}  // end of for each bit
-		} // end of for each byte
+  $crc = 0xFFFF;
+  for ($pos = 0; $pos < $len; $pos++)
+    {
+    $crc ^= ord ($data [$pos]);
+    for ($i = 0; $i < 8; $i++)
+      {
+      $j = $crc & 1;
+      $crc >>= 1;
+      if ($j)
+       $crc ^= 0x8408;
+      }  // end of for each bit
+    } // end of for each byte
 
-	return $crc;
+  return $crc;
  }  // end of crc16
   
  function modHexDecode($token) 
-	{
+  {
   $TRANSKEY = "cbdefghijklnrtuv"; // translation key used to ModHex a string
   
- 	$tokLen = strlen($token); 			// length of the token
-	$decoded = "";									// decoded string to be returned
+  $tokLen = strlen($token);       // length of the token
+  $decoded = "";                  // decoded string to be returned
  
-	// strings must have an even length
-	if ( $tokLen % 2 != 0 ) 
-  	return FALSE;
+  // strings must have an even length
+  if ( $tokLen % 2 != 0 ) 
+    return FALSE;
  
-	for ($i = 0; $i < $tokLen; $i += 2 ) 
-	  {
+  for ($i = 0; $i < $tokLen; $i += 2 ) 
+    {
     $high = strpos ($TRANSKEY, $token [$i]);
     $low  = strpos ($TRANSKEY, $token [$i + 1]);
     
     // if there's an invalid character in the encoded $token, fail here.
     if ( $high === FALSE || $low === FALSE )
-    				return FALSE;
+            return FALSE;
     
     $decoded .= chr(($high << 4) | $low);
-	}
-	return $decoded;
+  }
+  return $decoded;
 } // end of modHexDecode
   
 function HandleAuthenticator ($userid, $authenticator_table)
@@ -1750,7 +1750,7 @@ function ShowTable ($table, $params, $specials)
   
   echo "<table $tableparam>\n";
   
-  $contents = "";	// in case no items
+  $contents = ""; // in case no items
         
   $first_input = true;
     
@@ -1840,11 +1840,11 @@ function ShowTable ($table, $params, $specials)
     if (!isset ($contents) && empty ($inputname))
       continue;
 
-	 if (is_array ($contents))
-	    {
-			ShowArray ("error, contents is an array", $contents);
-	    return;
-	    }
+   if (is_array ($contents))
+      {
+      ShowArray ("error, contents is an array", $contents);
+      return;
+      }
     
     // if 'breaks' then they want to keep line breaks
     if ($breaks)
@@ -3394,13 +3394,13 @@ function nl2br_http ($text)
 function ServerReadOnly ()
 {
  return (is_file (str_replace ("//", "/", 
-	$_SERVER['DOCUMENT_ROOT'] . '/ReadOnly.txt')));
+  $_SERVER['DOCUMENT_ROOT'] . '/ReadOnly.txt')));
 } // end of ServerReadOnly
 
 function ServerPublic ()
 {
  return (is_file (str_replace ("//", "/", 
-	$_SERVER['DOCUMENT_ROOT'] . '/PublicServer.txt')));
+  $_SERVER['DOCUMENT_ROOT'] . '/PublicServer.txt')));
 } // end of ServerPublic
 
 /* ********************************************************************************   

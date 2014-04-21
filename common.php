@@ -1387,13 +1387,6 @@ function eTable ()
 // begin row
 function bRow ($bgcolor="same", $valign="top")  // azure
   {
-  /*
-  if ($bgcolor == 'same')
-    echo "<tr valign=\"$valign\">\n";  
-  else
-    echo "<tr valign=\"$valign\" bgcolor=\"$bgcolor\">\n";
-  */
-  
   if ($bgcolor == 'same')
     echo "<tr style=\"vertical-align:$valign;\">\n";  
   else
@@ -1410,12 +1403,6 @@ function eRow ()
 // table heading  
 function tHead ($text, $fontsize=-1, $align="left", $colspan=1)
   {
-  /*
-  echo "<th align=\"$align\" colspan=\"$colspan\"><font size=\"$fontsize\">"
-      . nl2br_http (htmlspecialchars ($text))
-      . "</font></th>\n";
-  */
-  
   if ($colspan == 1)
     echo "<th style=\"text-align:$align;\" >"
         . nl2br_http (htmlspecialchars ($text))
@@ -1463,14 +1450,6 @@ function tDataHx ($text, $extra="")
 // table data  
 function tData ($text, $fontsize=-1, $align="left", $colspan=1)
   {
-    /*
-  echo "<td align=\"$align\" colspan=\"$colspan\"><font size=\"$fontsize\">"
-      . nl2br_http (htmlspecialchars ($text))
-      . "</font></td>\n";
-      
-      // font-size:smaller;
-      
-      */
 
   if ($colspan == 1)
     echo "<td style=\"text-align:$align; \" >"
@@ -1486,15 +1465,6 @@ function tData ($text, $fontsize=-1, $align="left", $colspan=1)
 // HTML table data  
 function tDataH ($text, $fontsize=-1, $align="left", $colspan=1)
   {
-    
-  /*
-  echo "<td align=\"$align\" colspan=\"$colspan\"><font size=\"$fontsize\">"
-      . $text
-      . "</font></td>\n";
-      
-      // font-size:smaller;
-      
-  */
 
   if ($colspan == 1)
     echo "<td style=\"text-align:$align; \">$text</td>\n";
@@ -2345,7 +2315,6 @@ function ShowTablesToEdit ()
   $userid = $userinfo ["userid"];
   $row = dbQueryOne ("SELECT * FROM access WHERE userid = $userid AND tablename = '%'");
 
-  echo "<p>ach!";
   if ($row)
     {  
     // we can edit all tables, so get a list of them
@@ -2462,28 +2431,6 @@ function utctime ()
     }
   return time () + ($minuteswest * 60); // add in time-zone correction in minutes
   } // end of utctime  
-
-// Added because Superb.Net recompiled PHP without --enable-track-vars
-
-/*
-reset ($_GET);
-while (list ($name, $value) = each ($_GET))
-    $_GET [$name] = fixsql ($_GET [$name]);
-    
-reset ($_POST);
-while (list ($name, $value) = each ($_POST))
-    $_POST [$name] = fixsql ($_POST [$name]);
-    
-reset ($_COOKIE);
-while (list ($name, $value) = each ($_COOKIE))
-    $_COOKIE [$name] = fixsql ($_COOKIE [$name]);
-
-extract ($_GET, EXTR_OVERWRITE);
-extract ($_POST, EXTR_OVERWRITE);
-extract ($_COOKIE, EXTR_OVERWRITE);
-*/
-
-//import_request_variables ("GPC");
 
 // turns numbers into their ordinal versions (eg. 1 becomes 1st, 23 becomes 23rd)
 

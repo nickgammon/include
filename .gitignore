@@ -1,7 +1,5 @@
 .*
 !.gitignore
 !.gitattributes
-
-CVS
-index.php
+!.htaccess
 

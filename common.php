@@ -565,7 +565,7 @@ function CheckAdminSession ()
        }
       
       // generate session
-      $session = md5 (uniqid (rand ()));
+      $session = MakeToken ();
       
       $query = "UPDATE user SET session = '$session', "
              . "date_logged_on = "
@@ -736,8 +736,7 @@ function completeForumLogon ($bbuser_id)
 
   $username = $foruminfo ['username'];                      
   // generate token
-  srand ((double) microtime () * 1000000);
-  $token = md5 (uniqid (rand ()));
+  $token = MakeToken ();
     
   $query = "UPDATE bbuser SET "
          . "  token = NULL, "
@@ -846,8 +845,7 @@ function doForumLogon()
   $bbuser_id = $foruminfo ['bbuser_id'];
                   
   // generate token
-  srand ((double) microtime () * 1000000);
-  $token = md5 (uniqid (rand ()));
+  $token = MakeToken ();
   
   // see if this guy needs authentication
   $authrow = dbQueryOne ("SELECT COUNT(*) AS counter FROM authenticator_forum WHERE User = $bbuser_id");
@@ -1030,8 +1028,7 @@ function LogOff ()
   global $TABLE_AUDIT_LOGOFF;
   
   // generate another random token - they won't know that one!
-  srand ((double) microtime () * 1000000);
-  $session = md5 (uniqid (rand ()));
+  $session = MakeToken ();
   
   $query = "UPDATE user SET session = '$session' WHERE userid = " . $userinfo ['userid'];
   dbUpdate ($query);
@@ -3481,4 +3478,26 @@ function SendEmail ($recipient, $subject, $message)
             "-f$fromEmail"   // envelope-sender
             ); 
 }  // end of sendEmail
+
+/* ********************************************************************************   
+ MakeToken - token generation for security purposes
+ ********************************************************************************  */      
+function MakeToken ()
+  {
+  // get 128 pseudorandom bits in a string of 16 bytes
+  $fp = @fopen ('/dev/urandom', 'rb');
+  if ($fp !== FALSE) 
+    {
+    $pr_bits = @fread ($fp, 16);
+    fclose ($fp);
+    return (bin2hex ($pr_bits));
+    }
+  
+  // after PHP 5.3.0:
+  if (function_exists ('openssl_random_pseudo_bytes'))
+     return bin2hex (openssl_random_pseudo_bytes (16));
+  
+  // fallback  
+  return (md5 (uniqid (rand ())));
+  } // end of MakeToken
 ?>

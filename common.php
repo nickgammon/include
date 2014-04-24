@@ -3500,4 +3500,107 @@ function MakeToken ()
   // fallback
   return (md5 (uniqid (rand ())));
   } // end of MakeToken
+  
+/* ********************************************************************************
+ MakeUpdateStatement - makes an update statement for a particular row
+ ********************************************************************************  */
+function MakeUpdateStatement ($table, $row)
+{
+ // get the field names
+  $names = array ();
+  $namesResult = dbQuery ("SHOW COLUMNS FROM " . $table);
+
+  while ($nameRow = mysqli_fetch_array ($namesResult))
+      $names [$nameRow ['Field']] = preg_match ('|int|i', $nameRow ['Type']);
+
+  mysqli_free_result ($namesResult);
+
+  $result = "UPDATE `$table` SET ";
+
+  reset ($names);
+  $count = 0;
+
+  while (list ($fieldName, $isNumber) = each ($names))
+    {
+    if ($count)
+      $result .= ", ";
+    $data = $row [$fieldName];
+
+    $result .= "`$fieldName` = ";
+
+    if (is_null ($data))
+      $result .=  "NULL";
+    else if ($isNumber)
+      $result .= $data;
+    else
+      {
+      $data = fixsql ($data);
+      $result .= "'$data'";
+      }
+
+    $count++;
+    } // end of while each field
+
+  return $result;
+} // end of MakeUpdateStatement
+
+/* ********************************************************************************
+ MakeInsertStatement - makes an insert statement for a particular row
+ ********************************************************************************  */
+function MakeInsertStatement ($table, $row)
+{
+ // get the field names
+  $names = array ();
+  $namesResult = dbQuery ("SHOW COLUMNS FROM " . $table);
+
+  while ($nameRow = mysqli_fetch_array ($namesResult))
+      $names [$nameRow ['Field']] = preg_match ('|int|i', $nameRow ['Type']);
+
+  mysqli_free_result ($namesResult);
+
+  $result = "INSERT INTO `$table` (";
+
+  reset ($names);
+  $count = 0;
+
+  // output the field names
+  while (list ($fieldName, $isNull) = each ($names))
+    {
+    if ($count)
+      $result .= ", ";
+    $result .= "`$fieldName`";
+    $count++;
+    } // end of while each field
+
+  $result .= ") VALUES (";
+
+  reset ($names);
+  $count = 0;
+
+  // and now the values
+  while (list ($fieldName, $isNumber) = each ($names))
+    {
+    if ($count)
+      $result .= ", ";
+      
+    $data = $row [$fieldName];
+
+    if (is_null ($data))
+      $result .= "NULL";
+    else if ($isNumber)
+      $result .= $data;
+    else
+      {
+      $data = fixsql ($data);
+      $result .= "'$data'";
+      }
+
+    $count++;
+    } // end of while each field
+
+  $result .= ")";
+  
+  return $result;
+} // end of MakeInsertStatement
+
 ?>

@@ -3500,7 +3500,7 @@ function MakeToken ()
   // fallback
   return (md5 (uniqid (rand ())));
   } // end of MakeToken
-  
+
 /* ********************************************************************************
  MakeUpdateStatement - makes an update statement for a particular row
  ********************************************************************************  */
@@ -3582,7 +3582,7 @@ function MakeInsertStatement ($table, $row)
     {
     if ($count)
       $result .= ", ";
-      
+
     $data = $row [$fieldName];
 
     if (is_null ($data))
@@ -3599,7 +3599,7 @@ function MakeInsertStatement ($table, $row)
     } // end of while each field
 
   $result .= ")";
-  
+
   return $result;
 } // end of MakeInsertStatement
 

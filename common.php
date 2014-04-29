@@ -27,6 +27,20 @@ Copyright © 2001 Nick Gammon.
   The Free Software Foundation maintains a web page at: http://www.fsf.org
 
   See the file gpl.txt for the full GNU General Public License.
+
+  TO TAKE THE SERVER DOWN (eg. for maintenance, uploading SQL, etc.):
+
+    Make a file: ServerDown.txt in the document root, eg.
+
+    touch /var/www/ServerDown.txt
+
+    If this file exists then the contents of the file ServerDown.htm
+    in the document root will be echoed to all users.
+
+    Afterwards, remove the file ServerDown.txt, eg.
+
+    rm /var/www/ServerDown.txt
+
 */
 
 // save doing this in every file
@@ -49,6 +63,13 @@ DefaultColours ();
 
 // initialize random numbers
 srand ((double) microtime (true));
+
+// die quickly if we have to take the server down for maintenance
+if (is_file (str_replace ("//", "/", $_SERVER['DOCUMENT_ROOT'] . '/ServerDown.txt')))
+  {
+  echo file_get_contents (str_replace ("//", "/", $_SERVER['DOCUMENT_ROOT'] . '/ServerDown.htm'));
+  die ();
+  }
 
 $MONTHS = array
   (

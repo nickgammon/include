@@ -3194,7 +3194,7 @@ function dbRows ($result)
 function dbAffected ()
   {
   global $dblink;
-  return mysqli_affected_rowsXXX ($dblink);
+  return mysqli_affected_rows ($dblink);
   } // end of dbAffected
 
 // gets the key of a new row created by INSERT INTO
@@ -3202,7 +3202,7 @@ function dbAffected ()
 function dbInsertId ()
   {
   global $dblink;
-  return mysqli_insert_idXXX ($dblink);
+  return mysqli_insert_id ($dblink);
   } // end of dbInsertId
 
 // frees the result returned by dbQuery

@@ -346,10 +346,10 @@ function GetControlItems ()
   $result = mysqli_query ($dblink, "SELECT * FROM control")
     or MajorProblem ("Select of control table failed: " . mysqli_connect_error ());
 
-  while ($row = mysqli_fetch_array ($result))
+  while ($row = dbFetch ($result))
     $control [$row ['item']] = $row ['contents'];
 
-  mysqli_free_result ($result);
+  dbFree ($result);
 
   $control ['forum_url'] = "http://" . $_SERVER ["HTTP_HOST"] . "/forum";
   $HEADING_COLOUR = '#72A2C9';
@@ -2023,7 +2023,7 @@ global $PHP_SELF;
 
 $result = dbQuery ($query);
 
-$count = mysqli_num_rows ($result);
+$count = dbRows ($result);
 
 if ($count)
   echo $block_preamble . "\n";
@@ -2031,7 +2031,7 @@ if ($count)
 if (!$page)
   $page = $PHP_SELF;
 
-while ($row = mysqli_fetch_array ($result))
+while ($row = dbFetch ($result))
   {
   echo $line_preamble;
   $summarydata = $row [$summary];
@@ -2072,7 +2072,7 @@ if ($show_count)
   echo "</b></p>";
   }  // end of searching for something
 
-mysqli_free_result ($result);
+dbFree ($result);
 
 return $count;
 } // end of ShowList
@@ -2346,20 +2346,20 @@ function ShowTablesToEdit ()
       echo "<option value=\"$table\">$table\n";
       } // end of doing each row
 
-    mysqli_free_result ($result);
+    dbFree ($result);
 
     }  // end of being able to edit all tables
   else
     {
     // find the tables he can edit
     $result = dbQuery ("SELECT * FROM access WHERE userid = $userid AND can_select = 1");
-    while ($row = mysqli_fetch_array ($result))
+    while ($row = dbFetch ($result))
       {
       $table = $row ['tablename'];
       echo "<option value=\"$table\">$table\n";
       } // end of doing each row
 
-    mysqli_free_result ($result);
+    dbFree ($result);
 
     } // end of being able to edit *some* tables
 
@@ -2395,7 +2395,7 @@ function MailAdmins ($subject, $message, $link, $condition, $bbuser_id = 0)
 
   $result = dbQuery ($query);
 
-  while ($row = mysqli_fetch_array ($result))
+  while ($row = dbFetch ($result))
     {
     $notifyname = $row ['username'];
     $notifyemail = $row ['email'];
@@ -2433,7 +2433,7 @@ function MailAdmins ($subject, $message, $link, $condition, $bbuser_id = 0)
 
     } // end of having loop
 
-  mysqli_free_result ($result);
+  dbFree ($result);
 
   } // end of MailAdmins
 
@@ -3143,8 +3143,8 @@ function dbQueryOne ($sql)
   if (!$result)
     showSQLerror ($sql);
 
-  $row = mysqli_fetch_array ($result);
-  mysqli_free_result ($result);
+  $row = dbFetch ($result);
+  dbFree ($result);
   return $row;
   }  // end of dbQueryOne
 
@@ -3174,6 +3174,43 @@ function dbQuery ($sql)
 
   return $result;
   }  // end of dbQuery
+
+// fetches one row from the result returned by dbQuery
+// glue routine in case we switch to PostGRE or something
+function dbFetch ($result)
+  {
+  return mysqli_fetch_array ($result);
+  } // end of dbFetch
+
+// gets the number of rows in the result returned by dbQuery
+// glue routine in case we switch to PostGRE or something
+function dbRows ($result)
+  {
+  return mysqli_num_rows ($result);
+  } // end of dbRows
+
+// gets the number of rows affected by dbUpdate
+// glue routine in case we switch to PostGRE or something
+function dbAffected ()
+  {
+  global $dblink;
+  return mysqli_affected_rowsXXX ($dblink);
+  } // end of dbAffected
+
+// gets the key of a new row created by INSERT INTO
+// glue routine in case we switch to PostGRE or something
+function dbInsertId ()
+  {
+  global $dblink;
+  return mysqli_insert_idXXX ($dblink);
+  } // end of dbInsertId
+
+// frees the result returned by dbQuery
+// glue routine in case we switch to PostGRE or something
+function dbFree ($result)
+  {
+  mysqli_free_result ($result);
+  } // end of dbFree
 
 // general function for getting a count of something
 
@@ -3531,10 +3568,10 @@ function MakeUpdateStatement ($table, $row)
   $names = array ();
   $namesResult = dbQuery ("SHOW COLUMNS FROM " . $table);
 
-  while ($nameRow = mysqli_fetch_array ($namesResult))
+  while ($nameRow = dbFetch ($namesResult))
       $names [$nameRow ['Field']] = preg_match ('|int|i', $nameRow ['Type']);
 
-  mysqli_free_result ($namesResult);
+  dbFree ($namesResult);
 
   $result = "UPDATE `$table` SET ";
 
@@ -3574,10 +3611,10 @@ function MakeInsertStatement ($table, $row)
   $names = array ();
   $namesResult = dbQuery ("SHOW COLUMNS FROM " . $table);
 
-  while ($nameRow = mysqli_fetch_array ($namesResult))
+  while ($nameRow = dbFetch ($namesResult))
       $names [$nameRow ['Field']] = preg_match ('|int|i', $nameRow ['Type']);
 
-  mysqli_free_result ($namesResult);
+  dbFree ($namesResult);
 
   $result = "INSERT INTO `$table` (";
 

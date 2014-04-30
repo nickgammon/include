@@ -2963,7 +2963,7 @@ function audit ($bbaudit_type_id,   // what action it is (eg. add, change, delet
           . ")";
 
   dbUpdate ($query);
-  if (mysqli_affected_rows ($dblink) == 0)
+  if (dbAffected () == 0)
     Problem ("Could not insert audit record");
 
   } // end of audit
@@ -3023,7 +3023,7 @@ function edittableAudit ($audit_type_id, $table, $primary_key, $comment="")
           . ")";
 
   dbUpdate ($query);
-  if (mysqli_affected_rows ($dblink) == 0)
+  if (dbAffected () == 0)
     Problem ("Could not insert audit record");
   } // end of edittableAudit
 
@@ -3090,7 +3090,7 @@ function edittableWriteUndo ($audit_type_id, $table, $primary_key, $sql )
           . ")";
 
   dbUpdate ($query);
-  if (mysqli_affected_rows ($dblink) == 0)
+  if (dbAffected () == 0)
     Problem ("Could not insert undo record");
   } // end of edittableWriteUndo
 

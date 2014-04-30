@@ -3205,6 +3205,13 @@ function dbInsertId ()
   return mysqli_insert_id ($dblink);
   } // end of dbInsertId
 
+// seeks into the result set
+// glue routine in case we switch to PostGRE or something
+function dbSeek ($result, $position)
+  {
+  mysqli_data_seek ($result, $position);
+  } // end of dbSeek
+
 // frees the result returned by dbQuery
 // glue routine in case we switch to PostGRE or something
 function dbFree ($result)

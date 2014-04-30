@@ -3094,6 +3094,27 @@ function edittableWriteUndo ($audit_type_id, $table, $primary_key, $sql )
     Problem ("Could not insert undo record");
   } // end of edittableWriteUndo
 
+function showBacktrace ($howFarBack = 1)
+  {
+  echo "<hr><b>Backtrace</b>\n";
+
+  echo "<ol>\n";
+  $bt = debug_backtrace ();
+  $count = sizeof($bt);
+  for ($i = $howFarBack; $i < $count; $i++)
+    {
+    $item = $bt [$i];
+    echo "<li>\n";
+    echo "<ul>\n";
+    echo ("<li>" . "Function: "     . htmlspecialchars ($item ['function']));
+    echo ("<li>" . "Called from: "  . htmlspecialchars ($item ['file']));
+    echo ("<li>" . "Line: "         . htmlspecialchars ($item ['line']));
+    echo "</ul><p>\n";
+    }
+  echo "</ol>\n";
+  echo "<hr>\n";
+  }   // end of showBacktrace
+
 function showSQLerror ($sql)
   {
   global $dblink;
@@ -3109,23 +3130,7 @@ function showSQLerror ($sql)
   echo "</mono></td>\n";
   eRow ();
   eTable ();
-  echo "<hr><b>Backtrace</b>\n";
-
-  echo "<ol>\n";
-  $bt = debug_backtrace ();
-  $count = sizeof($bt);
-  for ($i = 1; $i < $count; $i++)
-    {
-    $item = $bt [$i];
-    echo "<li>\n";
-    echo "<ul>\n";
-    echo ("<li>" . "Function: "     . htmlspecialchars ($item ['function']));
-    echo ("<li>" . "Called from: "  . htmlspecialchars ($item ['file']));
-    echo ("<li>" . "Line: "         . htmlspecialchars ($item ['line']));
-    echo "</ul><p>\n";
-    }
-  echo "</ol>\n";
-  echo "<hr>\n";
+  showBacktrace (2);
 
   // bail out
   Problem ("SQL statement failed.");
@@ -3179,6 +3184,12 @@ function dbQuery ($sql)
 // glue routine in case we switch to PostGRE or something
 function dbFetch ($result)
   {
+  if (!($result instanceof mysqli_result))
+    {
+    showBacktrace (1);
+    Problem ("Incorrect 'result' field passed to dbFetch");
+    }
+
   return mysqli_fetch_array ($result);
   } // end of dbFetch
 
@@ -3186,6 +3197,12 @@ function dbFetch ($result)
 // glue routine in case we switch to PostGRE or something
 function dbRows ($result)
   {
+  if (!($result instanceof mysqli_result))
+    {
+    showBacktrace (1);
+    Problem ("Incorrect 'result' field passed to dbRows");
+    }
+
   return mysqli_num_rows ($result);
   } // end of dbRows
 
@@ -3209,6 +3226,12 @@ function dbInsertId ()
 // glue routine in case we switch to PostGRE or something
 function dbSeek ($result, $position)
   {
+  if (!($result instanceof mysqli_result))
+    {
+    showBacktrace (1);
+    Problem ("Incorrect 'result' field passed to dbSeek");
+    }
+
   mysqli_data_seek ($result, $position);
   } // end of dbSeek
 
@@ -3216,6 +3239,12 @@ function dbSeek ($result, $position)
 // glue routine in case we switch to PostGRE or something
 function dbFree ($result)
   {
+  if (!($result instanceof mysqli_result))
+    {
+    showBacktrace (1);
+    Problem ("Incorrect 'result' field passed to dbFree");
+    }
+
   mysqli_free_result ($result);
   } // end of dbFree
 

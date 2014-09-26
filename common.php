@@ -1522,7 +1522,7 @@ function LI ()
   } // end of LI
 
 // returns an hlink in a string
-function shLink (&$result, $description, $destination, $params="", $newwindow=false)
+function shLink (&$result, $description, $destination, $params="", $newwindow=false, $nofollow=false)
   {
   global $userinfo, $viewsource, $foruminfo;
   $token = "";
@@ -1552,6 +1552,9 @@ function shLink (&$result, $description, $destination, $params="", $newwindow=fa
   else
     $target = "";
 
+  if ($nofollow)
+    $target .= " rel=\"nofollow\"";
+ 
   // only show session ID if we have one, and we are going to a dynamic page
   if (!empty ($session) && stristr ($destination, ".php"))
     if (empty ($params))
@@ -1567,9 +1570,9 @@ function shLink (&$result, $description, $destination, $params="", $newwindow=fa
   } // end of shLink
 
 // use this to hyperlink to another file, preserving session id
-function hLink ($description, $destination, $params="", $newwindow=false)
+function hLink ($description, $destination, $params="", $newwindow=false, $nofollow=false)
   {
-  shLink ($result, $description, $destination, $params, $newwindow);
+  shLink ($result, $description, $destination, $params, $newwindow, $nofollow);
   echo $result;
   }   // end of hLink
 

@@ -2424,7 +2424,6 @@ function MailAdmins ($subject, $message, $link, $condition, $bbuser_id = 0)
     $mailresult =
       SendEmail ($notifyemail,
                  $subject,
-                 "$subject",
                  "Hi $notifyname,\n\n"
                . "$username has $message.\n\n"
                . $section_note

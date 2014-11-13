@@ -1195,16 +1195,21 @@ if ($title == "%FORUM_NAME%")
   // let them use just "id=x" on the URL
 
   $bbsubject_id = GetGP ('id');
+  if (!$bbsubject_id || ValidateInt ($bbsubject_id))
+    $bbsubject_id = GetGP ('bbsubject_id');
+
+  $bbtopic_id = GetGP ('bbtopic_id');
+  $bbsection_id = GetGP ('bbsection_id');
 
   // get better title (put section/topic/subject into it)
 
   $title = $control ['forum_name'];
-  if ($bbsubject_id && ValidateInt ($bbsubject_id) == "")
-    $title = LookupSubject (true);
-  else if ($bbtopic_id && ValidateInt ($bbtopic_id) == "")
-    $title = LookupTopic (true);
-  else if ($bbsection_id && ValidateInt ($bbsection_id) == "")
-    $title = LookupSection (true);
+  if ($bbsubject_id && !ValidateInt ($bbsubject_id))
+    $title .= " : " .  LookupSubject (true);
+  else if ($bbtopic_id && !ValidateInt ($bbtopic_id))
+    $title .= " : " . LookupTopic (true);
+  else if ($bbsection_id && !ValidateInt ($bbsection_id))
+    $title .= " : " . LookupSection (true);
 
   } // end of forum title
 

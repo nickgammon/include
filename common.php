@@ -2555,6 +2555,8 @@ function DoExtendedDate (& $thedate, $defaultEndOfPeriod = false)
   // also exclude straight alphas as it sometimes got "mon" wrong
   if (!preg_match ("|^[0-9]+$|", $thedate) && !preg_match ("|^[A-Za-z]+$|", $thedate))
     {
+    // replace slashes with hyphens to force British dates
+    $thedate = str_replace ("/", "-", $thedate);
     $converteddate = strtotime ($thedate);
 
     if ($converteddate)

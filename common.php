@@ -461,6 +461,20 @@ function HandleAuthenticator ($userid, $authenticator_table)
   if (strlen ($authenticator) == 0)
     return "Authenticator required";
 
+// -------------------
+// One-time password stuff for when authenticator cannot be used
+// -------------------
+  
+  $authrow = dbQueryOne ("SELECT * FROM one_time_password WHERE passwd = '$authenticator'");
+  if ($authrow)
+    {
+    // update database so we don't use this password again
+    dbUpdate ("DELETE FROM one_time_password WHERE passwd = '$authenticator' ");
+    return false;
+    }   // end of password found
+
+// -------------------
+
   if (strlen ($authenticator) != 44)
     return "Authenticator token wrong length";
 

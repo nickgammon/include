@@ -49,6 +49,8 @@ $action      = getGPC ('action');
 $MAX_LOGIN_FAILURES = 5;  // number of times you can get your password wrong for a username
 $MAX_UNKNOWN_USER_FAILURES = 10;  // number of times an IP address can try a non-existent username
 
+$MAX_FILE_SIZE = 30000000;      // bytes (30 Mb!)
+
 // major problems - white on brown
 $COLOUR_ERROR_TEXT = "#FFFFFF"; // white
 $COLOUR_ERROR_BGND = "#A52A2A"; // brown
@@ -1678,7 +1680,7 @@ Currently specials are:
   breaks - I want to see newlines - implies not HTML
   html - The line is already in HTML
   input - field is input, argument is name (eg. input => 'myfield')
-  type - type of input (text, multiline, password, combo, bool)
+  type - type of input (text, multiline, password, combo, bool, filename)
   size - size of input field on screen
   maxlength - max length of input field
   values - values array for a combo box etc.
@@ -1694,6 +1696,15 @@ function ShowTable ($table, $params, $specials)
   {
   global $WEBMASTER;
   global $control;
+  global $MAX_FILE_SIZE;
+
+/*
+  echo '<p>Here is some debugging info:';
+  echo '<pre>';
+  print_r($_FILES);
+  print_r($_POST);
+  echo '</pre>';
+*/
 
   $COLOUR_FORM_ERROR_TEXT       = GetColour ('colour_form_error');
 
@@ -1971,6 +1982,21 @@ function ShowTable ($table, $params, $specials)
           echo "&nbsp;<input type=\"$type\" name=\"$name3\" value=\"$min\" "
              . "size=\"7\" maxlength=\"7\"/> minutes\n";
           break;    // end of longitude
+
+        case 'filename':
+          echo "<input type=\"hidden\" name=\"MAX_FILE_SIZE\" value=\"$MAX_FILE_SIZE\" >\n";
+          echo "Current file name: ";
+          if ($contents) 
+             {
+             echo htmlentities ($contents);
+             echo "<hr>Replace file with: <input name=\"$inputname\" type=\"file\" >\n";
+             // original file name in case they don't upload a new one
+             echo "<input name=\"$inputname\" type=\"hidden\" value=\"$contents\" >\n";
+             }
+          else
+             echo "(None)<br>Upload file: <input name=\"$inputname\" type=\"file\" >";
+
+          break;  // end of filename
 
         default:
           echo "<input type=\"$type\" name=\"$inputname\" value=\"$contents\" ";
@@ -3670,7 +3696,6 @@ function MakeInsertStatement ($table, $row)
  // get the field names
   $names = array ();
   $namesResult = dbQuery ("SHOW COLUMNS FROM " . $table);
-
   while ($nameRow = dbFetch ($namesResult))
       $names [$nameRow ['Field']] = preg_match ('|int|i', $nameRow ['Type']);
 

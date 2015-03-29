@@ -517,6 +517,8 @@ function HandleAuthenticator ($userid, $authenticator_table)
   $sessionCounter = ord ($decrypted [6]) +
                    (ord ($decrypted [7]) << 8);
 
+//  echo "<br>sessionCounter = $sessionCounter";
+  
   // the timestamp is the next 3 bytes (8 to 10)
   $timeStamp = ord ($decrypted [8]) +
               (ord ($decrypted [9]) <<  8) +
@@ -525,10 +527,16 @@ function HandleAuthenticator ($userid, $authenticator_table)
   // now the use counter (byte 11)
   $useCounter = ord ($decrypted [11]);
 
+//  echo "<br>useCounter = $useCounter";
+
   // random number is 12 and 13
   // CRC is 14 and 15 (giving a total of 16)
 
   $totalCount =  ($sessionCounter << 8) + $useCounter;
+
+//  echo "<br>totalCount = $totalCount";
+  
+//  echo "<br>authrow ['Counter'] = " . $authrow ['Counter'];
 
   if ($totalCount <= $authrow ['Counter'])
     return "Authentication failed (token re-used)";

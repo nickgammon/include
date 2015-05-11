@@ -2157,10 +2157,17 @@ function ValidateReal ($thereal)
   {
   $thereal = trim ($thereal); // ensure no leading spaces etc.
 
+  // look for leading $ sign
+  if ($thereal [0] == '$')
+    $thereal = substr ($thereal, 1);    // remove $
+
   // look for leading sign
   if ($thereal [0] == '+' || $thereal [0] == '-')
     $thereal = substr ($thereal, 1);    // remove sign
 
+  // get rid of commas (for thousands)
+  $thereal = str_replace (",", "", $thereal);
+  
   $items = explode (".", trim ($thereal));  // don't want two decimal points
   if (count ($items) > 2 || !strlen ($thereal) || !preg_match ("|^[0-9.]+$|", $thereal))
     return "Field must be numeric";
@@ -2276,6 +2283,10 @@ function ValidateField ($value, $type)
                  break;
 
     case "real":
+                $error = ValidateReal ($value);
+                 break;
+
+    case "decimal":
                 $error = ValidateReal ($value);
                  break;
 

@@ -478,7 +478,9 @@ function HandleAuthenticator ($userid, $authenticator_table)
 // -------------------
 
   if (strlen ($authenticator) != 44)
-    return "Authenticator token wrong length";
+      return "Authenticator token wrong length";
+ //   return "Authenticator token wrong length, should be 44, is actually " . strlen ($authenticator);
+
 
   $decodedToken = modHexDecode($authenticator);
 

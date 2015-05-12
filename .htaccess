@@ -1,2 +1,2 @@
-Deny from all
+# see /etc/apache2/conf-enabled/httpd.conf
 

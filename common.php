@@ -1028,7 +1028,7 @@ function CheckForumToken ()
 
   // first look up token in bbusertoken (this allows for multiple logins)
 
-  $tokeninfo = dbQueryOne ("SELECT * FROM bbusertoken WHERE token = '$forumtoken' "
+  $tokeninfo = dbQueryOne ("SELECT * FROM bbusertoken WHERE token = '" . fixsql ($forumtoken) . "' "
                              . "AND date_expires >= NOW()" );
 
   // if found, use user id in the bbusertoken table to find the forum user id

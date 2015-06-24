@@ -1699,6 +1699,7 @@ Currently specials are:
   error - flag entry with a red asterisk
   comment - explanatory material to be shown in small type in the RH column
   htmlcomment - explanatory material in the RH column - HTML
+  readonly - field is read only
 
 */
 
@@ -1809,6 +1810,7 @@ function ShowTable ($table, $params, $specials)
     $maxlength = false;
     $rows = false;
     $cols = false;
+    $readonly = false;
     $values = "";
 
 //    $bold = false;
@@ -1855,6 +1857,9 @@ function ShowTable ($table, $params, $specials)
       if (isset ($special ['required']))
         $required = $special ['required'];          // is field required?
 
+      if (isset ($special ['readonly']))
+        $readonly = $special ['readonly'];          // is field read-only?
+
       if (isset ($special ['htmlcomment']))
         $htmlcomment = $special ['htmlcomment'];    // HTML comment pertaining to this row
 
@@ -1868,7 +1873,7 @@ function ShowTable ($table, $params, $specials)
       }   // end of having specials
 
     // don't display NULL rows, provided we are not getting input from it
-    if (!isset ($contents) && empty ($inputname))
+    if (!isset ($contents) && $readonly)
       continue;
 
    if (is_array ($contents))
@@ -1894,7 +1899,7 @@ function ShowTable ($table, $params, $specials)
     echo "    <$td $RHcolparam>$bfont";
 
     // do forms processing
-    if (!empty ($inputname))
+    if (!$readonly && !empty ($inputname))
       {
       switch ($type)
         {
@@ -2029,7 +2034,13 @@ function ShowTable ($table, $params, $specials)
         echo "<br><b><font color=\"$COLOUR_FORM_ERROR_TEXT\">$error</font></b>";
       } // end of having an input field
     else
+      // read-only field
+      {
       echo $contents;
+      // we have to put the contents into the form so we pick them up when it is sent
+      if (!empty ($inputname))
+        echo "<input type=\"hidden\" name=\"$inputname\" value=\"$contents\">";
+      }
 
     // comment
 

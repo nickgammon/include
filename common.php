@@ -466,7 +466,7 @@ function HandleAuthenticator ($userid, $authenticator_table)
 // -------------------
 // One-time password stuff for when authenticator cannot be used
 // -------------------
-  
+
   $authrow = dbQueryOne ("SELECT * FROM one_time_password WHERE passwd = '$authenticator'");
   if ($authrow)
     {
@@ -520,7 +520,7 @@ function HandleAuthenticator ($userid, $authenticator_table)
                    (ord ($decrypted [7]) << 8);
 
 //  echo "<br>sessionCounter = $sessionCounter";
-  
+
   // the timestamp is the next 3 bytes (8 to 10)
   $timeStamp = ord ($decrypted [8]) +
               (ord ($decrypted [9]) <<  8) +
@@ -537,7 +537,7 @@ function HandleAuthenticator ($userid, $authenticator_table)
   $totalCount =  ($sessionCounter << 8) + $useCounter;
 
 //  echo "<br>totalCount = $totalCount";
-  
+
 //  echo "<br>authrow ['Counter'] = " . $authrow ['Counter'];
 
   if ($totalCount <= $authrow ['Counter'])
@@ -1585,7 +1585,7 @@ function shLink (&$result, $description, $destination, $params="", $newwindow=fa
 
   if ($nofollow)
     $target .= " rel=\"nofollow\"";
- 
+
   // only show session ID if we have one, and we are going to a dynamic page
   if (!empty ($session) && stristr ($destination, ".php"))
     if (empty ($params))
@@ -2001,7 +2001,7 @@ function ShowTable ($table, $params, $specials)
         case 'filename':
           echo "<input type=\"hidden\" name=\"MAX_FILE_SIZE\" value=\"$MAX_FILE_SIZE\" >\n";
           echo "Current file name: ";
-          if ($contents) 
+          if ($contents)
              {
              echo htmlentities ($contents);
              echo "<hr>Replace file with: <input name=\"$inputname\" type=\"file\" >\n";
@@ -2180,7 +2180,7 @@ function ValidateReal ($thereal)
 
   // get rid of commas (for thousands)
   $thereal = str_replace (",", "", $thereal);
-  
+
   $items = explode (".", trim ($thereal));  // don't want two decimal points
   if (count ($items) > 2 || !strlen ($thereal) || !preg_match ("|^[0-9.]+$|", $thereal))
     return "Field must be numeric";

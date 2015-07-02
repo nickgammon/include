@@ -2364,6 +2364,10 @@ function ValidateOneField ($name, $type, $notnull, $maxsize, &$specials)
       return;   // enough validation, field is empty
     } // end of empty field
 
+  // don't validate read-only fields, they can't fix them
+  if ($specials [$name] ['readonly'])
+    return;
+
   // validate fields
 
   $error = ValidateField ($value, $type);

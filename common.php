@@ -580,10 +580,13 @@ function CheckAdminSession ()
     $username       = trim ($_POST ['username']);
     $password       = trim ($_POST ['password']);
 
-    $md5_password = md5 ($password);
 
-    $userinfo = dbQueryOne ("SELECT * FROM user WHERE username = '$username' "
-                          . "AND password = '$md5_password'");
+    $userinfo = dbQueryOne ("SELECT * FROM user WHERE username = '$username' ");
+
+    $md5_password = md5 ($password . $userinfo ['salt']);  // salt might be empty
+
+    if ($userinfo ['password'] != $md5_password)
+      $userinfo = "";  // wrong password
 
     if ($userinfo)
       {
@@ -620,6 +623,20 @@ function CheckAdminSession ()
              . "WHERE userid = $userid";
 
       dbUpdate ($query);
+
+      // convert to salted password if not done already
+
+      if (!$userinfo ['salt'])
+        {
+        $salt = MakeToken ();
+        $md5_password = md5 ($password . $salt);  // now have salted password hash
+
+        $query = "UPDATE user SET salt = '$salt', password = '$md5_password' "
+               . "WHERE userid = $userid";
+
+        dbUpdate ($query);
+
+        } // end of generating salt and storing it
 
       $userinfo ['session'] = $session;
       $expiry = $userinfo ['cookie_expiry'];
@@ -848,23 +865,25 @@ function doForumLogon()
   $password = str_replace ("\"", " ", $password);
   $password = fixsql (trim ($password));
 
-  // try and work out their IP address
   $remote_ip = getIPaddress ();
 
   $server_name = $_SERVER["HTTP_HOST"];
 
-  $md5_password = md5 ($password);
 
   $foruminfo = dbQueryOne ("SELECT *, "
                        . "TO_DAYS(NOW()) - TO_DAYS(date_registered) AS days_on FROM bbuser "
-                       . "WHERE username = '$username' "
-                       . "AND password = '$md5_password'");
+                       . "WHERE username = '$username' ");
+
+  $md5_password = md5 ($password . $foruminfo ['salt']);  // salt might be empty
+
+  if ($foruminfo ['password'] != $md5_password)
+    $foruminfo = "";  // wrong password
 
   if (!$foruminfo)
-  {
-  ForumUserLoginFailure ($username, $password, $remote_ip);
-  return;
-  }   // end of not on file
+    {
+    ForumUserLoginFailure ($username, $password, $remote_ip);
+    return;
+    }   // end of not on file
 
   if ($foruminfo ['blocked'])
     {
@@ -872,7 +891,6 @@ function doForumLogon()
     $foruminfo = "";
     return; // give up
     }
-
 
   if ($foruminfo ['required_ip'])
     if ($foruminfo ['required_ip'] != $remote_ip)
@@ -890,6 +908,20 @@ function doForumLogon()
     } // end of a match
 
   $bbuser_id = $foruminfo ['bbuser_id'];
+
+  // convert to salted password if not done already
+
+  if (!$foruminfo ['salt'])
+    {
+    $salt = MakeToken ();
+    $md5_password = md5 ($password . $salt);  // now have salted password hash
+
+    $query = "UPDATE bbuser SET salt = '$salt', password = '$md5_password' "
+           . "WHERE bbuser_id = $bbuser_id";
+
+    dbUpdate ($query);
+
+    } // end of generating salt and storing it
 
   // generate token
   $token = MakeToken ();

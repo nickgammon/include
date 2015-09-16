@@ -43,6 +43,9 @@ Copyright © 2001 Nick Gammon.
 
 */
 
+// for bcrypt stuff (password_hash / password_verify)
+require ($INCLUDE_DIRECTORY . "password.php");
+
 // save doing this in every file
 $action      = getGPC ('action');
 
@@ -583,10 +586,19 @@ function CheckAdminSession ()
 
     $userinfo = dbQueryOne ("SELECT * FROM user WHERE username = '$username' ");
 
-    $md5_password = md5 ($password . $userinfo ['salt']);  // salt might be empty
-
-    if ($userinfo ['password'] != $md5_password)
-      $userinfo = "";  // wrong password
+    // longer password means bcrypt: method / cost / salt / password
+    if (PasswordCompat\binary\check() &&
+        PasswordCompat\binary\_strlen ($userinfo ['password']) > 32)
+      {
+      if (!password_verify ($password, $userinfo ['password']))
+        $userinfo = "";  // wrong password
+      }
+    else
+      {
+      $md5_password = md5 ($password . $userinfo ['salt']);  // salt might be empty
+      if ($userinfo ['password'] != $md5_password)
+        $userinfo = "";  // wrong password
+      }
 
     if ($userinfo)
       {
@@ -624,19 +636,29 @@ function CheckAdminSession ()
 
       dbUpdate ($query);
 
-      // convert to salted password if not done already
-
-      if (!$userinfo ['salt'])
+      // convert to bcrypt password if not done already
+      if (PasswordCompat\binary\check())
         {
-        $salt = MakeToken ();
-        $md5_password = md5 ($password . $salt);  // now have salted password hash
+        if (PasswordCompat\binary\_strlen ($userinfo ['password']) <= 32)
+          {
+          $md5_password = password_hash($password, PASSWORD_BCRYPT, array("cost" => 13));
+          $query = "UPDATE user SET salt = NULL, password = '$md5_password' "
+                 . "WHERE userid = $userid";
+          dbUpdate ($query);
+          } // end of generating better password hash and saving it
+        } // end of bcrypt available
+      else
+        {   // bcrypt not available
+        if (!$userinfo ['salt'])
+          {
+          $salt = MakeToken ();
+          $md5_password = md5 ($password . $salt);  // now have salted password hash
+          $query = "UPDATE user SET salt = '$salt', password = '$md5_password' "
+                 . "WHERE userid = $userid";
+          dbUpdate ($query);
+          }
 
-        $query = "UPDATE user SET salt = '$salt', password = '$md5_password' "
-               . "WHERE userid = $userid";
-
-        dbUpdate ($query);
-
-        } // end of generating salt and storing it
+        }  // end of bcrypt not available
 
       $userinfo ['session'] = $session;
       $expiry = $userinfo ['cookie_expiry'];
@@ -874,10 +896,19 @@ function doForumLogon()
                        . "TO_DAYS(NOW()) - TO_DAYS(date_registered) AS days_on FROM bbuser "
                        . "WHERE username = '$username' ");
 
-  $md5_password = md5 ($password . $foruminfo ['salt']);  // salt might be empty
-
-  if ($foruminfo ['password'] != $md5_password)
-    $foruminfo = "";  // wrong password
+  // longer password means bcrypt: method / cost / salt / password
+  if (PasswordCompat\binary\check() &&
+      PasswordCompat\binary\_strlen ($foruminfo ['password']) > 32)
+    {
+    if (!password_verify ($password, $foruminfo ['password']))
+      $foruminfo = "";  // wrong password
+    }
+  else
+    {
+    $md5_password = md5 ($password . $foruminfo ['salt']);  // salt might be empty
+    if ($foruminfo ['password'] != $md5_password)
+      $foruminfo = "";  // wrong password
+    }
 
   if (!$foruminfo)
     {
@@ -909,19 +940,29 @@ function doForumLogon()
 
   $bbuser_id = $foruminfo ['bbuser_id'];
 
-  // convert to salted password if not done already
+  // convert to bcrypt password if not done already
 
-  if (!$foruminfo ['salt'])
+  if (PasswordCompat\binary\check())
     {
-    $salt = MakeToken ();
-    $md5_password = md5 ($password . $salt);  // now have salted password hash
-
-    $query = "UPDATE bbuser SET salt = '$salt', password = '$md5_password' "
-           . "WHERE bbuser_id = $bbuser_id";
-
-    dbUpdate ($query);
-
-    } // end of generating salt and storing it
+    if (PasswordCompat\binary\_strlen ($foruminfo ['password']) <= 32)
+      {
+      $md5_password = password_hash($password, PASSWORD_BCRYPT, array("cost" => 13));
+      $query = "UPDATE bbuser SET salt = NULL, password = '$md5_password' "
+             . "WHERE bbuser_id = $bbuser_id";
+      dbUpdate ($query);
+      } // end of generating better password hash and saving it
+    } // end of bcrypt available
+  else
+    {   // bcrypt not available
+    if (!$foruminfo ['salt'])
+      {
+      $salt = MakeToken ();
+      $md5_password = md5 ($password . $salt);  // now have salted password hash
+      $query = "UPDATE bbuser SET salt = '$salt', password = '$md5_password' "
+             . "WHERE bbuser_id = $bbuser_id";
+      dbUpdate ($query);
+      }  // end of generating better password hash and saving it
+    }  // end of bcrypt not available
 
   // generate token
   $token = MakeToken ();

@@ -2077,6 +2077,8 @@ function ShowTable ($table, $params, $specials)
           if ($contents)
              {
              echo htmlentities ($contents);
+             echo " - Remove: ";
+             echo "<input name=\"_DELETE_$inputname\" type=\"checkbox\" value=1 >\n";
              echo "<hr>Replace file with: <input name=\"$inputname\" type=\"file\" >\n";
              // original file name in case they don't upload a new one
              echo "<input name=\"$inputname\" type=\"hidden\" value=\"$contents\" >\n";

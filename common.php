@@ -52,7 +52,7 @@ $action      = getGPC ('action');
 $MAX_LOGIN_FAILURES = 5;  // number of times you can get your password wrong for a username
 $MAX_UNKNOWN_USER_FAILURES = 10;  // number of times an IP address can try a non-existent username
 
-$MAX_FILE_SIZE = 30000000;      // bytes (30 Mb!)
+$MAX_FILE_SIZE = 200 * 1000 * 1000;      // bytes (200 Mb!)
 
 // major problems - white on brown
 $COLOUR_ERROR_TEXT = "#FFFFFF"; // white

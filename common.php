@@ -817,7 +817,9 @@ function completeForumLogon ($bbuser_id)
   $server_name = $_SERVER["HTTP_HOST"];
 
   $foruminfo = dbQueryOne ("SELECT *, "
-                       . "TO_DAYS(NOW()) - TO_DAYS(date_registered) AS days_on FROM bbuser "
+                       . "TO_DAYS(NOW()) - TO_DAYS(date_registered) AS days_on, "
+                       . "TIMESTAMPDIFF(MINUTE, last_post_date, NOW()) AS minutes_since_last_post "
+                       . "FROM bbuser "
                        . "WHERE bbuser_id = '$bbuser_id'");
 
   $username = $foruminfo ['username'];
@@ -893,8 +895,9 @@ function doForumLogon()
 
 
   $foruminfo = dbQueryOne ("SELECT *, "
-                       . "TO_DAYS(NOW()) - TO_DAYS(date_registered) AS days_on FROM bbuser "
-                       . "WHERE username = '$username' ");
+                       . "TO_DAYS(NOW()) - TO_DAYS(date_registered) AS days_on, "
+                       . "TIMESTAMPDIFF(MINUTE, last_post_date, NOW()) AS minutes_since_last_post "
+                       . "FROM bbuser WHERE username = '$username' ");
 
   // longer password means bcrypt: method / cost / salt / password
   if (PasswordCompat\binary\check() &&
@@ -1111,8 +1114,9 @@ function CheckForumToken ()
     $id = $tokeninfo ['bbuser_id'];
 
     $foruminfo = dbQueryOne ("SELECT *, "
-                         . "TO_DAYS(NOW()) - TO_DAYS(date_registered) AS days_on FROM bbuser "
-                         . "WHERE bbuser_id = '$id'");
+                         . "TO_DAYS(NOW()) - TO_DAYS(date_registered) AS days_on, "
+                         . "TIMESTAMPDIFF(MINUTE, last_post_date, NOW()) AS minutes_since_last_post "
+                         . "FROM bbuser WHERE bbuser_id = '$id'");
 
     if ($foruminfo) // will be empty if no match
       {
@@ -1380,9 +1384,7 @@ $endtime = getmicrotime ();
 $diff = $endtime - $pagestarttime;
 
 if (!empty ($userinfo) || $doingMail ||
-    isset ($foruminfo ['admin']) ||
-    isset ($foruminfo ['moderator_topic']) ||
-    isset ($foruminfo ['moderator_section']))
+    isAdminOrModerator ())
   {
   echo "<p>";
   bTable (0);
@@ -1418,8 +1420,7 @@ function DebugSomething ($what)
   {
 global $pagestarttime, $userinfo, $doingMail, $foruminfo;
 
-if (!empty ($userinfo) ||
-    $foruminfo ['admin'])
+if (!empty ($userinfo) || isAdmin ())
   {
   echo "<br>Debug: " . nl2br_http (htmlspecialchars ($what)) . "<br>\n";
   }
@@ -3494,9 +3495,15 @@ function isGlobalModerator ()
  return isset ($foruminfo ['global_moderator']) && $foruminfo ['global_moderator'];
  } // end of isGlobalModerator
 
-function isAdminOrModerator ()
+function isAdminOrModerator ($bbsection_id = 0, $bbtopic_id = 0)
 {
   global $foruminfo, $headingrow;
+
+  if (!$bbsection_id && isset ($headingrow) && isset ($headingrow ['bbsection_id']) )
+    $bbsection_id = $headingrow ['bbsection_id'];
+
+  if (!$bbtopic_id  && isset ($headingrow) && isset ($headingrow ['bbtopic_id']) )
+    $bbtopic_id = $headingrow ['bbtopic_id'];
 
   if (!isset ($foruminfo) || !$foruminfo)
     return false;
@@ -3504,19 +3511,33 @@ function isAdminOrModerator ()
   if (isAdmin () || isGlobalModerator ())
     return true;
 
-  if (!isset ($headingrow) || !$headingrow)
-    return false;
+  if (isset ($foruminfo ['moderator_topic']) && isset ($bbtopic_id))
+    if ($bbtopic_id && $foruminfo ['moderator_topic'] == $bbtopic_id)
+      return true;
 
-  if (isset ($foruminfo ['moderator_topic']) && isset ($headingrow ['bbtopic_id']))
-  if ($foruminfo ['moderator_topic'] == $headingrow ['bbtopic_id'])
-    return true;
-
-  if (isset ($foruminfo ['moderator_section']) && isset ($headingrow ['bbsection_id']))
-  if ($foruminfo ['moderator_section'] == $headingrow ['bbsection_id'])
-    return true;
+  if (isset ($foruminfo ['moderator_section']) && isset ($bbsection_id))
+    if ($bbsection_id && $foruminfo ['moderator_section'] == $bbsection_id)
+      return true;
 
   return false;
 } // end of isAdminOrModerator
+
+function hasUnlimitedPostLength ()
+  {
+  global $foruminfo, $headingrow;
+
+  if (!isset ($foruminfo) || !$foruminfo)
+    return false;
+
+  if (isAdminOrModerator ())
+    return true;
+
+  if ($foruminfo ['unlimited_post_length'])
+    return true;
+
+  return false;
+
+  } // end of hasUnlimitedPostLength
 
 function isSubjectAuthor ()
 {
@@ -3556,6 +3577,67 @@ function isLoggedOnToForum ()
 
   return $foruminfo ['bbuser_id'];
   } // end of isLoggedOnToForum
+
+function beingThrottled ()
+  {
+  global $foruminfo;
+  global $NEW_USER_THROTTLE_MINUTES, $NEW_USER_DAYS_REGISTERED, $NEW_USER_MINIMUM_POST_COUNT;
+
+  // not logged on, must not post
+  if (!isLoggedOnToForum ())
+    return $NEW_USER_THROTTLE_MINUTES;
+
+  // admins and moderators are not throttled
+  if (isAdminOrModerator ())
+    return 0;
+
+/*
+  bList ();
+  LI (); echo "days logged on = " . $foruminfo ['days_on'];
+  LI (); echo "minutes_since_last_post = " . $foruminfo ['minutes_since_last_post'];
+  LI (); echo "count_posts = " . $foruminfo ['count_posts'];
+  LI (); echo "NEW_USER_THROTTLE_MINUTES = $NEW_USER_THROTTLE_MINUTES";
+  LI (); echo "NEW_USER_MINIMUM_POST_COUNT = $NEW_USER_MINIMUM_POST_COUNT";
+  eList ();
+*/
+
+  // if been logged on long enough and made enough posts
+  if ($foruminfo ['days_on'] > $NEW_USER_DAYS_REGISTERED &&
+      $foruminfo ['count_posts'] > $NEW_USER_MINIMUM_POST_COUNT)
+    return 0;
+
+  $throttleTime = $NEW_USER_THROTTLE_MINUTES;
+
+  // calculate proportional throttle time, eg. if you have made 29/30 posts you will be
+  // throttled 1/30 of the full time
+
+  // if made not many posts, we will hold that against them
+  if ($foruminfo ['count_posts'] <= $NEW_USER_MINIMUM_POST_COUNT)
+    $throttleTime1 = $NEW_USER_THROTTLE_MINUTES * (1 - ($foruminfo ['count_posts'] / $NEW_USER_MINIMUM_POST_COUNT));
+  else
+    $throttleTime1 = 0;
+
+  // if joined recently, we will hold that against them too
+  if ($foruminfo ['days_on'] <= $NEW_USER_DAYS_REGISTERED)
+    $throttleTime2 = $NEW_USER_THROTTLE_MINUTES * (1 - ($foruminfo ['days_on'] /$NEW_USER_DAYS_REGISTERED));
+  else
+    $throttleTime2 = 0;
+
+  // take the higher one - to make them wait the maximum time
+  $throttleTime = max ($throttleTime1, $throttleTime2);
+
+  // if posted recently, cannot post again
+  if ($foruminfo ['minutes_since_last_post'] < $throttleTime)
+    {
+ //   echo "<br>Returning: " . ($throttleTime - $foruminfo ['minutes_since_last_post']);
+    return $throttleTime - $foruminfo ['minutes_since_last_post'];
+    }
+
+  // not being throttled
+//  echo "<br>Returning: 0<br>";
+  return 0;
+
+  } // end of beingThrottled
 
 function canUpdate ()
 {

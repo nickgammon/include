@@ -3940,9 +3940,28 @@ function ShowSqlResult ($result)
     // column names
 
     bRow ("lightblue");
+    $alignments = array ();
     for ($i = 0; $i < mysqli_num_fields ($result); $i++)
     {
       $fieldInfo = mysqli_fetch_field ($result);
+
+      // work out whether to right-align based on field type
+      // see: http://www.php.net/manual/en/mysqli.constants.php
+      $align = 'left';
+      switch ($fieldInfo->type)
+        {
+        case MYSQLI_TYPE_DECIMAL:
+        case MYSQLI_TYPE_NEWDECIMAL:
+        case MYSQLI_TYPE_TINY:
+        case MYSQLI_TYPE_SHORT:
+        case MYSQLI_TYPE_LONG:
+        case MYSQLI_TYPE_FLOAT:
+        case MYSQLI_TYPE_DOUBLE:
+        case MYSQLI_TYPE_LONGLONG:
+          $align = 'right';
+          break;
+        }
+      $alignments [] = $align;
       tHead ($fieldInfo->name);
     }
     eRow ();
@@ -3956,7 +3975,7 @@ function ShowSqlResult ($result)
         $value = $row [$i];
         if (!isset ($value))
           $value = "-";
-        tData ($value);
+        tData ($value, -1, $alignments [$i]);
         }
       eRow ();
 

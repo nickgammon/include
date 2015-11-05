@@ -818,7 +818,8 @@ function completeForumLogon ($bbuser_id)
 
   $foruminfo = dbQueryOne ("SELECT *, "
                        . "TO_DAYS(NOW()) - TO_DAYS(date_registered) AS days_on, "
-                       . "TIMESTAMPDIFF(MINUTE, last_post_date, NOW()) AS minutes_since_last_post "
+                       . "TIMESTAMPDIFF(MINUTE, last_post_date, NOW()) AS minutes_since_last_post, "
+                       . "TIMESTAMPDIFF(MINUTE, date_mail_sent, NOW()) AS minutes_since_last_mail "
                        . "FROM bbuser "
                        . "WHERE bbuser_id = '$bbuser_id'");
 
@@ -896,7 +897,8 @@ function doForumLogon()
 
   $foruminfo = dbQueryOne ("SELECT *, "
                        . "TO_DAYS(NOW()) - TO_DAYS(date_registered) AS days_on, "
-                       . "TIMESTAMPDIFF(MINUTE, last_post_date, NOW()) AS minutes_since_last_post "
+                       . "TIMESTAMPDIFF(MINUTE, last_post_date, NOW()) AS minutes_since_last_post, "
+                       . "TIMESTAMPDIFF(MINUTE, date_mail_sent, NOW()) AS minutes_since_last_mail "
                        . "FROM bbuser WHERE username = '$username' ");
 
   // longer password means bcrypt: method / cost / salt / password
@@ -1115,7 +1117,8 @@ function CheckForumToken ()
 
     $foruminfo = dbQueryOne ("SELECT *, "
                          . "TO_DAYS(NOW()) - TO_DAYS(date_registered) AS days_on, "
-                         . "TIMESTAMPDIFF(MINUTE, last_post_date, NOW()) AS minutes_since_last_post "
+                         . "TIMESTAMPDIFF(MINUTE, last_post_date, NOW()) AS minutes_since_last_post, "
+                         . "TIMESTAMPDIFF(MINUTE, date_mail_sent, NOW()) AS minutes_since_last_mail "
                          . "FROM bbuser WHERE bbuser_id = '$id'");
 
     if ($foruminfo) // will be empty if no match
@@ -3578,7 +3581,7 @@ function isLoggedOnToForum ()
   return $foruminfo ['bbuser_id'];
   } // end of isLoggedOnToForum
 
-function beingThrottled ()
+function beingThrottled ($basis = 'minutes_since_last_post')
   {
   global $foruminfo;
   global $NEW_USER_THROTTLE_MINUTES, $NEW_USER_DAYS_REGISTERED, $NEW_USER_MINIMUM_POST_COUNT;
@@ -3590,16 +3593,6 @@ function beingThrottled ()
   // admins and moderators are not throttled
   if (isAdminOrModerator ())
     return 0;
-
-/*
-  bList ();
-  LI (); echo "days logged on = " . $foruminfo ['days_on'];
-  LI (); echo "minutes_since_last_post = " . $foruminfo ['minutes_since_last_post'];
-  LI (); echo "count_posts = " . $foruminfo ['count_posts'];
-  LI (); echo "NEW_USER_THROTTLE_MINUTES = $NEW_USER_THROTTLE_MINUTES";
-  LI (); echo "NEW_USER_MINIMUM_POST_COUNT = $NEW_USER_MINIMUM_POST_COUNT";
-  eList ();
-*/
 
   // if been logged on long enough and made enough posts
   if ($foruminfo ['days_on'] > $NEW_USER_DAYS_REGISTERED &&
@@ -3627,14 +3620,10 @@ function beingThrottled ()
   $throttleTime = max ($throttleTime1, $throttleTime2);
 
   // if posted recently, cannot post again
-  if ($foruminfo ['minutes_since_last_post'] < $throttleTime)
-    {
- //   echo "<br>Returning: " . ($throttleTime - $foruminfo ['minutes_since_last_post']);
-    return $throttleTime - $foruminfo ['minutes_since_last_post'];
-    }
+  if ($foruminfo [$basis] < $throttleTime)
+    return $throttleTime - $foruminfo [$basis];
 
   // not being throttled
-//  echo "<br>Returning: 0<br>";
   return 0;
 
   } // end of beingThrottled
@@ -3938,5 +3927,45 @@ function MakeInsertStatement ($table, $row)
 
   return $result;
 } // end of MakeInsertStatement
+
+/* ********************************************************************************
+  ShowSqlResult - show the results of an SQL query
+ ********************************************************************************  */
+function ShowSqlResult ($result)
+  {
+  if (dbRows ($result) > 0)
+    {
+    bTable ();
+
+    // column names
+
+    bRow ("lightblue");
+    for ($i = 0; $i < mysqli_num_fields ($result); $i++)
+    {
+      $fieldInfo = mysqli_fetch_field ($result);
+      tHead ($fieldInfo->name);
+    }
+    eRow ();
+
+    while ($row = mysqli_fetch_row ($result))
+      {
+      // row data
+      bRow ("azure");
+      for ($i = 0; $i < mysqli_num_fields ($result); $i++)
+        {
+        $value = $row [$i];
+        if (!isset ($value))
+          $value = "-";
+        tData ($value);
+        }
+      eRow ();
+
+      }   // end of doing each row
+
+    eTable ();
+
+    } // end of having rows to display
+
+  } // end of ShowSqlResult
 
 ?>

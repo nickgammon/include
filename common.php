@@ -808,6 +808,20 @@ function ForumUserLoginFailure ($username, $password, $remote_ip)
 
   }  // end of ForumUserLoginFailure
 
+function getForumInfo ($where)
+  {
+  global $foruminfo;
+  $date_now = strftime ("%Y-%m-%d %H:%M:%S", utctime());
+
+  $foruminfo = dbQueryOne ("SELECT *, "
+                       . "TO_DAYS('$date_now') - TO_DAYS(date_registered) AS days_on, "
+                       . "TIMESTAMPDIFF(MINUTE, last_post_date, '$date_now') AS minutes_since_last_post, "
+                       . "TIMESTAMPDIFF(MINUTE, date_mail_sent, '$date_now') AS minutes_since_last_mail "
+                       . "FROM bbuser "
+                       . "WHERE $where");
+
+  } // end of getForumInfo
+
 function completeForumLogon ($bbuser_id)
 {
   global $foruminfo, $blocked, $banned_ip, $control;
@@ -816,12 +830,7 @@ function completeForumLogon ($bbuser_id)
 
   $server_name = $_SERVER["HTTP_HOST"];
 
-  $foruminfo = dbQueryOne ("SELECT *, "
-                       . "TO_DAYS(NOW()) - TO_DAYS(date_registered) AS days_on, "
-                       . "TIMESTAMPDIFF(MINUTE, last_post_date, NOW()) AS minutes_since_last_post, "
-                       . "TIMESTAMPDIFF(MINUTE, date_mail_sent, NOW()) AS minutes_since_last_mail "
-                       . "FROM bbuser "
-                       . "WHERE bbuser_id = '$bbuser_id'");
+  getForumInfo ("bbuser_id = '$bbuser_id'");
 
   $username = $foruminfo ['username'];
   // generate token
@@ -894,12 +903,7 @@ function doForumLogon()
 
   $server_name = $_SERVER["HTTP_HOST"];
 
-
-  $foruminfo = dbQueryOne ("SELECT *, "
-                       . "TO_DAYS(NOW()) - TO_DAYS(date_registered) AS days_on, "
-                       . "TIMESTAMPDIFF(MINUTE, last_post_date, NOW()) AS minutes_since_last_post, "
-                       . "TIMESTAMPDIFF(MINUTE, date_mail_sent, NOW()) AS minutes_since_last_mail "
-                       . "FROM bbuser WHERE username = '$username' ");
+  getForumInfo ("username = '$username'");
 
   // longer password means bcrypt: method / cost / salt / password
   if (PasswordCompat\binary\check() &&
@@ -1115,11 +1119,7 @@ function CheckForumToken ()
     {
     $id = $tokeninfo ['bbuser_id'];
 
-    $foruminfo = dbQueryOne ("SELECT *, "
-                         . "TO_DAYS(NOW()) - TO_DAYS(date_registered) AS days_on, "
-                         . "TIMESTAMPDIFF(MINUTE, last_post_date, NOW()) AS minutes_since_last_post, "
-                         . "TIMESTAMPDIFF(MINUTE, date_mail_sent, NOW()) AS minutes_since_last_mail "
-                         . "FROM bbuser WHERE bbuser_id = '$id'");
+    getForumInfo ("bbuser_id = '$id'");
 
     if ($foruminfo) // will be empty if no match
       {
@@ -3612,7 +3612,7 @@ function beingThrottled ($basis = 'minutes_since_last_post')
 
   // if joined recently, we will hold that against them too
   if ($foruminfo ['days_on'] <= $NEW_USER_DAYS_REGISTERED)
-    $throttleTime2 = $NEW_USER_THROTTLE_MINUTES * (1 - ($foruminfo ['days_on'] /$NEW_USER_DAYS_REGISTERED));
+    $throttleTime2 = $NEW_USER_THROTTLE_MINUTES * (1 - ($foruminfo ['days_on'] / $NEW_USER_DAYS_REGISTERED));
   else
     $throttleTime2 = 0;
 

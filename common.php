@@ -3599,6 +3599,11 @@ function beingThrottled ($basis = 'minutes_since_last_post')
       $foruminfo ['count_posts'] > $NEW_USER_MINIMUM_POST_COUNT)
     return 0;
 
+  // if they have not made any posts, we can't throttle them as there is no known
+  // time elapsed since the previous one
+  if (!$foruminfo [$basis])
+    return 0;
+
   $throttleTime = $NEW_USER_THROTTLE_MINUTES;
 
   // calculate proportional throttle time, eg. if you have made 29/30 posts you will be

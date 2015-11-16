@@ -813,6 +813,8 @@ function getForumInfo ($where)
   global $foruminfo;
   $date_now = strftime ("%Y-%m-%d %H:%M:%S", utctime());
 
+//  echo "\n<!-- Inside getForumInfo, date_now = $date_now -->\n";
+
   $foruminfo = dbQueryOne ("SELECT *, "
                        . "TO_DAYS('$date_now') - TO_DAYS(date_registered) AS days_on, "
                        . "TIMESTAMPDIFF(MINUTE, last_post_date, '$date_now') AS minutes_since_last_post, "
@@ -3581,28 +3583,60 @@ function isLoggedOnToForum ()
   return $foruminfo ['bbuser_id'];
   } // end of isLoggedOnToForum
 
-function beingThrottled ($basis = 'minutes_since_last_post')
+function beingThrottled ($basis = 'minutes_since_last_post', $last_date = 'last_post_date')
   {
   global $foruminfo;
   global $NEW_USER_THROTTLE_MINUTES, $NEW_USER_DAYS_REGISTERED, $NEW_USER_MINIMUM_POST_COUNT;
 
+  $date_now = strftime ("%Y-%m-%d %H:%M:%S", utctime());
+
+//  echo "\n<!-- Inside: beingThrottled, basis = '$basis', date_now = $date_now, last_date = '$last_date' -->\n";
+
+  $bt = debug_backtrace ();
+  $item = $bt [0];
+
+//  echo "<!-- Called from: "  . $item ['file'] . ", Line: " . $item ['line'] . " -->\n";
+
   // not logged on, must not post
   if (!isLoggedOnToForum ())
+    {
+//    echo "<!-- Not loggged on -->\n";
     return $NEW_USER_THROTTLE_MINUTES;
+    }
 
   // admins and moderators are not throttled
   if (isAdminOrModerator ())
+    {
+//    echo "<!-- Is moderator -->\n";
     return 0;
+    }
+
+  $days_on = $foruminfo ['days_on'];
+  $count_posts = $foruminfo ['count_posts'];
+
+//  echo "<!-- days_on = $days_on, count_posts = $count_posts -->\n";
 
   // if been logged on long enough and made enough posts
-  if ($foruminfo ['days_on'] > $NEW_USER_DAYS_REGISTERED &&
-      $foruminfo ['count_posts'] > $NEW_USER_MINIMUM_POST_COUNT)
+  if ($days_on > $NEW_USER_DAYS_REGISTERED &&
+      $count_posts > $NEW_USER_MINIMUM_POST_COUNT)
+    {
+//    echo "<!-- Passed initial tests: days_on > $NEW_USER_DAYS_REGISTERED && count_posts > $NEW_USER_MINIMUM_POST_COUNT -->\n";
     return 0;
+    }
+
+  $minutes_basis = $foruminfo [$basis];
+  $date_test = $foruminfo [$last_date];
+
+//  echo "<!-- minutes_basis = $minutes_basis -->\n";
+//  echo "<!-- date_test = $date_test -->\n";
 
   // if they have not made any posts, we can't throttle them as there is no known
   // time elapsed since the previous one
-  if (!$foruminfo [$basis])
+  if (!$date_test)
+    {
+//    echo "<!-- No posts made on test basis. -->\n";
     return 0;
+    }
 
   $throttleTime = $NEW_USER_THROTTLE_MINUTES;
 
@@ -3610,23 +3644,37 @@ function beingThrottled ($basis = 'minutes_since_last_post')
   // throttled 1/30 of the full time
 
   // if made not many posts, we will hold that against them
-  if ($foruminfo ['count_posts'] <= $NEW_USER_MINIMUM_POST_COUNT)
-    $throttleTime1 = $NEW_USER_THROTTLE_MINUTES * (1 - ($foruminfo ['count_posts'] / $NEW_USER_MINIMUM_POST_COUNT));
+  if ($count_posts <= $NEW_USER_MINIMUM_POST_COUNT)
+    $throttleTime1 = $NEW_USER_THROTTLE_MINUTES * (1 - ($count_posts / $NEW_USER_MINIMUM_POST_COUNT));
   else
     $throttleTime1 = 0;
 
+//  echo "<!-- throttleTime1 = $throttleTime1 -->\n";
+
   // if joined recently, we will hold that against them too
-  if ($foruminfo ['days_on'] <= $NEW_USER_DAYS_REGISTERED)
-    $throttleTime2 = $NEW_USER_THROTTLE_MINUTES * (1 - ($foruminfo ['days_on'] / $NEW_USER_DAYS_REGISTERED));
+  if ($days_on <= $NEW_USER_DAYS_REGISTERED)
+    $throttleTime2 = $NEW_USER_THROTTLE_MINUTES * (1 - ($days_on / $NEW_USER_DAYS_REGISTERED));
   else
     $throttleTime2 = 0;
+
+//  echo "<!-- throttleTime2 = $throttleTime2 -->\n";
 
   // take the higher one - to make them wait the maximum time
   $throttleTime = max ($throttleTime1, $throttleTime2);
 
+//  echo "<!-- throttleTime = $throttleTime -->\n";
+
+  $time_to_wait = $throttleTime - $minutes_basis;
+//  echo "<!-- time_to_wait = $time_to_wait -->\n";
+
   // if posted recently, cannot post again
-  if ($foruminfo [$basis] < $throttleTime)
-    return $throttleTime - $foruminfo [$basis];
+  if ($time_to_wait > 0)
+    {
+//    echo "<!-- they have to $time_to_wait minutes. -->\n";
+    return $time_to_wait;
+    }
+
+//  echo "<!-- OK to post -->\n";
 
   // not being throttled
   return 0;

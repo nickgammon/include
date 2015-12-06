@@ -391,7 +391,6 @@ function CheckSessionID ($noHTML = false)
   if (empty ($userinfo))
     return;   // no session for this guy
 
-
   if ($adminaction == "logoff")
     {
     LogOff ();

@@ -3809,7 +3809,7 @@ function ShowMessage ($which)
       echo "<td>\n";
       }
 
-    echo ($html . "\n");
+    echo (str_replace ('<h1></h1>', '', $html . "\n"));
 
     // close the box
     if ($colour)

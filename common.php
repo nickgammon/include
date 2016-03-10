@@ -4040,4 +4040,54 @@ function ShowSqlResult ($result)
 
   } // end of ShowSqlResult
 
+function ConvertMarkup ($value, $outputName = 'HTML', $headerLevel = 2, $toc = '')
+  {
+  global $control;
+
+  // where it is
+  $pandocProg = $control ['pandoc'];
+  // check we found it
+  if (!is_file ($pandocProg))
+    $error = "Cannot find pandoc";
+  else
+
+    {
+    $cmd = "$pandocProg " .
+           "--smart " .
+           "--from=markdown " .
+           "--base-header-level=$headerLevel " .
+           "--email-obfuscation=none " .
+           "--normalize " .
+           "$toc ".
+           '--template="/var/www/pandoc.template" '.
+           "--to=html5";
+
+    $descriptorspec = array(
+       0 => array("pipe", "r"),  // stdin is a pipe that the child will read from
+       1 => array("pipe", "w"),  // stdout is a pipe that the child will write to
+       2 => array('pipe', 'w')   // stderr is a pipe that the child will write to
+    );
+
+    $process = proc_open($cmd, $descriptorspec, $pipes);
+
+    if (is_resource($process))
+      {
+      fwrite($pipes[0], $value);
+      fclose($pipes[0]);
+
+      $_POST [$outputName] = stream_get_contents($pipes[1]);
+      fclose($pipes[1]);
+
+      $error = stream_get_contents($pipes[2]);
+      fclose($pipes[2]);
+
+      $return_value = proc_close($process);
+      }  // end of process opened OK
+    else
+      $error = "Cannot invoke process";
+    }  // end of found pandoc program
+
+    return $error;
+} // end of ConvertMarkup
+
 ?>

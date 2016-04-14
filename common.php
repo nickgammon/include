@@ -335,12 +335,11 @@ function OpenDatabase ($dbserver, $dbuser, $dbname, $dbpassword)
 function OpenMailDatabase ()
   {
   global $DATABASE_SERVER, $MAIL_DATABASE_NAME, $MAIL_DATABASE_USER, $MAIL_DATABASE_PASSWORD;
+  global $dblink;
 
-  $link = mysql_pconnect ($DATABASE_SERVER, $MAIL_DATABASE_USER, $MAIL_DATABASE_PASSWORD)
+  $dblink = mysqli_connect ($DATABASE_SERVER, $MAIL_DATABASE_USER, $MAIL_DATABASE_PASSWORD, $MAIL_DATABASE_NAME)
       or MajorProblem ("Cannot connect to server $DATABASE_SERVER: " . mysql_error ());
 
-  mysql_select_db ($MAIL_DATABASE_NAME)
-      or MajorProblem ("Cannot select database $MAIL_DATABASE_NAME: " . mysql_error ());
   } // end of OpenMailDatabase
 
 function GetControlItems ()

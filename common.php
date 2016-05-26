@@ -260,7 +260,7 @@ function ShowError ($theerror)
 
   echo "<table border=\"0\" cellpadding=\"5\"> <tr bgcolor=\"$COLOUR_ERROR_BGND\"> "
      . "<td><font color=\"$COLOUR_ERROR_TEXT\"><b>\n";
-  echo (htmlspecialchars ($theerror) . "\n");
+  echo (htmlspecialchars ($theerror, ENT_SUBSTITUTE) . "\n");
   echo "</b></font></td></tr></table>\n";
   } // end of ShowError
 
@@ -271,7 +271,7 @@ function ShowWarningH ($theWarning)
 
 function ShowWarning ($theWarning)
   {
-  ShowWarningH (nl2br_http (htmlspecialchars ($theWarning)));
+  ShowWarningH (nl2br_http (htmlspecialchars ($theWarning, ENT_SUBSTITUTE)));
   } // end of ShowWarning
 
 function ColourEchoH ($theMessage, $theColour, $bold = false, $italic = false)
@@ -291,7 +291,7 @@ function ColourEchoH ($theMessage, $theColour, $bold = false, $italic = false)
 
 function ColourEcho ($theMessage, $theColour, $bold = false, $italic = false)
   {
-  ColourEchoH (htmlspecialchars ($theMessage), $theColour, $bold, $italic);
+  ColourEchoH (htmlspecialchars ($theMessage, ENT_SUBSTITUTE), $theColour, $bold, $italic);
   } // end of ColourEcho
 
 // Use this before database opened or if we cannot read styles
@@ -1185,7 +1185,7 @@ function ShowSource ($filename)
   eRow ();
   bRow ("azure");
   echo "<td><pre><font size=\"3\"><code>\n";
-  echo htmlspecialchars ($sourcedata);
+  echo htmlspecialchars ($sourcedata, ENT_SUBSTITUTE);
   echo "</code></font></pre></td>";
   eRow ();
   eTable ();
@@ -1319,8 +1319,8 @@ if ($title == "%FORUM_NAME%")
 
   } // end of forum title
 
-$head = str_replace ("<%TITLE%>", htmlspecialchars ($title), $control ['head']);
-$head = str_replace ("<%KEYWORDS%>", htmlspecialchars ($keywords), $head);
+$head = str_replace ("<%TITLE%>", htmlspecialchars ($title, ENT_SUBSTITUTE), $control ['head']);
+$head = str_replace ("<%KEYWORDS%>", htmlspecialchars ($keywords, ENT_SUBSTITUTE), $head);
 
 
 if (isset ($foruminfo ['font']))
@@ -1425,7 +1425,7 @@ global $pagestarttime, $userinfo, $doingMail, $foruminfo;
 
 if (!empty ($userinfo) || isAdmin ())
   {
-  echo "<br>Debug: " . nl2br_http (htmlspecialchars ($what)) . "<br>\n";
+  echo "<br>Debug: " . nl2br_http (htmlspecialchars ($what, ENT_SUBSTITUTE)) . "<br>\n";
   }
   }     // end of DebugSomething
 
@@ -1472,8 +1472,8 @@ function ShowArray ($name, $thearray, $recurse = false)
     {
 
     printf ("<li>[%s] = [%s]\n",
-            htmlspecialchars ($cellname),   // name
-            htmlspecialchars ($value));  // value
+            htmlspecialchars ($cellname, ENT_SUBSTITUTE),   // name
+            htmlspecialchars ($value, ENT_SUBSTITUTE));  // value
     if ($recurse && is_array ($value))
       ShowArray ($cellname, $value);  // should really be , true but be cautious
     }
@@ -1531,11 +1531,11 @@ function tHead ($text, $fontsize=-1, $align="left", $colspan=1)
   {
   if ($colspan == 1)
     echo "<th style=\"text-align:$align;\" >"
-        . nl2br_http (htmlspecialchars ($text))
+        . nl2br_http (htmlspecialchars ($text, ENT_SUBSTITUTE))
         . "</th>\n";
   else
     echo "<th style=\"text-align:$align; \" colspan=\"$colspan\">"
-        . nl2br_http (htmlspecialchars ($text))
+        . nl2br_http (htmlspecialchars ($text, ENT_SUBSTITUTE))
         . "</th>\n";
 
   }  // end of tHead
@@ -1543,7 +1543,7 @@ function tHead ($text, $fontsize=-1, $align="left", $colspan=1)
 // table heading extra - add extra HTML (eg. class, colspan)
 function tHeadx ($text, $extra="")
   {
-  echo "<th $extra> " . nl2br_http (htmlspecialchars ($text)) . "</th>\n";
+  echo "<th $extra> " . nl2br_http (htmlspecialchars ($text, ENT_SUBSTITUTE)) . "</th>\n";
   }  // end of tHeadx
 
 // table heading (HTML) - with class specified
@@ -1564,7 +1564,7 @@ function tHeadH ($text, $fontsize=-1, $align="left", $colspan=1)
 // table data extra - add extra HTML (eg. class, colspan)
 function tDatax ($text, $extra="")
   {
-  echo "<td $extra> " . nl2br_http (htmlspecialchars ($text)) . "</td>\n";
+  echo "<td $extra> " . nl2br_http (htmlspecialchars ($text, ENT_SUBSTITUTE)) . "</td>\n";
   }  // end of tDatax
 
 // table data extra (HTML) - add extra HTML (eg. class, colspan)
@@ -1579,11 +1579,11 @@ function tData ($text, $fontsize=-1, $align="left", $colspan=1)
 
   if ($colspan == 1)
     echo "<td style=\"text-align:$align; \" >"
-        . nl2br_http (htmlspecialchars ($text))
+        . nl2br_http (htmlspecialchars ($text, ENT_SUBSTITUTE))
         . "</td>\n";
   else
     echo "<td style=\"text-align:$align; \" colspan=\"$colspan\" >"
-        . nl2br_http (htmlspecialchars ($text))
+        . nl2br_http (htmlspecialchars ($text, ENT_SUBSTITUTE))
         . "</td>\n";
 
   } // end of tData
@@ -1650,7 +1650,7 @@ function shLink (&$result, $description, $destination, $params="", $newwindow=fa
   else
     $session = "";
 
-  $params = htmlspecialchars ($params);   // should be &amp; inside URLs
+  $params = htmlspecialchars ($params, ENT_SUBSTITUTE);   // should be &amp; inside URLs
 
   if ($viewsource == "yes")
     $session .= "&amp;viewsource=yes";
@@ -1961,9 +1961,9 @@ function ShowTable ($table, $params, $specials)
 
     // if 'breaks' then they want to keep line breaks
     if ($breaks)
-      $contents = nl2br_http (htmlentities ($contents));
+      $contents = nl2br_http (htmlentities ($contents, ENT_SUBSTITUTE));
     else if (!$html)
-      $contents = htmlspecialchars ($contents);
+      $contents = htmlspecialchars ($contents, ENT_SUBSTITUTE);
 
     // this is a heading?
     if ($heading)
@@ -1972,7 +1972,7 @@ function ShowTable ($table, $params, $specials)
       $td = "td";
 
     echo "  <tr $rowparam>\n";
-    echo "    <$td $LHcolparam>$bfont<b>" . htmlspecialchars ($description) . "</b>$efont</$td>\n";
+    echo "    <$td $LHcolparam>$bfont<b>" . htmlspecialchars ($description, ENT_SUBSTITUTE) . "</b>$efont</$td>\n";
     echo "    <$td $RHcolparam>$bfont";
 
     // do forms processing
@@ -2184,7 +2184,7 @@ while ($row = dbFetch ($result))
   echo $line_preamble;
   $summarydata = $row [$summary];
   $iddata = $row [$id];
-  hLink (htmlspecialchars ($summarydata), $page, "$id=$iddata$other_args");
+  hLink (htmlspecialchars ($summarydata, ENT_SUBSTITUTE), $page, "$id=$iddata$other_args");
   echo $line_postamble . "\n";
 
   // ------ excerpt -------
@@ -3272,9 +3272,9 @@ function showBacktrace ($howFarBack = 1)
     $item = $bt [$i];
     echo "<li>\n";
     echo "<ul>\n";
-    echo ("<li>" . "Function: "     . htmlspecialchars ($item ['function']));
-    echo ("<li>" . "Called from: "  . htmlspecialchars ($item ['file']));
-    echo ("<li>" . "Line: "         . htmlspecialchars ($item ['line']));
+    echo ("<li>" . "Function: "     . htmlspecialchars ($item ['function'], ENT_SUBSTITUTE));
+    echo ("<li>" . "Called from: "  . htmlspecialchars ($item ['file'], ENT_SUBSTITUTE));
+    echo ("<li>" . "Line: "         . htmlspecialchars ($item ['line'], ENT_SUBSTITUTE));
     echo "</ul><p>\n";
     }
   echo "</ol>\n";
@@ -3287,12 +3287,12 @@ function showSQLerror ($sql)
 
   echo "<hr>\n";
   echo "<h2><font color=darkred>Problem with SQL</font></h2>\n";
-  echo (htmlspecialchars (mysqli_error ($dblink)));
+  echo (htmlspecialchars (mysqli_error ($dblink), ENT_SUBSTITUTE));
   echo "<hr>\n";
   bTable (1);
   bRow ();
   echo "<td><mono>\n";
-  echo (htmlspecialchars ($sql). "\n");
+  echo (htmlspecialchars ($sql, ENT_SUBSTITUTE). "\n");
   echo "</mono></td>\n";
   eRow ();
   eTable ();
@@ -3815,7 +3815,7 @@ function ShowMessage ($which)
       echo "</td></tr></table>\n";
     }
   else
-    echo "<p><em>Warning</em>: Message " . htmlspecialchars ($which) . " does  not exist.\n";
+    echo "<p><em>Warning</em>: Message " . htmlspecialchars ($which, ENT_SUBSTITUTE) . " does  not exist.\n";
 
   if (isLoggedOn ())
     echo ("<p style=\"text-align:right;\"><span style=\"font-size:smaller; color:gray;\">[$which]</span></p>\n");

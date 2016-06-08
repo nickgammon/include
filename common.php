@@ -1998,6 +1998,7 @@ function ShowTable ($table, $params, $specials)
           reset ($values);
           while (list ($selectvalue, $selectdescription) = each ($values))
             {
+            $selectvalue = htmlspecialchars ($selectvalue);
             echo "<option value=\"$selectvalue\" ";
             if ($contents == $selectvalue)
               echo "selected ";
@@ -2085,7 +2086,7 @@ function ShowTable ($table, $params, $specials)
              echo "<input name=\"_DELETE_$inputname\" type=\"checkbox\" value=1 >\n";
              echo "<hr>Replace file with: <input name=\"$inputname\" type=\"file\" >\n";
              // original file name in case they don't upload a new one
-             echo "<input name=\"$inputname\" type=\"hidden\" value=\"$contents\" >\n";
+             echo "<input name=\"$inputname\" type=\"hidden\" value=\"" . htmlentities ($contents) . "\" >\n";
              }
           else
              echo "(None)<br>Upload file: <input name=\"$inputname\" type=\"file\" >";
@@ -2093,7 +2094,7 @@ function ShowTable ($table, $params, $specials)
           break;  // end of filename
 
         default:
-          echo "<input type=\"$type\" name=\"$inputname\" value=\"$contents\" ";
+          echo "<input type=\"$type\" name=\"$inputname\" value=\"" . htmlentities ($contents) . "\" ";
           if (isset ($size))
             echo "size=\"$size\" ";
           if (isset ($maxlength))
@@ -2118,7 +2119,7 @@ function ShowTable ($table, $params, $specials)
       echo $contents;
       // we have to put the contents into the form so we pick them up when it is sent
       if (!empty ($inputname))
-        echo "<input type=\"hidden\" name=\"$inputname\" value=\"$contents\">";
+        echo "<input type=\"hidden\" name=\"$inputname\" value=\"" . htmlentities ($contents) . "\">";
       }
 
     // comment

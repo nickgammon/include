@@ -4090,4 +4090,72 @@ function ConvertMarkup ($value, $outputName = 'HTML', $headerLevel = 2, $toc = '
     return $error;
 } // end of ConvertMarkup
 
+/*
+PROGRESS BAR GENERATOR
+----------------------
+
+Arguments:
+
+  width:      Width of window in pixels
+  height:     Height of window in pixels (at least 25) - 18 is used for the text (name) area and borders
+  name:       Name of bar (eg. Health points)
+  colour:     Colour of active bar (HTML colour name, or #hhhhhh colour code)
+  backcolour: Colour of bar background (inactive part) - HTML colour name, or #hhhhhh colour code)
+  current:    A number representing the current value (eg. 80 percent)
+  maximum:    A number representing the maximum value (eg. 100 percent)
+
+At present this gives you:
+
+ *  2 pixels of transparent above the text
+ * 14 pixels of text
+ *  1 pixel of transparent between the text and the bar
+ *  (height - 18) pixels of bar (2 pixels each of black at the top and bottom)
+ *  1 pixel of transparent under the bar
+
+Thus the minimal height of 25 gives you a bar with only 3 pixels of colour (plus 2 of black at the top and bottom).
+
+Note that the bar should be long enough to hold the name (the current and maximum are appended to the name).
+
+*/
+
+function ProgressBar ($width, $height, $name, $colour, $backcolour, $current, $maximum)
+  {
+  $strokeWidth = 2;
+  $textTop = 12;
+  $barTop = 17;
+  $barHeight = $height - $barTop - $strokeWidth - 1;
+  $barLeft = 2;
+  $barWidth = $width - 4;
+  $roundAmount = 4;
+
+  echo "<svg width=\"$width\" height=\"$height\" >\n";
+
+  // entire bar in background colour
+  echo "<rect x=\"$barLeft\" y=\"$barTop\" width=\"$barWidth\" height=\"$barHeight\" " .
+       "fill=\"$backcolour\" ry=\"$roundAmount\" " .
+       "stroke=\"none\" />\n";
+
+  // now draw over with "current" amount
+  $currentWidth = ceil ($current / $maximum * $barWidth);
+  echo "<rect x=\"$barLeft\" y=\"$barTop\" width=\"$currentWidth\" height=\"$barHeight\" " .
+       "fill=\"$colour\" ry=\"$roundAmount\" " .
+       "stroke=\"none\" />\n";
+
+  // background rectangle
+  echo "<rect x=\"$barLeft\" y=\"$barTop\" width=\"$barWidth\" height=\"$barHeight\" " .
+       "fill=\"none\" ry=\"$roundAmount\" " .
+       "stroke=\"black\" stroke-width=\"$strokeWidth\" />\n";
+
+  // text on top
+  $description = htmlspecialchars ("$name ($current / $maximum)");
+  echo "<text style=\"fill:black; font-size:10.5pt; font-family:Arial\" " .
+       "x=\"$barLeft\" y=\"$textTop\">$description</text>\n";
+
+  // will be shown if SVG tag not supported
+  echo "Sorry, your browser does not support inline SVG.\n";
+
+  echo "</svg>\n";
+
+  } // end of ProgressBar
+
 ?>

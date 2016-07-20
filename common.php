@@ -2094,7 +2094,7 @@ function ShowTable ($table, $params, $specials)
           break;  // end of filename
 
         default:
-          echo "<input type=\"$type\" name=\"$inputname\" value=\"" . htmlentities ($contents) . "\" ";
+          echo "<input type=\"$type\" name=\"$inputname\" value=\"" . $contents . "\" ";
           if (isset ($size))
             echo "size=\"$size\" ";
           if (isset ($maxlength))

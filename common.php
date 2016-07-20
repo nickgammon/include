@@ -2248,6 +2248,9 @@ function ValidateBool ($thebool)
 // validate real numbers
 function ValidateReal ($thereal)
   {
+  if (!$thereal)
+    return "Field cannot be empty";
+
   $thereal = trim ($thereal); // ensure no leading spaces etc.
 
   // look for leading $ sign
@@ -4157,5 +4160,38 @@ function ProgressBar ($width, $height, $name, $colour, $backcolour, $current, $m
   echo "</svg>\n";
 
   } // end of ProgressBar
+
+function openSVGfile ($filename, $labelRow)
+{
+  $handle = fopen ($filename, "w");
+
+  if (!$handle)
+    MajorProblem ("Cannot open file: $filename");
+
+  $width  = $labelRow ['Page_Width'] . 'mm';
+  $height = $labelRow ['Page_Height'] . 'mm';
+
+  fwrite ($handle, <<< EOD
+    <svg
+       xmlns="http://www.w3.org/2000/svg"
+       xmlns:xlink="http://www.w3.org/1999/xlink"
+       version="1.1"
+       viewBox="0 0 $width $height"
+       width="$width"
+       height="$height" >
+
+  <!-- SVG generated in PHP
+
+    Author:  Nick Gammon
+    Written: 23rd April 2016
+
+EOD
+);
+
+  // timestamp
+  fwrite ($handle, "\n    This file generated on: " . strftime ("%A %d %B %Y at %I:%M:%S %p", time ()));
+  fwrite ($handle, "\n\n  -->\n\n");
+  return $handle;
+}   // end of openSVGfile
 
 ?>

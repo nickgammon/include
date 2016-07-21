@@ -2326,8 +2326,8 @@ function ValidateDate ($thedate)
   if (count ($items) != 3)
      return "Date must consist of YYYY-MM-DD";
 
-  if ($items [0] < 1800 || $items [0] > 2100)
-     return "Year must be in range 1800 to 2100";
+  if ($items [0] < 1700 || $items [0] > 2100)
+     return "Year must be in range 1700 to 2100";
 
   if ($items [1] < 1 || $items [1] > 12)
      return "Month must be in range 1 to 12";
@@ -4193,5 +4193,104 @@ EOD
   fwrite ($handle, "\n\n  -->\n\n");
   return $handle;
 }   // end of openSVGfile
+
+function checkHandle ($handle)
+  {
+  if (gettype ($handle) != 'resource' || get_resource_type ($handle) != 'stream')
+    {
+    showBacktrace (2);
+    MajorProblem ("Handle supplied to SVGrect is not a stream");
+    }
+  } // end of checkHandle
+
+function SVGcomment ($handle, $comment)
+  {
+  checkHandle ($handle);
+  fwrite ($handle, "<!-- $comment -->\n");
+  } // end of SVGcomment
+
+function SVGrect ($handle, $args)
+  {
+  checkHandle ($handle);
+
+  $defaults = array (
+    'x'             => 0,
+    'y'             => 0,
+    'width'         => 10,
+    'height'        => 10,
+    'units'         => 'px',
+    'strokeColour'  => 'black',
+    'strokeWidth'   => 1,
+    'fillColour'    => 'none',
+    'ry'            => 0,
+     );
+
+  $args = array_merge($defaults, array_intersect_key($args, $defaults));
+
+  fwrite ($handle, "<rect " .
+               "x=\""             . $args ['x']       . $args ['units'] . "\" " .
+               "y=\""             . $args ['y']       . $args ['units'] . "\" " .
+               "width=\""         . $args ['width']   . $args ['units'] . "\" " .
+               "height=\""        . $args ['height']  . $args ['units'] . "\" " .
+               "fill=\""          . $args ['fillColour'] . "\" " .
+               "stroke-width=\""  . $args ['strokeWidth'] . "\" " .
+               "ry=\""            . $args ['ry'] . "\" " .
+               "stroke=\""        . $args ['strokeColour'] . "\" " .
+               "/>\n");
+  } // end of SVGrect
+
+function SVGline ($handle, $args)
+  {
+  checkHandle ($handle);
+
+  $defaults = array (
+    'x1'            => 0,
+    'y1'            => 0,
+    'x2'            => 10,
+    'y2'            => 10,
+    'units'         => 'px',
+    'colour'        => 'black',
+    'strokeWidth'   => 1,
+     );
+
+  $args = array_merge($defaults, array_intersect_key($args, $defaults));
+
+  fwrite ($handle, "<line " .
+               "x1=\""            . $args ['x1']      . $args ['units'] . "\" " .
+               "y1=\""            . $args ['y1']      . $args ['units'] . "\" " .
+               "x2=\""            . $args ['x2']      . $args ['units'] . "\" " .
+               "y2=\""            . $args ['y2']      . $args ['units'] . "\" " .
+               "stroke-width=\""  . $args ['strokeWidth'] . "\" " .
+               "stroke=\""        . $args ['colour']  . "\" " .
+               "/>\n");
+  } // end of SVGline
+
+// position can be: start / middle / end / inherit
+function SVGtext ($handle, $args)
+  {
+  checkHandle ($handle);
+
+  $defaults = array (
+    'x'             => 0,
+    'y'             => 0,
+    'units'         => 'px',
+    'text'          => '',
+    'colour'        => 'black',
+    'fontSize'      => 9,
+    'fontFamily'    => 'Arial',
+    'position'      => 'start',   // start / middle / end / inherit
+     );
+
+  $args = array_merge($defaults, array_intersect_key($args, $defaults));
+
+  fwrite ($handle, "<text " .
+                   "style=\"fill:"    . $args ['colour'] . "; " .
+                   "font-size:"       . $args ['fontSize'] . "pt; " .
+                   "font-family:"     . $args ['fontFamily'] . "\" " .
+                   "x=\""             . $args ['x']       . $args ['units'] . "\" " .
+                   "y=\""             . $args ['y']       . $args ['units'] . "\" " .
+                   "text-anchor=\""   . $args ['position'] . "\">" .
+                   htmlspecialchars ($args ['text']) . "</text>\n");
+  } // end of SVGtext
 
 ?>

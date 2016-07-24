@@ -3773,15 +3773,12 @@ function ShowBackupDays ()
   $row = dbQueryOne ($query);
 
   $days_since_backup = $row [0];
+  $when = duration ($days_since_backup);
 
-  if ($days_since_backup <= 0)
-    echo "<p style=\"color:darkgreen; font-size:x-small;\">Last off-site backup: today.</p>";
-  else if ($days_since_backup == 1)
-    echo "<p style=\"color:darkgreen; font-size:x-small;\">Last off-site backup: yesterday.</p>";
-  else if ($days_since_backup > 6)
-    echo "<p style=\"color:red; \"><b>Last off-site backup $days_since_backup days ago.</b></p>";
+  if ($days_since_backup > 6)
+    echo "<p style=\"color:red; \"><b>Last off-site backup $when.</b></p>";
   else
-    echo "<p style=\"color:darkgreen; font-size:x-small;\">Last off-site backup $days_since_backup days ago.</p>";
+    echo "<p style=\"color:darkgreen; font-size:x-small;\">Last off-site backup $when.</p>";
 
   } // end of Show_Backup_Days
 
@@ -4292,5 +4289,36 @@ function SVGtext ($handle, $args)
                    "text-anchor=\""   . $args ['position'] . "\">" .
                    htmlspecialchars ($args ['text']) . "</text>\n");
   } // end of SVGtext
+
+// shows a duration in more human-readable ways
+function duration ($days)
+  {
+  if ($days == 0)
+    return "today";
+  if ($days == -1)
+    return "tomorrow";
+  if ($days == 1)
+    return "yesterday";
+
+  if ($days > 0)
+    $direction = "ago";
+  else
+    {
+    $direction = "in the future";
+    $days = -$days;
+    }
+
+  if ($days < 14)
+    return sprintf ("%d days $direction", $days);
+
+  if ($days < 60)
+    return sprintf ("%d weeks $direction", $days / 7);
+
+  if ($days < (365 * 2))
+    return sprintf ("%d months $direction", $days / 12);
+
+  return sprintf ("%d years $direction", $days / 362.25);
+
+  } // end of duration
 
 ?>

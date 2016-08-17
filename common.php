@@ -4137,7 +4137,10 @@ function ProgressBar ($width, $height, $name, $colour, $backcolour, $current, $m
        "stroke=\"none\" />\n";
 
   // now draw over with "current" amount
-  $currentWidth = ceil ($current / $maximum * $barWidth);
+  if ($maximum == 0)
+    $currentWidth = 0;
+  else
+    $currentWidth = ceil ($current / $maximum * $barWidth);
   echo "<rect x=\"$barLeft\" y=\"$barTop\" width=\"$currentWidth\" height=\"$barHeight\" " .
        "fill=\"$colour\" ry=\"$roundAmount\" " .
        "stroke=\"none\" />\n";

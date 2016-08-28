@@ -1982,6 +1982,13 @@ function ShowTable ($table, $params, $specials)
         {
         case 'combo':
           echo "<select name=\"$inputname\" size=\"1\">\n";
+          if (!$required)
+            {
+            echo "<option value=\"\" ";
+            if (!$contents)
+              echo "selected ";
+            echo "/>(none)\n";
+            } // end if no entry required
           reset ($values);
           while (list ($selectvalue, $selectdescription) = each ($values))
             {
@@ -1995,6 +2002,13 @@ function ShowTable ($table, $params, $specials)
 
         case 'list':
           echo "<select name=\"$inputname\" size=\"$rows\">\n";
+          if (!$required)
+            {
+            echo "<option value=\"\" ";
+            if (!$contents)
+              echo "selected ";
+            echo "/>(none)\n";
+            } // end if no entry required
           reset ($values);
           while (list ($selectvalue, $selectdescription) = each ($values))
             {
@@ -2491,9 +2505,9 @@ function CheckField ($description, $id, $can_be_blank=true)
 
 function ShowTablesToEdit ()
   {
-  global $userinfo, $ADMIN_DIRECTORY;
+  global $userinfo, $ADMIN_DIRECTORY, $TABLE_EDITOR;
 
-  echo "<form METHOD=\"post\" ACTION=\"" . $ADMIN_DIRECTORY . "edittable.php\"> \n";
+  echo "<form METHOD=\"post\" ACTION=\"$TABLE_EDITOR\"> \n";
   echo "<p>Edit table: &nbsp; <select name=table size=1>\n";
 
   // see if this user can edit *all* tables

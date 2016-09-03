@@ -3629,6 +3629,10 @@ function beingThrottled ($basis = 'minutes_since_last_post', $last_date = 'last_
     return 0;
     }
 
+  // trusted users won't be throttled
+  if ($foruminfo ['trusted'])
+    return 0;
+
   $days_on = $foruminfo ['days_on'];
   $count_posts = $foruminfo ['count_posts'];
 

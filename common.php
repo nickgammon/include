@@ -355,7 +355,7 @@ function GetControlItems ()
 
   dbFree ($result);
 
-  $control ['forum_url'] = "http://" . $_SERVER ["HTTP_HOST"] . "/forum";
+  $control ['forum_url'] = "//" . $_SERVER ["HTTP_HOST"] . "/forum";
   $HEADING_COLOUR = '#72A2C9';
   $BODY_COLOUR    = '#BBDEEA';
 

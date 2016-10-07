@@ -2563,6 +2563,10 @@ function MailAdmins ($subject, $message, $link, $condition, $bbuser_id = 0)
   $forum_name = $control ['forum_name'];
   $forum_url = $control ['forum_url'];
 
+  // put the "http:" part back for emails
+  if (substr ($forum_url, 0, 2) == "//")
+    $forum_url = "http:" . $forum_url;
+
   // find all admins (except ourselves - we don't need to notify ourselves
   $query = "SELECT * from bbuser "
           . "WHERE admin <> 0 "

@@ -825,6 +825,8 @@ function getForumInfo ($where)
 function completeForumLogon ($bbuser_id)
 {
   global $foruminfo, $blocked, $banned_ip, $control;
+  global $AUDIT_LOGGED_ON, $AUDIT_LOGGED_OFF;
+
   // try and work out their IP address
   $remote_ip = getIPaddress ();
 
@@ -866,6 +868,8 @@ function completeForumLogon ($bbuser_id)
          . "DATE_ADD(NOW(), INTERVAL '$days' DAY) );";
 
   dbUpdate ($query);
+
+  audit ($AUDIT_LOGGED_ON, $bbuser_id);
 
   $foruminfo ['token'] = $token;
   if ($foruminfo ['use_cookies'])   // only if wanted
@@ -3107,6 +3111,8 @@ $AUDIT_RESET_PASSWORD = 13;
 $AUDIT_CANCELLED_SPAM_MESSAGE = 14;
 $AUDIT_DELETED_USER = 15;
 $AUDIT_DEBUGGING_MESSAGE = 16;
+$AUDIT_LOGGED_ON = 17;
+$AUDIT_LOGGED_OFF = 18;
 
 
 // audit something they have done

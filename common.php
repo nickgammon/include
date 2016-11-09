@@ -3348,6 +3348,18 @@ function dbQueryOne ($sql)
   return $row;
   }  // end of dbQueryOne
 
+// Do a database query that returns a single row
+// return that row, or false (doesn't need freeing)
+// (eg. SELECT ... FROM) where you expect a single result
+
+function dbQueryOneParam ($sql, $params)
+  {
+  $results = dbQueryParam ($sql, $params);
+  if (count ($results) > 0)
+    return $results [0];
+  return false;
+  }  // end of dbQueryOneParam
+
 // Do a database query that updates the database.
 // eg. UPDATE, INSERT INTO, DELETE FROM etc.
 // Doesn't return a result.
@@ -3374,6 +3386,63 @@ function dbQuery ($sql)
 
   return $result;
   }  // end of dbQuery
+
+// Do a database query that returns multiple rows
+// Returns an ARRAY of the resulting rows. Nothing needs to be freed later.
+// First array element is a string containing field types (eg. "ssids")
+//   i 	corresponding variable has type integer
+//   d 	corresponding variable has type double
+//   s 	corresponding variable has type string
+// Subsequent elements are the parameters, passed by REFERENCE.
+//   eg.  dbQueryOneParam ("SELECT * FROM functions WHERE name = ?", array ('s', &$name));
+function dbQueryParam ($sql, $params)
+  {
+  global $dblink;
+
+  $stmt = mysqli_prepare ($dblink, $sql);
+  // false here means a bad query
+  if (!$stmt)
+    showSQLerror ($sql);
+
+  if (count ($params) > 1)
+    if (!call_user_func_array (array($stmt, 'bind_param'), $params))
+      showSQLerror ($sql);
+
+  if (!mysqli_stmt_execute ($stmt))
+    showSQLerror ($sql);
+
+  mysqli_stmt_store_result ($stmt);
+
+  $row = array ();    // array of names/values to return
+  $output = array (); // simple array to hold each result
+
+  // get field names, build into zero-based array
+  $meta = mysqli_stmt_result_metadata ($stmt);
+  while ($field = mysqli_fetch_field($meta))
+  {
+  $row [$field->name] = 0;
+  $output[] = &$row [$field->name];
+  }
+
+  // bind the output to the array we built
+  if (!call_user_func_array(array($stmt, 'bind_result'), $output))
+    showSQLerror ($sql);
+
+  $results = array ();
+
+  // fetch all the rows
+  while (mysqli_stmt_fetch($stmt))
+    {
+    $item = array ();
+    // have to copy the values, otherwise everything ends up being the last one
+    foreach ($row as $k => $v)
+      $item [$k] = $v;
+    $results [] = $item;
+    }
+
+  mysqli_stmt_close ($stmt);
+  return $results;
+  }  // end of dbQueryParam
 
 // fetches one row from the result returned by dbQuery
 // glue routine in case we switch to PostGRE or something

@@ -347,7 +347,7 @@ function GetControlItems ()
   global $control, $dblink;
   global $BODY_COLOUR, $HEADING_COLOUR;
 
-  $result = mysqli_query ($dblink, "SELECT * FROM control")
+  $result = mysqli_query ($dblink, "SELECT * FROM control")   // WTF?
     or MajorProblem ("Select of control table failed: " . mysqli_connect_error ());
 
   while ($row = dbFetch ($result))
@@ -371,7 +371,7 @@ function GetControlItems ()
 
   // fix time zone
   if (preg_match ("|^([+-][0-9]{2})([0-9]{2})?$|", $dst, $matches))
-    dbUpdate ("SET time_zone = '" . $matches [1] . ":" . $matches [2] . "'");
+    dbUpdate ("SET time_zone = '" . $matches [1] . ":" . $matches [2] . "'");  // hopefully OK
 
   } // end of GetControlItems
 
@@ -468,11 +468,13 @@ function HandleAuthenticator ($userid, $authenticator_table)
 // One-time password stuff for when authenticator cannot be used
 // -------------------
 
-  $authrow = dbQueryOne ("SELECT * FROM one_time_password WHERE passwd = '$authenticator'");
+  $authrow = dbQueryOneParam ("SELECT * FROM one_time_password WHERE passwd = ?",
+                              array ('s', &$authenticator));
   if ($authrow)
     {
     // update database so we don't use this password again
-    dbUpdate ("DELETE FROM one_time_password WHERE passwd = '$authenticator' ");
+    dbUpdateParam ("DELETE FROM one_time_password WHERE passwd = ? ",
+                   array ('s', &$authenticator));
     return false;
     }   // end of password found
 
@@ -495,7 +497,8 @@ function HandleAuthenticator ($userid, $authenticator_table)
   $publicUID_converted = bin2hex ($publicUID);
 
   // see if this authenticator is on file (for the desired user id)
-  $authrow = dbQueryOne ("SELECT * FROM $authenticator_table WHERE User = $userid AND Public_UID = '$publicUID_converted'");
+  $authrow = dbQueryOneParam ("SELECT * FROM $authenticator_table WHERE User = ? AND Public_UID = ?",
+                              array ('ss', &$userid, &$publicUID_converted));
 
   if (!$authrow)
     return "That authenticator is not on file";
@@ -547,7 +550,7 @@ function HandleAuthenticator ($userid, $authenticator_table)
    $Auth_ID = $authrow ['Auth_ID'];
 
    // update database so we don't use this token again
-   dbUpdate ("UPDATE $authenticator_table SET " .
+   dbUpdate ("UPDATE $authenticator_table SET " .   // internally generated
             " Counter = $totalCount, " .
             " Date_Last_Used = NOW() " .
             " WHERE Auth_ID = $Auth_ID");
@@ -582,7 +585,8 @@ function CheckAdminSession ()
     $password       = trim ($_POST ['password']);
 
 
-    $userinfo = dbQueryOne ("SELECT * FROM user WHERE username = '$username' ");
+    $userinfo = dbQueryOneParam ("SELECT * FROM user WHERE username = ? ",
+                                 array ('s', &$username) );
 
     // longer password means bcrypt: method / cost / salt / password
     if (PasswordCompat\binary\check() &&
@@ -612,7 +616,7 @@ function CheckAdminSession ()
           }
       $userid = $userinfo ['userid'];
 
-      $authrow = dbQueryOne ("SELECT COUNT(*) AS counter FROM authenticator WHERE User = $userid");
+      $authrow = dbQueryOne ("SELECT COUNT(*) AS counter FROM authenticator WHERE User = $userid"); // internally generated
 
       if ($authrow ['counter'] > 0 )
        {
@@ -632,7 +636,7 @@ function CheckAdminSession ()
              . "'" . strftime ("%Y-%m-%d %H:%M:%S", utctime()) . "' "
              . "WHERE userid = $userid";
 
-      dbUpdate ($query);
+      dbUpdate ($query);   // internally generated
 
       // convert to bcrypt password if not done already
       if (PasswordCompat\binary\check())
@@ -642,7 +646,7 @@ function CheckAdminSession ()
           $md5_password = password_hash($password, PASSWORD_BCRYPT, array("cost" => 13));
           $query = "UPDATE user SET salt = NULL, password = '$md5_password' "
                  . "WHERE userid = $userid";
-          dbUpdate ($query);
+          dbUpdate ($query);   // internally generated
           } // end of generating better password hash and saving it
         } // end of bcrypt available
       else
@@ -653,7 +657,7 @@ function CheckAdminSession ()
           $md5_password = md5 ($password . $salt);  // now have salted password hash
           $query = "UPDATE user SET salt = '$salt', password = '$md5_password' "
                  . "WHERE userid = $userid";
-          dbUpdate ($query);
+          dbUpdate ($query);   // internally generated
           }
 
         }  // end of bcrypt not available
@@ -677,7 +681,8 @@ function CheckAdminSession ()
   if (empty ($adminsession))    // not logged on yet
     return;   // no session, and not logging in
 
-  $userinfo = dbQueryOne ("SELECT * FROM user WHERE session = '$adminsession'");
+  $userinfo = dbQueryOneParam ("SELECT * FROM user WHERE session = ?",
+                               array ('s', &$adminsession));
 
   if ($userinfo) // will be empty if no match
     {
@@ -728,54 +733,51 @@ function ForumUserLoginFailure ($username, $password, $remote_ip)
   // generate login failure tracking record
   $query = "INSERT INTO bbuser_login_failure "
        . "(username, password, date_failed, failure_ip) "
-       . "VALUES ("
-       . "'$username', "
-       . "'$password', "
-       . "NOW(), "
-       . "'$remote_ip' );";
+       . "VALUES (?, ?, NOW(), ?);";
 
-  dbUpdate ($query);
+  dbUpdateParam ($query, array ('sss', &$username, &$password, &$remote_ip));
 
   $query = "UPDATE bbuser SET "
          . "count_failed_logins = count_failed_logins + 1 "
-         . "WHERE username = '$username' ";
+         . "WHERE username = ? ";
 
-  dbUpdate ($query);
+  dbUpdateParam ($query, array ('s', &$username));
 
   // clear old login failure tracking records (so they can reset by waiting a day)
   $query = "DELETE FROM bbuser_login_failure "
-         . "WHERE username = '$username' AND "
-         . "failure_ip = '$remote_ip' AND "
-         . "date_failed < DATE_ADD(NOW(), INTERVAL -1 DAY) ";
+         . "WHERE username = ? AND failure_ip = ? "
+         . "AND date_failed < DATE_ADD(NOW(), INTERVAL -1 DAY) ";
 
-  dbUpdate ($query);
+  dbUpdateParam ($query, array ('ss', &$username, &$remote_ip));
 
   // see how many times they failed from this IP address
   $query = "SELECT count(*) AS counter "
           . "FROM bbuser_login_failure "
-          . "WHERE failure_ip  = '$remote_ip' "
-          . "AND username = '$username'";
+          . "WHERE failure_ip  = ? "
+          . "AND username = ?";
 
-  $failure_row = dbQueryOne ($query);
+  $failure_row = dbQueryOneParam ($query, array ('ss', &$remote_ip, &$username));
 
   if ($failure_row ['counter'] > $MAX_LOGIN_FAILURES)
     {
     // now block that IP address
     $query = "INSERT INTO bbbanned_ip (ip_address, date_banned, reason) "
-           . "VALUES ( '$remote_ip', NOW(), 'Too many forum login failures for: $username' )";
+           . "VALUES ( ?, NOW(), CONCAT('Too many forum login failures for: ', ?) )";
     // don't check query, maybe already on file
-    dbUpdate ($query, false);
+    dbUpdateParam ($query, array ('ss', &$remote_ip, &$username), false);
     }
 
   // Extra code to allow for bots trying non-existent usernames:
 
   // see if user exists
-  $row = dbQueryOne ("SELECT username FROM bbuser WHERE username = '$username' ");
+  $row = dbQueryOneParam ("SELECT username FROM bbuser WHERE username = ? ",
+                          array ('s', &$username));
 
   if ($row)
     return;  // username exists, all is OK
 
-  $row = dbQueryOne ("SELECT * FROM bbsuspect_ip WHERE ip_address = '$remote_ip' ");
+  $row = dbQueryOneParam ("SELECT * FROM bbsuspect_ip WHERE ip_address = ? ",
+                          array ('s', &$remote_ip));
 
   if ($row)
     {
@@ -784,41 +786,46 @@ function ForumUserLoginFailure ($username, $password, $remote_ip)
       // right! that does it!
       // now block that IP address
       $query = "INSERT INTO bbbanned_ip (ip_address, date_banned, reason) "
-             . "VALUES ( '$remote_ip', NOW(), 'Too many attempts to login to forum with unknown username' )";
-      dbUpdate ($query);
+             . "VALUES ( ?, NOW(), 'Too many attempts to login to forum with unknown username' )";
+      dbUpdateParam ($query, array ('s', &$remote_ip));
       // get rid of from bbuser_login_failure
-      dbUpdate ("DELETE FROM bbuser_login_failure WHERE failure_ip = '$remote_ip' ");
+      dbUpdateParam ("DELETE FROM bbuser_login_failure WHERE failure_ip = ? ",
+                     array ('s', &$remote_ip));
       // get rid of from bbsuspect_ip
-      dbUpdate ("DELETE FROM bbsuspect_ip WHERE ip_address ='$remote_ip'");
+      dbUpdateParam ("DELETE FROM bbsuspect_ip WHERE ip_address = ?",
+                     array ('s', &$remote_ip));
       }
     else
       {
       // increment counter - haven't hit limit yet
-      dbUpdate ("UPDATE bbsuspect_ip SET count = count + 1 WHERE ip_address ='$remote_ip'");
+      dbUpdateParam ("UPDATE bbsuspect_ip SET count = count + 1 WHERE ip_address = ?",
+                     array ('s', &$remote_ip));
       }
 
     } // if already on file
   else
     {
-    dbUpdate ("INSERT INTO bbsuspect_ip (ip_address, count) VALUES ('$remote_ip', 1)");
+    dbUpdateParam ("INSERT INTO bbsuspect_ip (ip_address, count) VALUES (?, 1)",
+                   array ('s', &$remote_ip));
     }
 
 
   }  // end of ForumUserLoginFailure
 
-function getForumInfo ($where)
+function getForumInfo ($where, $params)
   {
   global $foruminfo;
   $date_now = strftime ("%Y-%m-%d %H:%M:%S", utctime());
 
 //  echo "\n<!-- Inside getForumInfo, date_now = $date_now -->\n";
 
-  $foruminfo = dbQueryOne ("SELECT *, "
+  $foruminfo = dbQueryOneParam (
+                         "SELECT *, "
                        . "TO_DAYS('$date_now') - TO_DAYS(date_registered) AS days_on, "
                        . "TIMESTAMPDIFF(MINUTE, last_post_date, '$date_now') AS minutes_since_last_post, "
                        . "TIMESTAMPDIFF(MINUTE, date_mail_sent, '$date_now') AS minutes_since_last_mail "
                        . "FROM bbuser "
-                       . "WHERE $where");
+                       . "WHERE $where", $params);
 
   } // end of getForumInfo
 
@@ -832,7 +839,7 @@ function completeForumLogon ($bbuser_id)
 
   $server_name = $_SERVER["HTTP_HOST"];
 
-  getForumInfo ("bbuser_id = '$bbuser_id'");
+  getForumInfo ("bbuser_id = ?", array ('i', &$bbuser_id));
 
   $username = $foruminfo ['username'];
   // generate token
@@ -842,14 +849,14 @@ function completeForumLogon ($bbuser_id)
          . "  token = NULL, "
          . "  date_logged_on = "
          . "  '" . strftime ("%Y-%m-%d %H:%M:%S", utctime()) . "', "
-         . "  last_remote_ip = '$remote_ip' "
-         . "WHERE bbuser_id = $bbuser_id";
+         . "  last_remote_ip = ? "
+         . "WHERE bbuser_id = ?";
 
-  dbUpdate ($query);
+  dbUpdateParam ($query, array ('ss', &$remote_ip, &$bbuser_id));
 
-  $query = "DELETE FROM bbusertoken WHERE bbuser_id = $bbuser_id AND date_expires <= NOW()";
+  $query = "DELETE FROM bbusertoken WHERE bbuser_id = ? AND date_expires <= NOW()";
 
-  dbUpdate ($query);
+  dbUpdateParam ($query, array ('s', &$bbuser_id));
 
   $expiry = $foruminfo ['cookie_expiry'];
   if (!$expiry)
@@ -858,16 +865,11 @@ function completeForumLogon ($bbuser_id)
   $days = ceil ($expiry / (60 * 60 * 24));
 
   $query = "INSERT INTO bbusertoken "
-         . "(bbuser_id, token, date_logged_on, last_remote_ip, server_name, date_expires) "
-         . "VALUES ("
-         . "$bbuser_id, "
-         . "'$token', "
-         . "NOW(), "
-         . "'$remote_ip', "
-         . "'$server_name', "
-         . "DATE_ADD(NOW(), INTERVAL '$days' DAY) );";
+         .        "(bbuser_id, token, date_logged_on, last_remote_ip, server_name, date_expires) "
+         . "VALUES ( ?,           ?,     NOW(),             ?,           ?, "      // see below
+         . "DATE_ADD(NOW(), INTERVAL '$days' DAY))";
 
-  dbUpdate ($query);
+  dbUpdateParam ($query, array ('ssss', &$bbuser_id, &$token, &$remote_ip, &$server_name ));
 
   audit ($AUDIT_LOGGED_ON, $bbuser_id);
 
@@ -877,14 +879,13 @@ function completeForumLogon ($bbuser_id)
 
   // clear login failure tracking records (so they don't accumulate)
   $query = "DELETE FROM bbuser_login_failure "
-         . "WHERE username = '$username' AND failure_ip = '$remote_ip'";
-  dbUpdate ($query);
+         . "WHERE username = ? AND failure_ip = ?";
+  dbUpdateParam ($query, array ('ss', &$username, &$remote_ip));
 
   // get rid of from bbsuspect_ip - this IP seems OK now
-  dbUpdate ("DELETE FROM bbsuspect_ip WHERE ip_address ='$remote_ip'");
+  dbUpdateParam ("DELETE FROM bbsuspect_ip WHERE ip_address = ?", array ('s', &$remote_ip));
 
   GetUserColours ();
-
 
 } // end of completeForumLogon
 
@@ -897,17 +898,16 @@ function doForumLogon()
   // get rid of quotes so they can paste from the email like this: "Nick Gammon"
   $username = GetP ('username');
   $username = str_replace ("\"", " ", $username);
-  $username = fixsql (trim ($username));  // in case their name is O'Grady
+  $username = trim ($username);
 
   $password = GetP ('password');
-  $password = str_replace ("\"", " ", $password);
-  $password = fixsql (trim ($password));
+  $password = trim ($password);
 
   $remote_ip = getIPaddress ();
 
   $server_name = $_SERVER["HTTP_HOST"];
 
-  getForumInfo ("username = '$username'");
+  getForumInfo ("username = ?", array ('s', &$username));
 
   // longer password means bcrypt: method / cost / salt / password
   if (PasswordCompat\binary\check() &&
@@ -943,7 +943,8 @@ function doForumLogon()
       return;  // don't generate a cookie
       }
 
-  $banned_row = dbQueryOne ("SELECT * FROM bbbanned_ip WHERE ip_address  = '$remote_ip'");
+  $banned_row = dbQueryOneParam ("SELECT * FROM bbbanned_ip WHERE ip_address  = ?",
+                                array ('s', &$remote_ip));
   if ($banned_row)
     {
     $banned_ip = true;    // can't do it
@@ -960,9 +961,9 @@ function doForumLogon()
     if (PasswordCompat\binary\_strlen ($foruminfo ['password']) <= 32)
       {
       $md5_password = password_hash($password, PASSWORD_BCRYPT, array("cost" => 13));
-      $query = "UPDATE bbuser SET salt = NULL, password = '$md5_password' "
-             . "WHERE bbuser_id = $bbuser_id";
-      dbUpdate ($query);
+      $query = "UPDATE bbuser SET salt = NULL, password = ? "
+             . "WHERE bbuser_id = ?";
+      dbUpdateParam ($query, array ('ss', &$md5_password, &$bbuser_id) );
       } // end of generating better password hash and saving it
     } // end of bcrypt available
   else
@@ -971,9 +972,8 @@ function doForumLogon()
       {
       $salt = MakeToken ();
       $md5_password = md5 ($password . $salt);  // now have salted password hash
-      $query = "UPDATE bbuser SET salt = '$salt', password = '$md5_password' "
-             . "WHERE bbuser_id = $bbuser_id";
-      dbUpdate ($query);
+      $query = "UPDATE bbuser SET salt = ?, password = ? WHERE bbuser_id = ?";
+      dbUpdateParam ($query, array ('ssi', &$salt, &$md5_password, &$bbuser_id));
       }  // end of generating better password hash and saving it
     }  // end of bcrypt not available
 
@@ -981,7 +981,8 @@ function doForumLogon()
   $token = MakeToken ();
 
   // see if this guy needs authentication
-  $authrow = dbQueryOne ("SELECT COUNT(*) AS counter FROM authenticator_forum WHERE User = $bbuser_id");
+  $authrow = dbQueryOneParam ("SELECT COUNT(*) AS counter FROM authenticator_forum WHERE User = ?",
+                              array ('i', &$bbuser_id));
 
   // no, so log them in
   if ($authrow ['counter'] == 0 )
@@ -991,7 +992,8 @@ function doForumLogon()
     }
 
   // security check for when they respond
-  dbUpdate ("UPDATE authenticator_forum SET Token = '$token', Date_Token_Sent = NOW() WHERE User = $bbuser_id");
+  dbUpdateParam ("UPDATE authenticator_forum SET Token = ?, Date_Token_Sent = NOW() WHERE User = ?",
+                 array ('si', &$token, &$bbuser_id));
 
   // HTML control items
   GetControlItems ();
@@ -1033,15 +1035,16 @@ function checkForumAuthenticator ()
   global $foruminfo, $blocked, $banned_ip, $control;
 
   $bbuser_id  = GetP ('bbuser_id');
-  $token  = fixsql (GetP ('token'));
+  $token  =     GetP ('token');
 
   CheckField ("forum user", $bbuser_id);
 
   // check user ID and token are OK
-  $authrow = dbQueryOne ("SELECT COUNT(*) AS counter FROM authenticator_forum " .
-                         "WHERE User = $bbuser_id ".
-                         "AND   Token = '$token' " .
-                         "AND   NOW() < DATE_ADD(Date_Token_Sent, INTERVAL 5 MINUTE) ");
+  $authrow = dbQueryOneParam ("SELECT COUNT(*) AS counter FROM authenticator_forum " .
+                             "WHERE User = ? ".
+                             "AND   Token = ? " .
+                             "AND   NOW() < DATE_ADD(Date_Token_Sent, INTERVAL 5 MINUTE) ",
+                             array ('ss', &$bbuser_id, &$token));
 
   if ($authrow ['counter'] == 0)
    {
@@ -1057,7 +1060,7 @@ function checkForumAuthenticator ()
    }
 
   // cancel that token string on the authenticator table
-  dbUpdate ("UPDATE authenticator_forum SET Token = '' WHERE User = $bbuser_id");
+  dbUpdateParam ("UPDATE authenticator_forum SET Token = '' WHERE User = ?", array ('i', &$bbuser_id));
   completeForumLogon ($bbuser_id);
 
   return false;
@@ -1080,16 +1083,16 @@ function CheckForumToken ()
 
   $action = GetP ('action');
 
-
   // clear old login IP ban records (so they can reset by waiting a day)
   $query = "DELETE FROM bbbanned_ip "
-         . "WHERE ip_address = '$remote_ip' AND "
+         . "WHERE ip_address = ? AND "
          . "date_banned < DATE_ADD(NOW(), INTERVAL -1 DAY) AND "
          . "reason LIKE 'Too many forum login failures for%' ";
 
-  dbUpdate ($query);
+  dbUpdateParam ($query, array ('s', &$remote_ip));
 
-  $banned_row = dbQueryOne ("SELECT * FROM bbbanned_ip WHERE ip_address  = '$remote_ip'") ;
+  $banned_row = dbQueryOneParam ("SELECT * FROM bbbanned_ip WHERE ip_address  = ?",
+                                 array ('s', &$remote_ip)) ;
 
   if ($banned_row)
     {
@@ -1114,8 +1117,9 @@ function CheckForumToken ()
 
   // first look up token in bbusertoken (this allows for multiple logins)
 
-  $tokeninfo = dbQueryOne ("SELECT * FROM bbusertoken WHERE token = '" . fixsql ($forumtoken) . "' "
-                             . "AND date_expires >= NOW()" );
+  $tokeninfo = dbQueryOneParam ("SELECT * FROM bbusertoken WHERE token = ? "  .
+                                "AND date_expires >= NOW()",
+                                array ('s', &$forumtoken) );
 
   // if found, use user id in the bbusertoken table to find the forum user id
 
@@ -1123,7 +1127,7 @@ function CheckForumToken ()
     {
     $id = $tokeninfo ['bbuser_id'];
 
-    getForumInfo ("bbuser_id = '$id'");
+    getForumInfo ("bbuser_id = ?", array ('i', &$id));
 
     if ($foruminfo) // will be empty if no match
       {
@@ -1161,8 +1165,8 @@ function LogOff ()
   // generate another random token - they won't know that one!
   $session = MakeToken ();
 
-  $query = "UPDATE user SET session = '$session' WHERE userid = " . $userinfo ['userid'];
-  dbUpdate ($query);
+  $query = "UPDATE user SET session = ? WHERE userid = ?";
+  dbUpdateParam ($query, array ('ss', &$session, &$userinfo ['userid']));
 
   // audit log offs
   edittableAudit ($TABLE_AUDIT_LOGOFF, 'user',  $userinfo ['userid']);
@@ -1440,7 +1444,7 @@ Return a status name from an ID
 function GetStatusName ($statusid, &$statusname)
   {
 
-  $row = dbQueryOne ("SELECT longdescription FROM status WHERE statusid = $statusid");
+  $row = dbQueryOne ("SELECT longdescription FROM status WHERE statusid = $statusid");  // internally generated
 
   if ($row)
     $statusname = $row [0];
@@ -2175,7 +2179,7 @@ function getmicrotime ()
   }  // end of getmicrotime
 
 
-function ShowList ($query,      // SQL query
+function ShowList ($results,    // SQL query results
                    $id,         // id of identity row (eq. faqid)
                    $other_args = "",  // other args for link, eg. &productid=0
                    $summary = "summary",
@@ -2189,9 +2193,7 @@ function ShowList ($query,      // SQL query
 {
 global $PHP_SELF;
 
-$result = dbQuery ($query);
-
-$count = dbRows ($result);
+$count = count ($results);
 
 if ($count)
   echo $block_preamble . "\n";
@@ -2199,7 +2201,7 @@ if ($count)
 if (!$page)
   $page = $PHP_SELF;
 
-while ($row = dbFetch ($result))
+foreach ($results as $row)
   {
   echo $line_preamble;
   $summarydata = $row [$summary];
@@ -2239,8 +2241,6 @@ if ($show_count)
     echo $count . " matches.";
   echo "</b></p>";
   }  // end of searching for something
-
-dbFree ($result);
 
 return $count;
 } // end of ShowList
@@ -2517,14 +2517,15 @@ function ShowTablesToEdit ()
   // see if this user can edit *all* tables
 
   $userid = $userinfo ["userid"];
-  $row = dbQueryOne ("SELECT * FROM access WHERE userid = $userid AND tablename = '%'");
+  $row = dbQueryOneParam ("SELECT * FROM access WHERE userid = ? AND tablename = '%'",
+                          array ('s', &$userid));
 
   if ($row)
     {
     // we can edit all tables, so get a list of them
     GetDatabaseName ($databasename);
 
-    $result = dbQuery ("SHOW TABLES FROM " . $databasename) ;
+    $result = dbQuery ("SHOW TABLES FROM " . $databasename) ;  // generated internally
 
     while ($row = mysqli_fetch_row ($result))
       {
@@ -2538,14 +2539,12 @@ function ShowTablesToEdit ()
   else
     {
     // find the tables he can edit
-    $result = dbQuery ("SELECT * FROM access WHERE userid = $userid AND can_select = 1");
-    while ($row = dbFetch ($result))
+    $results = dbQueryParam ("SELECT * FROM access WHERE userid = ? AND can_select = 1", array ('s', &$userid));
+    foreach ($results as $row)
       {
       $table = $row ['tablename'];
       echo "<option value=\"$table\">$table\n";
       } // end of doing each row
-
-    dbFree ($result);
 
     } // end of being able to edit *some* tables
 
@@ -2583,7 +2582,7 @@ function MailAdmins ($subject, $message, $link, $condition, $bbuser_id = 0)
   if ($foruminfo ['bbuser_id'])
     $query .= "AND bbuser_id <> " . $foruminfo ['bbuser_id'];
 
-  $result = dbQuery ($query);
+  $result = dbQuery ($query);   // hopefully OK - need to check each call
 
   while ($row = dbFetch ($result))
     {
@@ -2662,7 +2661,8 @@ function ordinal ($number)
 
  function checkSQLdate ($thedate, $originalDate)
   {
-  $row = dbQueryOne ("SELECT DATE_ADD('$thedate', INTERVAL 0 DAY) AS validatedDate");
+  $row = dbQueryOneParam ("SELECT DATE_ADD(?, INTERVAL 0 DAY) AS validatedDate",
+                          array ('s', &$thedate));
 
   if (!$row || !$row ['validatedDate'])
     return "Date '$originalDate' ($thedate) is not a valid date.";
@@ -3128,36 +3128,20 @@ function audit ($bbaudit_type_id,   // what action it is (eg. add, change, delet
   $ip = getIPaddress ();
 
   if (!$bbpost_id)
-    $bbpost_id = "NULL";
+    $bbpost_id = NULL;
   if (!$bbsubject_id)
-    $bbsubject_id = "NULL";
+    $bbsubject_id = NULL;
   if (!$bbtopic_id)
-    $bbtopic_id = "NULL";
-
-  $extra = fixsql ($extra);
-  $ip = fixsql ($ip);
+    $bbtopic_id = NULL;
 
   $query =  "INSERT INTO bbaudit ("
-          . " audit_date, "
-          . " bbaudit_type_id, "
-          . " bbuser_id, "
-          . " bbpost_id , "
-          . " bbsubject_id , "
-          . " bbtopic_id , "
-          . " extra, "
-          . " ip "
+          . " audit_date, bbaudit_type_id, bbuser_id, bbpost_id, bbsubject_id, bbtopic_id, extra, ip "
           . " ) VALUES ( "
-          . " NOW(), "
-          . " $bbaudit_type_id, "
-          . " $bbuser_id, "
-          . " $bbpost_id, "
-          . " $bbsubject_id, "
-          . " $bbtopic_id, "
-          . " '$extra', "
-          . " '$ip' "
-          . ")";
+          . "   NOW(),            ?,            ?,        ?,          ?,            ?,       ?,   ? )";
 
-  dbUpdate ($query);
+  dbUpdateParam ($query,
+    array ('sssssss', &$bbaudit_type_id, &$bbuser_id, &$bbpost_id, &$bbsubject_id, &$bbtopic_id,
+                      &$extra, &$ip));
   if (dbAffected () == 0)
     Problem ("Could not insert audit record");
 
@@ -3194,30 +3178,15 @@ function edittableAudit ($audit_type_id, $table, $primary_key, $comment="")
   global $userinfo, $dblink;
 
   $userid       = $userinfo ['userid'];
-  $ip           = fixsql (getIPaddress ());
-  $table        = fixsql ($table);
-  $primary_key  = fixsql ($primary_key);
-  $comment      = fixsql ($comment);
+  $ip           = getIPaddress ();
 
   $query =  "INSERT INTO audit ("
-          . " audit_date, "
-          . " audit_type_id, "
-          . " audit_table, "
-          . " user_id, "
-          . " ip, "
-          . " primary_key, "
-          . " comment "
+          . " audit_date, audit_type_id, audit_table, user_id, ip, primary_key, comment "
           . " ) VALUES ( "
-          . " NOW(), "
-          . " $audit_type_id, "
-          . " '$table', "
-          . " '$userid', "
-          . " '$ip', "
-          . " '$primary_key', "
-          . " '$comment' "
-          . ")";
+          . "    NOW(),        ?,            ?,          ?,     ?,     ?,          ?  )";
 
-  dbUpdate ($query);
+  dbUpdateParam ($query,
+    array ('ssssss', &$audit_type_id, &$table, &$userid, &$ip, &$primary_key, &$comment));
   if (dbAffected () == 0)
     Problem ("Could not insert audit record");
   } // end of edittableAudit
@@ -3261,30 +3230,16 @@ function edittableWriteUndo ($audit_type_id, $table, $primary_key, $sql )
   global $userinfo, $dblink;
 
   $userid       = $userinfo ['userid'];
-  $ip           = fixsql (getIPaddress ());
-  $table        = fixsql ($table);
-  $primary_key  = fixsql ($primary_key);
-  $fixedSql     = fixsql ($sql);
+  $ip           = getIPaddress ();
 
   $query =  "INSERT INTO undo_data ("
-          . " undo_date, "
-          . " audit_type_id, "
-          . " undo_table, "
-          . " user_id, "
-          . " ip, "
-          . " primary_key, "
-          . " saved_sql "
+          . " undo_date, audit_type_id, undo_table, user_id, ip, primary_key, saved_sql "
           . " ) VALUES ( "
-          . " NOW(), "
-          . " $audit_type_id, "
-          . " '$table', "
-          . " $userid, "
-          . " '$ip', "
-          . " '$primary_key', "
-          . " '$fixedSql' "
-          . ")";
+          . "    NOW(),      ?,              ?,        ?,     ?,      ?,         ?   )";
 
-  dbUpdate ($query);
+
+  dbUpdateParam ($query,
+      array ('ssssss', &$audit_type_id, &$table, &$userid, &$ip, &$primary_key, &$sql ));
   if (dbAffected () == 0)
     Problem ("Could not insert undo record");
   } // end of edittableWriteUndo
@@ -3373,6 +3328,34 @@ function dbUpdate ($sql, $showError = true)
     showSQLerror ($sql);
   }  // end of dbUpdate
 
+// Do a database query that updates the database.
+// eg. UPDATE, INSERT INTO, DELETE FROM etc.
+// Doesn't return a result.
+// First array element in $params is a string containing field types (eg. 'ssids')
+//   i 	corresponding variable has type integer
+//   d 	corresponding variable has type double
+//   s 	corresponding variable has type string
+// Subsequent elements are the parameters, passed by REFERENCE.
+function dbUpdateParam ($sql, $params, $showError = true)
+  {
+  global $dblink;
+
+  $stmt = mysqli_prepare ($dblink, $sql);
+  // false here means a bad query
+  if (!$stmt)
+    showSQLerror ($sql);
+
+  if (count ($params) > 1)
+    if (!call_user_func_array (array($stmt, 'bind_param'), $params))
+      showSQLerror ($sql);
+
+  if (!mysqli_stmt_execute ($stmt) && $showError)
+    showSQLerror ($sql);
+
+  mysqli_stmt_close ($stmt);
+
+  }  // end of dbUpdateParam
+
 // Do a database query that returns multiple rows
 // return the result variable which must later be freed
 function dbQuery ($sql)
@@ -3389,7 +3372,7 @@ function dbQuery ($sql)
 
 // Do a database query that returns multiple rows
 // Returns an ARRAY of the resulting rows. Nothing needs to be freed later.
-// First array element is a string containing field types (eg. "ssids")
+// First array element is a string containing field types (eg. 'ssids')
 //   i 	corresponding variable has type integer
 //   d 	corresponding variable has type double
 //   s 	corresponding variable has type string
@@ -3516,7 +3499,7 @@ function dbFree ($result)
 
 function GetSQLcount ($query, $select = "SELECT count(*) FROM ")
   {
-  $row = dbQueryOne ($select . $query);
+  $row = dbQueryOne ($select . $query);  // uncertain - need to check these
   $count = $row [0];
   return ($count);
   } // end of GetSQLcount
@@ -3854,23 +3837,23 @@ function IsReadOnly ($align = 'left')
  ********************************************************************************  */
 function ShowBackupDays ()
   {
+  global $control;
+
   /*
     find when last backup
   */
 
-  $query = "SELECT contents FROM control WHERE item = 'last_backup'";
-  $row = dbQueryOne ($query);
-  $last_backup_time = $row [0];
+  $last_backup_time = $control ['last_backup'];
 
   /*
     calculate days since last backup
   */
 
-  $query = "SELECT TO_DAYS(NOW()) - TO_DAYS('$last_backup_time')";
+  $query = "SELECT TO_DAYS(NOW()) - TO_DAYS(?) AS day_count";
 
-  $row = dbQueryOne ($query);
+  $row = dbQueryOneParam ($query, array ('s', &$last_backup_time));
 
-  $days_since_backup = $row [0];
+  $days_since_backup = $row ['day_count'];
   $when = duration ($days_since_backup);
 
   if ($days_since_backup > 6)
@@ -3887,9 +3870,8 @@ function ShowMessage ($which)
   {
   global $control;
 
-  $whichFixed = fixsql ($which);
-
-  $row = dbQueryOne ("SELECT * FROM message WHERE Item_Name = '$whichFixed'");
+  $row = dbQueryOneParam ("SELECT * FROM message WHERE Item_Name = ?",
+                          array ('s', &$which));
 
   if ($row)
     {
@@ -3985,7 +3967,7 @@ function MakeUpdateStatement ($table, $row)
 {
  // get the field names
   $names = array ();
-  $namesResult = dbQuery ("SHOW COLUMNS FROM " . $table);
+  $namesResult = dbQuery ("SHOW COLUMNS FROM " . $table);  // internally generated, hopefully
 
   while ($nameRow = dbFetch ($namesResult))
       $names [$nameRow ['Field']] = preg_match ('|int|i', $nameRow ['Type']);
@@ -4028,7 +4010,7 @@ function MakeInsertStatement ($table, $row)
 {
  // get the field names
   $names = array ();
-  $namesResult = dbQuery ("SHOW COLUMNS FROM " . $table);
+  $namesResult = dbQuery ("SHOW COLUMNS FROM " . $table);  // internally generated, hopefully
   while ($nameRow = dbFetch ($namesResult))
       $names [$nameRow ['Field']] = preg_match ('|int|i', $nameRow ['Type']);
 

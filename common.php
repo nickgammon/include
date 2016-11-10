@@ -2579,8 +2579,8 @@ function MailAdmins ($subject, $message, $link, $condition, $bbuser_id = 0)
   if ($bbuser_id)
     $query .= "AND bbuser_id <> " . $bbuser_id;
   else
-  if ($foruminfo ['bbuser_id'])
-    $query .= "AND bbuser_id <> " . $foruminfo ['bbuser_id'];
+    if (isset ($foruminfo ['bbuser_id']) && $foruminfo ['bbuser_id'])
+      $query .= "AND bbuser_id <> " . $foruminfo ['bbuser_id'];
 
   $result = dbQuery ($query);   // hopefully OK - need to check each call
 
@@ -3268,19 +3268,23 @@ function showBacktrace ($howFarBack = 1)
 function showSQLerror ($sql)
   {
   global $dblink;
+  global $control;
 
-  echo "<hr>\n";
-  echo "<h2><font color=darkred>Problem with SQL</font></h2>\n";
-  echo (htmlspecialchars (mysqli_error ($dblink), ENT_SUBSTITUTE | ENT_QUOTES | ENT_HTML5));
-  echo "<hr>\n";
-  bTable (1);
-  bRow ();
-  echo "<td><mono>\n";
-  echo (htmlspecialchars ($sql, ENT_SUBSTITUTE | ENT_QUOTES | ENT_HTML5). "\n");
-  echo "</mono></td>\n";
-  eRow ();
-  eTable ();
-  showBacktrace (2);
+  if (isset ($control ['show_sql_problems']) && $control ['show_sql_problems'])
+    {
+    echo "<hr>\n";
+    echo "<h2><font color=darkred>Problem with SQL</font></h2>\n";
+    echo (htmlspecialchars (mysqli_error ($dblink), ENT_SUBSTITUTE | ENT_QUOTES | ENT_HTML5));
+    echo "<hr>\n";
+    bTable (1);
+    bRow ();
+    echo "<td><mono>\n";
+    echo (htmlspecialchars ($sql, ENT_SUBSTITUTE | ENT_QUOTES | ENT_HTML5). "\n");
+    echo "</mono></td>\n";
+    eRow ();
+    eTable ();
+    showBacktrace (2);
+    }
 
   // bail out
   Problem ("SQL statement failed.");
@@ -3330,7 +3334,7 @@ function dbUpdate ($sql, $showError = true)
 
 // Do a database query that updates the database.
 // eg. UPDATE, INSERT INTO, DELETE FROM etc.
-// Doesn't return a result.
+// Returns the number of affected rows.
 // First array element in $params is a string containing field types (eg. 'ssids')
 //   i 	corresponding variable has type integer
 //   d 	corresponding variable has type double
@@ -3352,8 +3356,11 @@ function dbUpdateParam ($sql, $params, $showError = true)
   if (!mysqli_stmt_execute ($stmt) && $showError)
     showSQLerror ($sql);
 
+  $count = mysqli_stmt_affected_rows ($stmt);
+
   mysqli_stmt_close ($stmt);
 
+  return $count;
   }  // end of dbUpdateParam
 
 // Do a database query that returns multiple rows

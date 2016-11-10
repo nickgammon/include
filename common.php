@@ -4453,4 +4453,14 @@ EOD;
   $delimiter = "\xFF";
   return preg_match ($delimiter . $regexp . $delimiter . 'x', $email);
   }   // end of validateEmail
+
+function getForumURL ()
+  {
+  global $control;
+  $forum_url = $control ['forum_url'];
+  // put the "http:" part back for emails
+  if (substr ($forum_url, 0, 2) == "//")
+    $forum_url = "http:" . $forum_url;
+  return $forum_url;
+  } // end of getForumURL
 ?>

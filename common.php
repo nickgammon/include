@@ -592,16 +592,18 @@ function CheckAdminSession ()
 
   if ($adminaction == "logon")
     {
-
-    $username       = trim ($_POST ['username']);
-    $password       = trim ($_POST ['password']);
-
-
+    $username = getP ('username', 30);
+    $password = getP ('password', 30);
     $userinfo = dbQueryOneParam ("SELECT * FROM user WHERE username = ? ",
                                  array ('s', &$username) );
 
+    // if no password on the database, logging in MUST fail
+    if (!$userinfo ['password'])
+      {
+      $userinfo = "";  // no password
+      }
     // longer password means bcrypt: method / cost / salt / password
-    if (PasswordCompat\binary\check() &&
+    else if (PasswordCompat\binary\check() &&
         PasswordCompat\binary\_strlen ($userinfo ['password']) > 32)
       {
       if (!password_verify ($password, $userinfo ['password']))
@@ -908,12 +910,10 @@ function doForumLogon()
   global $PHP_SELF;
 
   // get rid of quotes so they can paste from the email like this: "Nick Gammon"
-  $username = GetP ('username');
+  $username = getP ('username', 30);
   $username = str_replace ("\"", " ", $username);
-  $username = trim ($username);
 
-  $password = GetP ('password');
-  $password = trim ($password);
+  $password = getP ('password', 30);
 
   $remote_ip = getIPaddress ();
 
@@ -921,8 +921,14 @@ function doForumLogon()
 
   getForumInfo ("username = ?", array ('s', &$username));
 
+  // if no password on the database, logging in MUST fail
+  if (!$foruminfo ['password'])
+    {
+    $foruminfo = "";  // no password
+    }
+
   // longer password means bcrypt: method / cost / salt / password
-  if (PasswordCompat\binary\check() &&
+  else if (PasswordCompat\binary\check() &&
       PasswordCompat\binary\_strlen ($foruminfo ['password']) > 32)
     {
     if (!password_verify ($password, $foruminfo ['password']))

@@ -74,7 +74,7 @@ $VALID_COLOUR  = '^(#[0-9A-F]{1,6}|\w+)$';  // HTML colour name
 //   global $VALID_NUMBER, $VALID_FLOAT, $VALID_DATE, $VALID_ACTION, $VALID_BOOLEAN, $VALID_SQL_ID, $VALID_COLOUR;
 
 // save doing this in every file
-$action      = getGPC ('action', 20, $VALID_ACTION);
+$action      = getGPC ('action', 40, $VALID_ACTION);
 
 DefaultColours ();
 

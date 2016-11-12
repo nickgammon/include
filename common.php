@@ -3151,10 +3151,10 @@ function audit ($bbaudit_type_id,   // what action it is (eg. add, change, delet
           . " ) VALUES ( "
           . "   NOW(),            ?,            ?,        ?,          ?,            ?,       ?,   ? )";
 
-  dbUpdateParam ($query,
+  $count = dbUpdateParam ($query,
     array ('sssssss', &$bbaudit_type_id, &$bbuser_id, &$bbpost_id, &$bbsubject_id, &$bbtopic_id,
                       &$extra, &$ip));
-  if (dbAffected () == 0)
+  if ($count == 0)
     Problem ("Could not insert audit record");
 
   } // end of audit
@@ -3197,9 +3197,9 @@ function edittableAudit ($audit_type_id, $table, $primary_key, $comment="")
           . " ) VALUES ( "
           . "    NOW(),        ?,            ?,          ?,     ?,     ?,          ?  )";
 
-  dbUpdateParam ($query,
+  $count = dbUpdateParam ($query,
     array ('ssssss', &$audit_type_id, &$table, &$userid, &$ip, &$primary_key, &$comment));
-  if (dbAffected () == 0)
+  if ($count == 0)
     Problem ("Could not insert audit record");
   } // end of edittableAudit
 
@@ -3250,9 +3250,9 @@ function edittableWriteUndo ($audit_type_id, $table, $primary_key, $sql )
           . "    NOW(),      ?,              ?,        ?,     ?,      ?,         ?   )";
 
 
-  dbUpdateParam ($query,
+  $count = dbUpdateParam ($query,
       array ('ssssss', &$audit_type_id, &$table, &$userid, &$ip, &$primary_key, &$sql ));
-  if (dbAffected () == 0)
+  if ($count == 0)
     Problem ("Could not insert undo record");
   } // end of edittableWriteUndo
 

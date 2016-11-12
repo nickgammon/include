@@ -4496,4 +4496,147 @@ function getForumURL ()
     $forum_url = "http:" . $forum_url;
   return $forum_url;
   } // end of getForumURL
+
+function passwordCheck ($pass, $username = "")
+  {
+  $MINIMUM_LENGTH = 10;
+  $MINIMUM_NUMBERS = 2;
+  $MINIMUM_UC_LETTERS = 2;
+  $MINIMUM_LC_LETTERS = 2;
+  $MINIMUM_PUNCTUATION = 2;
+  $MAXIMUM_REPEATED_CHARACTER = 4;
+  $PUNCTUATION = "~!@#$%^&*()_+`-={}|[]\:\";'<>?,./";
+
+  if (strlen ($pass) < $MINIMUM_LENGTH)
+    return "Password must be at least $MINIMUM_LENGTH characters";
+
+  // array of counts of occurrences of first 256 characters
+  $counts = array ();
+  for ($i = 0; $i < 256; $i++)
+    $counts [$i] = 0;
+
+  // other counts
+  $numberCount = 0;
+  $lowerCaseLetterCount = 0;
+  $upperCaseLetterCount = 0;
+  $punctuationCount = 0;
+
+  // look for too many of the same character anywhere in the password (eg. 1111 or abababababab)
+  // also count letters, numbers, punctuation
+  for ($i = 0; $i < strlen ($pass); $i++)
+    {
+    $c = substr ($pass, $i, 1);  // get this character
+    if ($c >= '0' && $c <= '9')
+      $numberCount++;
+    if ($c >= 'a' && $c <= 'z')
+      $lowerCaseLetterCount++;
+    if ($c >= 'A' && $c <= 'Z')
+      $upperCaseLetterCount++;
+    if (strspn ($c, $PUNCTUATION) > 0)
+      $punctuationCount++;
+    $ci = ord ($c);
+    if ($ci >= 0 && $ci < 256)
+      {
+      $counts [$ci] ++;
+      if ($counts [$ci] > $MAXIMUM_REPEATED_CHARACTER)
+        return "Password has more than $MAXIMUM_REPEATED_CHARACTER of the same character ($c)";
+      }
+    }
+
+  // generate all sequences (eg. 123, 234, 345, abc, bcd, cde etc.)
+  $sequences = array ();
+  // letters
+  for ($i = ord ('a'); $i <= ord ('x'); $i++)
+    $sequences [] = chr ($i) . chr ($i + 1) . chr ($i + 2);  // going up
+  // numbers
+  for ($i = ord ('0'); $i <= ord ('7'); $i++)
+    $sequences [] = chr ($i) . chr ($i + 1) . chr ($i + 2);  // going up
+
+  // check for a sequence, or a reversed sequence
+  foreach ($sequences as $sequence)
+    {
+    if (preg_match ("/$sequence/i", $pass, $matches))
+      return "Password contains the ascending sequence: " . $matches [0];
+    $sequence = strrev ($sequence);
+    if (preg_match ("/$sequence/i", $pass, $matches))
+      return "Password contains the descending sequence: " . $matches [0];
+    }   // for each sequence we made earlier
+
+  // same thing in a row
+  $sequences = array ();
+  for ($i = 0x20; $i <= 0x7E; $i++)  // all printable
+    $sequences [] = chr ($i) . chr ($i) . chr ($i);  // three in a row
+
+  foreach ($sequences as $sequence)
+    {
+    // can't use regexp because of characters like "(" that will be generated.
+    $match = stristr ($pass, $sequence);
+    if ($match !== FALSE)
+      return "Password contains the repeated sequence: " . substr ($match, 0, 3);
+    }   // for each sequence we made earlier
+
+  // see: https://www.troyhunt.com/only-secure-password-is-one-you-cant/
+  // Some not entered here because they would be caught by other rules (eg. "1111111")
+  $dictionary = array (
+        "pass", "word", "root", "crypt",
+        "qwert", "wert", "erty", "tyui", "zxcv", "yuio", "uiop", "asdf", "xcvb", "cvbn",  // keyboard sequences
+        "letmein", "dvcfghyt", "r00tk1t", "guru",
+        "1qaz2wsx", "zaq1xsw2", // diagonal keyboard sequences
+
+        // and these from: http://www.passwordrandom.com/most-popular-passwords
+        "password", "qwerty", "dragon", "pussy", "baseball", "football", "letmein",
+        "monkey", "696969", "abc123", "mustang", "michael", "shadow", "master",
+        "jennifer", "jordan", "superman", "harley", "1234567", "fuckme", "hunter",
+        "fuckyou", "trustno1", "ranger", "buster", "thomas", "tigger", "robert",
+        "soccer", "fuck", "batman", "test", "pass", "killer", "hockey", "george",
+        "charlie", "andrew", "michelle", "love", "sunshine", "jessica", "asshole",
+        "6969", "pepper", "daniel", "access", "123456789", "654321", "joshua",
+        "maggie", "starwars", "silver", "william", "dallas", "yankees", "123123",
+        "ashley", "hello", "amanda", "orange", "biteme", "freedom", "computer",
+        "sexy", "thunder", "nicole", "ginger", "heather", "hammer", "summer",
+        "corvette", "taylor", "fucker", "austin", "merlin", "matthew", "121212",
+        "golfer", "cheese", "princess", "martin", "chelsea", "patrick", "richard",
+        "diamond", "yellow", "bigdog", "secret", "asdfgh", "sparky", "cowboy",
+        );
+
+  foreach ($dictionary as $word)
+    {
+    if (preg_match ("/$word/i", $pass))
+      return "Part of password ($word) is in a dictionary of common passwords";
+    $revword = strrev ($word);
+    if (preg_match ("/$revword/i", $pass))
+      return "Part of password ($word) is in a dictionary of common passwords (reversed)";
+    } // for each dictionary word
+
+  if ($numberCount < $MINIMUM_NUMBERS)
+    return "Password must contain at least $MINIMUM_NUMBERS numbers (0-9)";
+  if ($lowerCaseLetterCount < $MINIMUM_LC_LETTERS)
+    return "Password must contain at least $MINIMUM_LC_LETTERS lower-case letters (a-z)";
+  if ($upperCaseLetterCount < $MINIMUM_UC_LETTERS)
+    return "Password must contain at least $MINIMUM_UC_LETTERS upper-case letters (A-Z)";
+  if ($punctuationCount < $MINIMUM_PUNCTUATION)
+    return "Password must contain at least $MINIMUM_PUNCTUATION punctuation character out of these: $PUNCTUATION";
+
+  // disallow things like "nickgammon555"
+  if (preg_match ("/[0-9]$/", $pass))
+    return "Password must not end with a number";
+
+  // check for username hidden inside password
+  if ($username)
+    {
+    for ($i = 0; $i < strlen ($username) - 4; $i++)
+      {
+      $word = substr ($username, $i, 4);  // get 4 characters of name
+      if (stristr ($pass, $word) !== FALSE)
+        return "Part of your username ($word) is inside the password";
+      $revword = strrev ($word);
+      if (stristr ($pass, $revword) !== FALSE)
+        return "Part of your username ($word) is inside the password (reversed)";
+      } // end of checking each 4 characters
+
+
+    } // end if have a username
+
+  return "";    // OK
+  } // end of passwordCheck
 ?>

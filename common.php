@@ -46,9 +46,6 @@ Copyright © 2001 Nick Gammon.
 // for bcrypt stuff (password_hash / password_verify)
 require ($INCLUDE_DIRECTORY . "password.php");
 
-// save doing this in every file
-$action      = getGPC ('action');
-
 $MAX_LOGIN_FAILURES = 5;  // number of times you can get your password wrong for a username
 $MAX_UNKNOWN_USER_FAILURES = 10;  // number of times an IP address can try a non-existent username
 
@@ -63,6 +60,21 @@ $COLOUR_TIMING_TEXT = "#FFFFFF";  // white
 $COLOUR_TIMING_BGND = "#008000";  // green
 
 $log_on_error = "That username/password combination is not on file";
+
+// validation regexps for getP, getG etc.
+
+$VALID_NUMBER  = '^[+\-]?\d+$';             // just digits with optional sign
+$VALID_FLOAT   = '^[+\-]?(\d*\.)?(\d+)$';   // optional sign, optional number and decimal point, then number
+$VALID_DATE    = '^[\w \-]+$';              // Expect letters, numbers spaces, hyphens
+$VALID_ACTION  = '^\w+$';                   // actions are usually just words with underscore and maybe numbers
+$VALID_BOOLEAN = '^[01]$';                  // must be 0 or 1
+$VALID_SQL_ID  = '^\w+$';                   // SQL names are usually just words with underscore and maybe numbers (max 30 probably)
+$VALID_COLOUR  = '^(#[0-9A-F]{1,6}|\w+)$';  // HTML colour name
+
+//   global $VALID_NUMBER, $VALID_FLOAT, $VALID_DATE, $VALID_ACTION, $VALID_BOOLEAN, $VALID_SQL_ID, $VALID_COLOUR;
+
+// save doing this in every file
+$action      = getGPC ('action', 20, $VALID_ACTION);
 
 DefaultColours ();
 
@@ -3270,7 +3282,8 @@ function showSQLerror ($sql)
   global $dblink;
   global $control;
 
-  if (isset ($control ['show_sql_problems']) && $control ['show_sql_problems'])
+  if ((isset ($control ['show_sql_problems']) && $control ['show_sql_problems'])
+      || isAdminOrModerator ())
     {
     echo "<hr>\n";
     echo "<h2><font color=darkred>Problem with SQL</font></h2>\n";
@@ -3518,59 +3531,72 @@ function fixsql ($sql)
   return mysqli_real_escape_string ($dblink, $sql);
   } // end of fixsql
 
-function getGPC ($name)
+function validateArgument ($name, $value, $maxLength, $validation)
+  {
+  $value = trim ($value);
+  if ($maxLength > 0 && strlen ($value) > $maxLength)
+    Problem ("Parameter '$name' is too long");
+  if (strlen ($value) && $validation)
+    {
+    if (!preg_match ("\xFF" . $validation . "\xFF" . 'i', $value))
+      Problem  ("Parameter '$name' is not in the expected format (unexpected characters).");
+    }
+  return $value;
+  } // end of validateArgument
+
+function getGPC ($name, $maxLength = 0, $validation = "")
   {
   if (isset ($_GET [$name]))
-    return trim ($_GET [$name]);
+    return validateArgument ($name, $_GET [$name], $maxLength, $validation);
   if (isset ($_POST [$name]))
-    return trim ($_POST [$name]);
+    return validateArgument ($name, $_POST [$name], $maxLength, $validation);
   if (isset ($_COOKIE [$name]))
-    return trim ($_COOKIE [$name]);
+    return validateArgument ($name, $_COOKIE [$name], $maxLength, $validation);
   return false;
   }  // getGPC
 
-function getGP ($name)
+function getGP ($name, $maxLength = 0, $validation = "")
   {
   if (isset ($_GET [$name]))
-    return trim ($_GET [$name]);
+    return validateArgument ($name, $_GET [$name], $maxLength, $validation);
   if (isset ($_POST [$name]))
-    return trim ($_POST [$name]);
+    return validateArgument ($name, $_POST [$name], $maxLength, $validation);
   return false;
   }  // getGP
 
-function getPGC ($name)
+function getPGC ($name, $maxLength = 0, $validation = "")
   {
   if (isset ($_POST [$name]))
-    return trim ($_POST [$name]);
+    return validateArgument ($name, $_POST [$name], $maxLength, $validation);
   if (isset ($_GET [$name]))
-    return trim ($_GET [$name]);
+    return validateArgument ($name, $_GET [$name], $maxLength, $validation);
   if (isset ($_COOKIE [$name]))
-    return trim ($_COOKIE [$name]);
+    return validateArgument ($name, $_COOKIE [$name], $maxLength, $validation);
   return false;
   }  // getPGC
 
-function getPG ($name)
+function getPG ($name, $maxLength = 0, $validation = "")
   {
   if (isset ($_POST [$name]))
-    return trim ($_POST [$name]);
+    return validateArgument ($name, $_POST [$name], $maxLength, $validation);
   if (isset ($_GET [$name]))
-    return trim ($_GET [$name]);
+    return validateArgument ($name, $_GET [$name], $maxLength, $validation);
 
   return false;
   }  // getPG
 
-function getP ($name)
+function getP ($name, $maxLength = 0, $validation = "")
   {
   if (isset ($_POST [$name]))
-    return trim ($_POST [$name]);
+    return validateArgument ($name, $_POST [$name], $maxLength, $validation);
 
   return false;
   }  // getP
 
-function getG ($name)
+function getG ($name, $maxLength = 0, $validation = "")
   {
   if (isset ($_GET [$name]))
-    return trim ($_GET [$name]);
+    return validateArgument ($name, $_GET [$name], $maxLength, $validation);
 
   return false;
   }  // getG

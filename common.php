@@ -70,8 +70,12 @@ $VALID_ACTION  = '^[\w ]+$';                // actions are usually just words wi
 $VALID_BOOLEAN = '^[01]$';                  // must be 0 or 1
 $VALID_SQL_ID  = '^\w+$';                   // SQL names are usually just words with underscore and maybe numbers (max 30 probably)
 $VALID_COLOUR  = '^(#[0-9A-F]{1,6}|\w+)$';  // HTML colour name
+$VALID_REGISTRATION_NUMBER = '^[A-Z]+\-?[0-9]+((\.[0-9]+)|[A-Z]+)?$';   // HHS registration numbers
 
-//   global $VALID_NUMBER, $VALID_FLOAT, $VALID_DATE, $VALID_ACTION, $VALID_BOOLEAN, $VALID_SQL_ID, $VALID_COLOUR;
+/*
+global $VALID_NUMBER, $VALID_FLOAT, $VALID_DATE, $VALID_ACTION, $VALID_BOOLEAN, $VALID_SQL_ID,
+       $VALID_COLOUR, $VALID_REGISTRATION_NUMBER;
+*/
 
 // save doing this in every file
 $action      = getGPC ('action', 40, $VALID_ACTION);
@@ -1052,8 +1056,8 @@ function checkForumAuthenticator ()
   {
   global $foruminfo, $blocked, $banned_ip, $control;
 
-  $bbuser_id  = GetP ('bbuser_id');
-  $token  =     GetP ('token');
+  $bbuser_id  = getP ('bbuser_id');
+  $token  =     getP ('token');
 
   CheckField ("forum user", $bbuser_id);
 
@@ -1090,7 +1094,7 @@ function CheckForumToken ()
   global $log_on_error;
 
 
-  $forumtoken = GetPGC ('token');
+  $forumtoken = getPGC ('token');
 
   $foruminfo = "";
 
@@ -1099,7 +1103,7 @@ function CheckForumToken ()
 
   // if they are logging on, let them
 
-  $action = GetP ('action');
+  $action = getP ('action');
 
   // clear old login IP ban records (so they can reset by waiting a day)
   $query = "DELETE FROM bbbanned_ip "
@@ -1326,12 +1330,12 @@ if ($title == "%FORUM_NAME%")
 
   // let them use just "id=x" on the URL
 
-  $bbsubject_id = GetGP ('id');
+  $bbsubject_id = getGP ('id');
   if (!$bbsubject_id || ValidateInt ($bbsubject_id))
-    $bbsubject_id = GetGP ('bbsubject_id');
+    $bbsubject_id = getGP ('bbsubject_id');
 
-  $bbtopic_id = GetGP ('bbtopic_id');
-  $bbsection_id = GetGP ('bbsection_id');
+  $bbtopic_id = getGP ('bbtopic_id');
+  $bbsection_id = getGP ('bbsection_id');
 
   // get better title (put section/topic/subject into it)
 

@@ -593,7 +593,7 @@ function CheckAdminSession ()
   if ($adminaction == "logon")
     {
     $username = getP ('username', 30);
-    $password = getP ('password', 30);
+    $password = getP ('password', 50);
     $userinfo = dbQueryOneParam ("SELECT * FROM user WHERE username = ? ",
                                  array ('s', &$username) );
 
@@ -913,7 +913,7 @@ function doForumLogon()
   $username = getP ('username', 30);
   $username = str_replace ("\"", " ", $username);
 
-  $password = getP ('password', 30);
+  $password = getP ('password', 50);
 
   $remote_ip = getIPaddress ();
 
@@ -4603,6 +4603,7 @@ function passwordCheck ($pass, $username = "")
         "corvette", "taylor", "fucker", "austin", "merlin", "matthew", "121212",
         "golfer", "cheese", "princess", "martin", "chelsea", "patrick", "richard",
         "diamond", "yellow", "bigdog", "secret", "asdfgh", "sparky", "cowboy",
+        "correct", "horse", "battery", "staple"   // LOL: https://xkcd.com/936/
         );
 
   foreach ($dictionary as $word)

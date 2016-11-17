@@ -4650,14 +4650,4 @@ function passwordCheck ($pass, $username = "")
 
   return "";    // OK
   } // end of passwordCheck
-
-function getRandomString ($length)
-  {
-  $fd = @fopen ('/dev/urandom', 'r');
-  if (!$fd)
-    Problem ("Cannot get random numbers");
-  $contents = fread ($fd, $length);
-  fclose ($fd);
-  return $contents;
-  } // end of getRandomString
 ?>

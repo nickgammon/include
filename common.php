@@ -2156,7 +2156,9 @@ function ShowTable ($table, $params, $specials)
 
         }   // end of switch on input type
       if ($error)
-        echo "<br><b><font color=\"$COLOUR_FORM_ERROR_TEXT\">$error</font></b>";
+        echo ("<br><b><font color=\"$COLOUR_FORM_ERROR_TEXT\">" .
+              htmlspecialchars ($error, ENT_SUBSTITUTE | ENT_QUOTES | ENT_HTML5) .
+              "</font></b>");
       } // end of having an input field
     else
       // read-only field
@@ -4515,6 +4517,7 @@ function passwordCheck ($pass, $username = "")
   $MINIMUM_LC_LETTERS = 2;
   $MINIMUM_PUNCTUATION = 2;
   $MAXIMUM_REPEATED_CHARACTER = 4;
+  $MAXIMUM_SEQUENCE = 3;
   $PUNCTUATION = "~!@#$%^&*()_+`-={}|[]\:\";'<>?,./";
 
   if (strlen ($pass) < $MINIMUM_LENGTH)
@@ -4549,18 +4552,35 @@ function passwordCheck ($pass, $username = "")
       {
       $counts [$ci] ++;
       if ($counts [$ci] > $MAXIMUM_REPEATED_CHARACTER)
+        {
+        if ($c == ' ')
+          $c = "<space>";
+        else if ($ci < 0x20)
+          $c = printf ("0x%02x", $ci);
         return "Password has more than $MAXIMUM_REPEATED_CHARACTER of the same character ($c)";
+        }
       }
     }
 
   // generate all sequences (eg. 123, 234, 345, abc, bcd, cde etc.)
   $sequences = array ();
   // letters
-  for ($i = ord ('a'); $i <= ord ('x'); $i++)
-    $sequences [] = chr ($i) . chr ($i + 1) . chr ($i + 2);  // going up
+  for ($i = ord ('a'); $i <= (ord ('z') - $MAXIMUM_SEQUENCE + 1); $i++)
+    {
+    $sequence = '';
+    for ($j = 0; $j < $MAXIMUM_SEQUENCE; $j++)
+      $sequence .= chr ($i + $j);  // going up
+    $sequences [] = $sequence ;
+    } // end of for each letter
+
   // numbers
-  for ($i = ord ('0'); $i <= ord ('7'); $i++)
-    $sequences [] = chr ($i) . chr ($i + 1) . chr ($i + 2);  // going up
+  for ($i = ord ('0'); $i <= (ord ('9') - $MAXIMUM_SEQUENCE + 1); $i++)
+    {
+    $sequence = '';
+    for ($j = 0; $j < $MAXIMUM_SEQUENCE; $j++)
+      $sequence .= chr ($i + $j);  // going up
+    $sequences [] = $sequence ;
+    }
 
   // check for a sequence, or a reversed sequence
   foreach ($sequences as $sequence)
@@ -4574,8 +4594,13 @@ function passwordCheck ($pass, $username = "")
 
   // same thing in a row
   $sequences = array ();
-  for ($i = 0x20; $i <= 0x7E; $i++)  // all printable
-    $sequences [] = chr ($i) . chr ($i) . chr ($i);  // three in a row
+  for ($i = 0x20; $i <= 0x7F; $i++)  // all printable
+    {
+    $sequence = '';
+    for ($j = 0; $j < $MAXIMUM_SEQUENCE; $j++)
+      $sequence .= chr ($i);  // all the same
+    $sequences [] = $sequence ;
+    }
 
   foreach ($sequences as $sequence)
     {
@@ -4610,6 +4635,7 @@ function passwordCheck ($pass, $username = "")
         "correct", "horse", "battery", "staple"   // LOL: https://xkcd.com/936/
         );
 
+  // check to see if dictionary word can be found, forwards or backwards
   foreach ($dictionary as $word)
     {
     if (preg_match ("/$word/i", $pass))
@@ -4619,16 +4645,27 @@ function passwordCheck ($pass, $username = "")
       return "Part of password ($word) is in a dictionary of common passwords (reversed)";
     } // for each dictionary word
 
+  // check minimum number of digits
+  $s = $MINIMUM_NUMBERS == 1 ? '' : 's';
   if ($numberCount < $MINIMUM_NUMBERS)
-    return "Password must contain at least $MINIMUM_NUMBERS numbers (0-9)";
-  if ($lowerCaseLetterCount < $MINIMUM_LC_LETTERS)
-    return "Password must contain at least $MINIMUM_LC_LETTERS lower-case letters (a-z)";
-  if ($upperCaseLetterCount < $MINIMUM_UC_LETTERS)
-    return "Password must contain at least $MINIMUM_UC_LETTERS upper-case letters (A-Z)";
-  if ($punctuationCount < $MINIMUM_PUNCTUATION)
-    return "Password must contain at least $MINIMUM_PUNCTUATION punctuation character out of these: $PUNCTUATION";
+    return "Password must contain at least $MINIMUM_NUMBERS number$s (0-9)";
 
-  // disallow things like "nickgammon555"
+  // check minimum number of lower-case letters
+  $s = $MINIMUM_LC_LETTERS == 1 ? '' : 's';
+  if ($lowerCaseLetterCount < $MINIMUM_LC_LETTERS)
+    return "Password must contain at least $MINIMUM_LC_LETTERS lower-case letter$s (a-z)";
+
+  // check minimum number of upper-case letters
+  $s = $MINIMUM_UC_LETTERS == 1 ? '' : 's';
+  if ($upperCaseLetterCount < $MINIMUM_UC_LETTERS)
+    return "Password must contain at least $MINIMUM_UC_LETTERS upper-case letter$s (A-Z)";
+
+  // check minimum number of punctuation characters
+  $s = $MINIMUM_PUNCTUATION == 1 ? '' : 's';
+  if ($punctuationCount < $MINIMUM_PUNCTUATION)
+    return "Password must contain at least $MINIMUM_PUNCTUATION punctuation character$s out of these: $PUNCTUATION";
+
+  // disallow things like "nickgammon555" - to stop people appending dates etc. after their password
   if (preg_match ("/[0-9]$/", $pass))
     return "Password must not end with a number";
 
@@ -4644,8 +4681,6 @@ function passwordCheck ($pass, $username = "")
       if (stristr ($pass, $revword) !== FALSE)
         return "Part of your username ($word) is inside the password (reversed)";
       } // end of checking each 4 characters
-
-
     } // end if have a username
 
   return "";    // OK

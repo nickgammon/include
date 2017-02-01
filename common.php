@@ -3551,7 +3551,11 @@ function validateArgument ($name, $value, $maxLength, $validation)
   if (strlen ($value) && $validation)
     {
     if (!preg_match ("\xFF" . $validation . "\xFF" . 'i', $value))
+      {
+//      if (isAdminOrModerator ())
+//        showBacktrace (2);
       Problem  ("Parameter '$name' is not in the expected format (unexpected characters).");
+      }
     }
   return $value;
   } // end of validateArgument

@@ -193,7 +193,7 @@ function DefaultColours ()
       'description' => 'Colour for the background of heading row for thread lists.' ),
 
     'colour_read_threads_bgnd'    => array (    // COLOUR_READ_THREADS_BGND
-      'default' => '#F0FFFF',
+      'default' => '#E1E1E1',
       'title' => 'Read threads background',
       'description' => 'Colour for the background of read threads.' ),
 

@@ -1384,11 +1384,10 @@ else
 
 // and take custom font
 
-if (isset ($foruminfo ['font']))
+if (isset ($foruminfo ['font']) && $foruminfo ['font'])
   {
   $font_string .=  '  body { font-family: ';
-  $font_string .=  $foruminfo ['font'] .  ";\n" ;
-  $font_string .= "font-size: 80%;  }\n";
+  $font_string .=  $foruminfo ['font'] .  "; }\n" ;
   }
 
 $font_string .= "</style>\n";

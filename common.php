@@ -3360,9 +3360,9 @@ function dbUpdate ($sql, $showError = true)
 // eg. UPDATE, INSERT INTO, DELETE FROM etc.
 // Returns the number of affected rows.
 // First array element in $params is a string containing field types (eg. 'ssids')
-//   i 	corresponding variable has type integer
-//   d 	corresponding variable has type double
-//   s 	corresponding variable has type string
+//   i  corresponding variable has type integer
+//   d  corresponding variable has type double
+//   s  corresponding variable has type string
 // Subsequent elements are the parameters, passed by REFERENCE.
 function dbUpdateParam ($sql, $params, $showError = true)
   {
@@ -3404,9 +3404,9 @@ function dbQuery ($sql)
 // Do a database query that returns multiple rows
 // Returns an ARRAY of the resulting rows. Nothing needs to be freed later.
 // First array element is a string containing field types (eg. 'ssids')
-//   i 	corresponding variable has type integer
-//   d 	corresponding variable has type double
-//   s 	corresponding variable has type string
+//   i  corresponding variable has type integer
+//   d  corresponding variable has type double
+//   s  corresponding variable has type string
 // Subsequent elements are the parameters, passed by REFERENCE.
 //   eg.  dbQueryOneParam ("SELECT * FROM functions WHERE name = ?", array ('s', &$name));
 function dbQueryParam ($sql, $params)
@@ -3700,6 +3700,16 @@ function isLoggedOn ()
 
   return $userinfo ['logged_on'];
   } // end of isLoggedOn
+
+function isServerAdministrator ()
+  {
+  global $userinfo;
+
+  if (!isset ($userinfo) || !$userinfo || !isset ($userinfo ['server_administrator']))
+    return false;
+
+  return $userinfo ['server_administrator'];
+  } // end of isServerAdministrator
 
 function isLoggedOnToForum ()
   {

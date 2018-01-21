@@ -3071,12 +3071,12 @@ function DoExtendedTime(& $thetime)
   if (count ($items) > 1)
     $min = $items [1];
   else
-    $min = 0;
+    $min = '00';
 
   if (count ($items) > 2)
     $sec = $items [2];
   else
-    $sec = 0;
+    $sec = '00';
 
   if ($am_pm)
     {

@@ -3841,6 +3841,12 @@ function canDelete ()
  return isset ($access ['can_delete']) && $access ['can_delete'] && !ServerReadOnly ();
 } // end of canDelete
 
+function canEdit ()
+{
+ global $userinfo;
+ return isset ($userinfo ['edittable']) && $userinfo ['edittable'] && !ServerReadOnly ();
+} // end of canEdit
+
 function getTz ()
 {
   global $foruminfo;

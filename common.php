@@ -1156,7 +1156,7 @@ function CheckForumToken ()
       // if the user is found, and their token was the same one found in the cookie
       // we don't need to pass tokens on URLs, which makes them look better
 
-      if ($tokeninfo ['token'] == $_COOKIE ['token'])
+      if (isset ($tokeninfo ['token']) && ($tokeninfo ['token'] == $_COOKIE ['token']))
         $foruminfo ['have_cookie_ok'] = true;   // don't need to pass tokens on links
       }
 

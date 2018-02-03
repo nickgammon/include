@@ -46,6 +46,14 @@ Copyright © 2001 Nick Gammon.
 // for bcrypt stuff (password_hash / password_verify)
 require ($INCLUDE_DIRECTORY . "password.php");
 
+// stop XSS injection  - get rid of stuff like <!'/*!"/*!\'/*\"/*--!><svg/onload=prompt(/OPENBUGBOUNTY/)>
+//     (added to the end of the URL, which we would then echo back as part of $PHP_SELF)
+// we trim the URL after letters, numbers, hyphens, underscores, slashes and dots.
+$VALID_URL_REGEXP = '|^([\w/\-\.]+).*$|';
+$_SERVER['PHP_SELF'] = preg_replace ($VALID_URL_REGEXP, '\1', $_SERVER['PHP_SELF']);
+$_SERVER['REQUEST_URI'] = preg_replace ($VALID_URL_REGEXP, '\1', $_SERVER['REQUEST_URI']);
+$_SERVER['SCRIPT_NAME'] = preg_replace ($VALID_URL_REGEXP, '\1', $_SERVER['SCRIPT_NAME']);
+
 $MAX_LOGIN_FAILURES = 5;  // number of times you can get your password wrong for a username
 $MAX_UNKNOWN_USER_FAILURES = 10;  // number of times an IP address can try a non-existent username
 
@@ -3100,6 +3108,8 @@ function DoExtendedTime(& $thetime)
     if ($hour < 8)  // assume a time like 6:30 is 6:30 pm
       $hour += 12;
 
+  if (strlen ($hour) == 1)
+    $hour = '0' . $hour;
   $time = $hour . ":" . $min . ":" . $sec;
   $thetime = $time;
   return "";  // no error

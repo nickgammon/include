@@ -3415,7 +3415,7 @@ function dbQuery ($sql)
 // Returns an ARRAY of the resulting rows. Nothing needs to be freed later.
 // First array element is a string containing field types (eg. 'ssids')
 //   i  corresponding variable has type integer
-//   d  corresponding variable has type double
+//   d  corresponding variable has type double or decimal
 //   s  corresponding variable has type string
 // Subsequent elements are the parameters, passed by REFERENCE.
 //   eg.  dbQueryOneParam ("SELECT * FROM functions WHERE name = ?", array ('s', &$name));

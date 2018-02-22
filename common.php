@@ -4538,6 +4538,42 @@ function getForumURL ()
   return $forum_url;
   } // end of getForumURL
 
+// return an interval in days in human-readable form, as a string
+//  eg. 1 day ago, 3 weeks ago, 5 months away, 3.2 years ago
+
+function getInterval ($days)
+  {
+  if ($days == 0)
+    return 'today';
+
+  if ($days < 0)
+    {
+    $ago = ' ago';
+    $days = - $days;
+    }
+  else
+    $ago = ' away';  // i.e. in the future
+
+  if ($days == 1)
+    return '1 day' . $ago;
+
+  if ($days <= 31)
+    return $days . ' days' . $ago;
+
+  $months = floor ($days / 30.42);
+
+  if ($months == 1)
+    return '1 month' . $ago;
+
+  if ($months <= 12)
+    return $days . ' months' . $ago;
+
+  $years = $days / 365.25;
+
+  return sprintf ("%0.1f", $years) . ' years' . $ago;
+
+  } // end of getInterval
+
 function passwordCheck ($pass, $username = "")
   {
   $MINIMUM_LENGTH = 10;

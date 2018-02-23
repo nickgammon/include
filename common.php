@@ -57,7 +57,7 @@ $_SERVER['SCRIPT_NAME'] = preg_replace ($VALID_URL_REGEXP, '\1', $_SERVER['SCRIP
 $MAX_LOGIN_FAILURES = 5;  // number of times you can get your password wrong for a username
 $MAX_UNKNOWN_USER_FAILURES = 10;  // number of times an IP address can try a non-existent username
 
-$MAX_FILE_SIZE = 200 * 1000 * 1000;      // bytes (200 Mb!)
+$MAX_FILE_SIZE = 600 * 1000 * 1000;      // bytes (600 Mb!)
 
 // major problems - white on brown
 $COLOUR_ERROR_TEXT = "#FFFFFF"; // white

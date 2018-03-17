@@ -4200,20 +4200,17 @@ function ConvertMarkup ($value, $outputName = 'HTML', $headerLevel = 2, $toc = '
 
   // where it is
   $pandocProg = $control ['pandoc'];
+  $pandocOptions = $control ['pandoc_options'];
   // check we found it
   if (!is_file ($pandocProg))
     $error = "Cannot find pandoc";
   else
 
     {
-    $cmd = "$pandocProg " .
-           "--smart " .
+    $cmd = "$pandocProg $pandocOptions " .
            "--from=markdown " .
            "--base-header-level=$headerLevel " .
-           "--email-obfuscation=none " .
-           "--normalize " .
            "$toc ".
-           '--template="/var/www/pandoc.template" '.
            "--to=html5";
 
     $descriptorspec = array(

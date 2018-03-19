@@ -3347,7 +3347,7 @@ function dbQueryOne ($sql)
 
 function dbQueryOneParam ($sql, $params)
   {
-  $results = dbQueryParam ($sql, $params);
+  $results = dbQueryParam ($sql, $params, 1);
   if (count ($results) > 0)
     return $results [0];
   return false;
@@ -3419,7 +3419,7 @@ function dbQuery ($sql)
 //   s  corresponding variable has type string
 // Subsequent elements are the parameters, passed by REFERENCE.
 //   eg.  dbQueryOneParam ("SELECT * FROM functions WHERE name = ?", array ('s', &$name));
-function dbQueryParam ($sql, $params)
+function dbQueryParam ($sql, $params, $max_rows = -1)
   {
   global $dblink;
 
@@ -3453,6 +3453,7 @@ function dbQueryParam ($sql, $params)
     showSQLerror ($sql);
 
   $results = array ();
+  $row_count = 0;
 
   // fetch all the rows
   while (mysqli_stmt_fetch($stmt))
@@ -3462,6 +3463,10 @@ function dbQueryParam ($sql, $params)
     foreach ($row as $k => $v)
       $item [$k] = $v;
     $results [] = $item;
+    $row_count++;
+    // stop inadvertently getting lots of rows when only one is wanted
+    if ($max_rows > -1 && $row_count >= $max_rows)
+      break;
     }
 
   mysqli_stmt_close ($stmt);

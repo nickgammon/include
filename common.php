@@ -1447,7 +1447,7 @@ if (isAdmin () && !empty ($sql_evaluations))
     {
     echo ("<hr><p><code>" . htmlspecialchars ($value ['sql']) . "</code>\n");
     bTable ();
-    bRow ("azure");
+    bRow ("lightblue");
     tHead ('id');
     tHead ('select_type');
     tHead ('table');
@@ -1461,7 +1461,7 @@ if (isAdmin () && !empty ($sql_evaluations))
     eRow ();
     foreach ($value['explanation'] as $k => $v)
       {
-      bRow ("lightblue");
+      bRow ("azure");
       tData ($v['id']);
       tData ($v['select_type']);
       tData ($v['table']);
@@ -3382,6 +3382,22 @@ function dbQueryOne ($sql)
 
   $row = dbFetch ($result);
   dbFree ($result);
+
+  // Debugging of SQL statements
+
+  if (isAdmin () && preg_match ("/^[ ]*SELECT /i", $sql))
+    {
+    $sql_result = mysqli_query ($dblink, 'EXPLAIN ' . $sql);
+    // false here means a bad query
+    if (!$sql_result)
+      showSQLerror ('EXPLAIN ' . $sql);
+    $explain_results = array ();
+    while ($sqlRow = dbFetch ($sql_result))
+      $explain_results [] = $sqlRow;
+    $sql_evaluations [] = array ( 'sql' => $sql, 'explanation' => $explain_results );
+    dbFree ($sql_result);
+    }  // end of administrator
+
   return $row;
   }  // end of dbQueryOne
 
@@ -3453,24 +3469,18 @@ function dbQuery ($sql)
   if (!$result)
     showSQLerror ($sql);
 
-  if (isAdmin () && !preg_match ("/^[ ]*SHOW /i", $sql))
+  if (isAdmin () && preg_match ("/^[ ]*SELECT /i", $sql))
     {
     $sql_result = mysqli_query ($dblink, 'EXPLAIN ' . $sql);
     // false here means a bad query
     if (!$sql_result)
       showSQLerror ('EXPLAIN ' . $sql);
-
     $explain_results = array ();
-
     while ($sqlRow = dbFetch ($sql_result))
       $explain_results [] = $sqlRow;
-
     $sql_evaluations [] = array ( 'sql' => $sql, 'explanation' => $explain_results );
-
     dbFree ($sql_result);
-
-    }
-
+    }  // end of administrator
 
   return $result;
   }  // end of dbQuery

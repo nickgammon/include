@@ -80,6 +80,8 @@ $VALID_SQL_ID  = '^\w+$';                   // SQL names are usually just words 
 $VALID_COLOUR  = '^(#[0-9A-F]{1,6}|\w+)$';  // HTML colour name
 $VALID_REGISTRATION_NUMBER = '^[A-Z]+\-?[0-9]+((\.[0-9]+)|[A-Z]+)?$';   // HHS registration numbers
 
+$sql_evaluations = array ();
+
 /*
 global $VALID_NUMBER, $VALID_FLOAT, $VALID_DATE, $VALID_ACTION, $VALID_BOOLEAN, $VALID_SQL_ID,
        $VALID_COLOUR, $VALID_REGISTRATION_NUMBER;
@@ -1419,6 +1421,7 @@ function MessageTail ()
   {
 global $control, $pagestarttime, $userinfo, $doingMail, $foruminfo;
 global $COLOUR_TIMING_TEXT, $COLOUR_TIMING_BGND;
+global $sql_evaluations;
 
 $endtime = getmicrotime ();
 $diff = $endtime - $pagestarttime;
@@ -1436,6 +1439,47 @@ if (!empty ($userinfo) || $doingMail ||
   eTable ();
   echo "<p></p>\n";
   }
+
+if (isAdmin () && !empty ($sql_evaluations))
+  {
+  echo "<div style=\"font-size:small;\">\n";
+  foreach ($sql_evaluations as $key => $value)
+    {
+    echo ("<hr><p><code>" . htmlspecialchars ($value ['sql']) . "</code>\n");
+    bTable ();
+    bRow ("azure");
+    tHead ('id');
+    tHead ('select_type');
+    tHead ('table');
+    tHead ('type');
+    tHead ('possible_keys');
+    tHead ('key');
+    tHead ('key_len');
+    tHead ('ref');
+    tHead ('rows');
+    tHead ('Extra');
+    eRow ();
+    foreach ($value['explanation'] as $k => $v)
+      {
+      bRow ("lightblue");
+      tData ($v['id']);
+      tData ($v['select_type']);
+      tData ($v['table']);
+      tData ($v['type']);
+      tData ($v['possible_keys']);
+      tData ($v['key']);
+      tData ($v['key_len']);
+      tData ($v['ref']);
+      tData ($v['rows']);
+      tData ($v['Extra']);
+      eRow ();
+
+      }
+    eTable ();
+    }
+
+  echo "</div>\n";
+  } // end of admin SQL stuff to show
 
 echo $control ['tail'];
   } // end of MessageTail
@@ -3402,24 +3446,36 @@ function dbUpdateParam ($sql, $params, $showError = true)
 function dbQuery ($sql)
   {
   global $dblink;
+  global $sql_evaluations;
 
   $result = mysqli_query ($dblink, $sql);
   // false here means a bad query
   if (!$result)
     showSQLerror ($sql);
 
+  if (isAdmin ())
+    {
+    $sql_result = mysqli_query ($dblink, 'EXPLAIN ' . $sql);
+    // false here means a bad query
+    if (!$sql_result)
+      showSQLerror ('EXPLAIN ' . $sql);
+
+    $explain_results = array ();
+
+    while ($sqlRow = dbFetch ($sql_result))
+      $explain_results [] = $sqlRow;
+
+    $sql_evaluations [] = array ( 'sql' => $sql, 'explanation' => $explain_results );
+
+    dbFree ($sql_result);
+
+    }
+
+
   return $result;
   }  // end of dbQuery
 
-// Do a database query that returns multiple rows
-// Returns an ARRAY of the resulting rows. Nothing needs to be freed later.
-// First array element is a string containing field types (eg. 'ssids')
-//   i  corresponding variable has type integer
-//   d  corresponding variable has type double or decimal
-//   s  corresponding variable has type string
-// Subsequent elements are the parameters, passed by REFERENCE.
-//   eg.  dbQueryOneParam ("SELECT * FROM functions WHERE name = ?", array ('s', &$name));
-function dbQueryParam ($sql, $params, $max_rows = -1)
+function dbQueryParam_helper ($sql, $params, $max_rows = -1)
   {
   global $dblink;
 
@@ -3467,9 +3523,43 @@ function dbQueryParam ($sql, $params, $max_rows = -1)
     // stop inadvertently getting lots of rows when only one is wanted
     if ($max_rows > -1 && $row_count >= $max_rows)
       break;
-    }
+    } // end of while each row
+
+/*   if ($max_rows > -1 && $row_count > $max_rows)
+      {
+      ShowWarning ("Too many rows ($row_count) returned for dbQueryOneParam");
+      showSQLerror ($sql);
+      }
+*/
 
   mysqli_stmt_close ($stmt);
+  return $results;
+
+  } // end of dbQueryParam_helper
+
+// Do a database query that returns multiple rows
+// Returns an ARRAY of the resulting rows. Nothing needs to be freed later.
+// First array element is a string containing field types (eg. 'ssids')
+//   i  corresponding variable has type integer
+//   d  corresponding variable has type double or decimal
+//   s  corresponding variable has type string
+// Subsequent elements are the parameters, passed by REFERENCE.
+//   eg.  dbQueryOneParam ("SELECT * FROM functions WHERE name = ?", array ('s', &$name));
+function dbQueryParam ($sql, $params, $max_rows = -1)
+  {
+  global $sql_evaluations;
+
+  $results = dbQueryParam_helper ($sql, $params, $max_rows);
+
+  // Debugging of SQL statements
+
+  if (isAdmin ())
+    {
+    $explain_results = dbQueryParam_helper ('EXPLAIN ' . $sql, $params);  // no limit on rows
+    $sql_evaluations [] = array ( 'sql' => $sql, 'explanation' => $explain_results );
+    } // end of isAdmin
+
+
   return $results;
   }  // end of dbQueryParam
 

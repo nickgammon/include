@@ -3453,7 +3453,7 @@ function dbQuery ($sql)
   if (!$result)
     showSQLerror ($sql);
 
-  if (isAdmin ())
+  if (isAdmin () && !preg_match ("/^[ ]*SHOW /i", $sql))
     {
     $sql_result = mysqli_query ($dblink, 'EXPLAIN ' . $sql);
     // false here means a bad query
@@ -3553,7 +3553,7 @@ function dbQueryParam ($sql, $params, $max_rows = -1)
 
   // Debugging of SQL statements
 
-  if (isAdmin ())
+  if (isAdmin () && !preg_match ("/^[ ]*SHOW /i", $sql))
     {
     $explain_results = dbQueryParam_helper ('EXPLAIN ' . $sql, $params);  // no limit on rows
     $sql_evaluations [] = array ( 'sql' => $sql, 'explanation' => $explain_results );

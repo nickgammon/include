@@ -1459,13 +1459,18 @@ if (isSQLdebugger () && !empty ($sql_evaluations))
     else
       {
       // a bit of pretty-printing
+      $sql = preg_replace ('/\s+/', ' ', $sql);  // get rid of weird multiple spaces
+      // start a new line before these words
       $sql = preg_replace ('/\b(FROM|ORDER|LEFT JOIN|RIGHT JOIN|JOIN|WHERE|HAVING|LIMIT|GROUP|UNION)\b/i', "\n       \\1", $sql);
+      // start a new line before these words but indent a bit more
+      $sql = preg_replace ('/\b(AND)\b/i', "\n         \\1", $sql);
+      // break up lengthy lists of things to select after the "AS" clause
       $sql = preg_replace ("/(AS [^,]+,)/", "\\1\n         ", $sql);
       }
     echo ("<hr><p><pre><code style=\"font-size:medium;\">" . nl2br_http (htmlspecialchars ($sql)) . "</code></pre>\n");
     bTable ();
     bRow ("lightblue");
-    tHead ('ID');
+//    tHead ('ID');
     tHead ('SELECT type');
     tHead ('Table');
     tHead ('Type');
@@ -1479,7 +1484,7 @@ if (isSQLdebugger () && !empty ($sql_evaluations))
     foreach ($value['explanation'] as $k => $v)
       {
       bRow ("azure");
-      tData ($v['id']);
+//      tData ($v['id']);
       tData ($v['select_type']);
       tData ($v['table']);
       tData ($v['type']);

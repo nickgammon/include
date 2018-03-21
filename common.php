@@ -1459,7 +1459,7 @@ if (isSQLdebugger () && !empty ($sql_evaluations))
     else
       {
       // a bit of pretty-printing
-      $sql = preg_replace ('/\b(FROM|ORDER|LEFT JOIN|RIGHT JOIN|JOIN|WHERE|HAVING|LIMIT|GROUP)\b/i', "\n       \\1", $sql);
+      $sql = preg_replace ('/\b(FROM|ORDER|LEFT JOIN|RIGHT JOIN|JOIN|WHERE|HAVING|LIMIT|GROUP|UNION)\b/i', "\n       \\1", $sql);
       $sql = preg_replace ("/(AS [^,]+,)/", "\\1\n         ", $sql);
       }
     echo ("<hr><p><pre><code style=\"font-size:medium;\">" . nl2br_http (htmlspecialchars ($sql)) . "</code></pre>\n");

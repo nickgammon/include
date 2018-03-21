@@ -1440,23 +1440,40 @@ if (!empty ($userinfo) || $doingMail ||
   echo "<p></p>\n";
   }
 
-if (isAdmin () && !empty ($sql_evaluations))
+if (isSQLdebugger () && !empty ($sql_evaluations))
   {
-  echo "<div style=\"font-size:small;\">\n";
+  echo "<div style=\"font-size:small;
+        background-color:#DCE4F1;
+        border-width:3px;
+        border-color:#72A2C9;
+        border-style:solid;
+        padding:1em;
+        border-radius: 4px;
+        box-shadow: 5px 5px 3px #888888;\">\n";
+  echo "<b>SQL analysis</b>\n";
   foreach ($sql_evaluations as $key => $value)
     {
-    echo ("<hr><p><code>" . htmlspecialchars ($value ['sql']) . "</code>\n");
+    $sql = $value ['sql'];
+    if (strpos ($value ['sql'], "\n"))
+      $code = 'pre';
+    else
+      {
+      // a bit of pretty-printing
+      $sql = preg_replace ('/\b(FROM|ORDER|LEFT JOIN|RIGHT JOIN|JOIN|WHERE|HAVING|LIMIT|GROUP)\b/i', "\n       \\1", $sql);
+      $sql = preg_replace ("/(AS [^,]+,)/", "\\1\n         ", $sql);
+      }
+    echo ("<hr><p><pre><code style=\"font-size:medium;\">" . nl2br_http (htmlspecialchars ($sql)) . "</code></pre>\n");
     bTable ();
     bRow ("lightblue");
-    tHead ('id');
-    tHead ('select_type');
-    tHead ('table');
-    tHead ('type');
-    tHead ('possible_keys');
-    tHead ('key');
-    tHead ('key_len');
-    tHead ('ref');
-    tHead ('rows');
+    tHead ('ID');
+    tHead ('SELECT type');
+    tHead ('Table');
+    tHead ('Type');
+    tHead ('Possible keys');
+    tHead ('Key');
+    tHead ('Length');
+    tHead ('Ref');
+    tHead ('Rows');
     tHead ('Extra');
     eRow ();
     foreach ($value['explanation'] as $k => $v)
@@ -1478,6 +1495,7 @@ if (isAdmin () && !empty ($sql_evaluations))
     eTable ();
     }
 
+  echo ("<hr>" . count ($sql_evaluations) . " SELECT statements analyzed.\n");
   echo "</div>\n";
   } // end of admin SQL stuff to show
 
@@ -3385,7 +3403,7 @@ function dbQueryOne ($sql)
 
   // Debugging of SQL statements
 
-  if (isAdmin () && preg_match ("/^[ ]*SELECT /i", $sql))
+  if (isSQLdebugger () && preg_match ("/^[ ]*SELECT /i", $sql))
     {
     $sql_result = mysqli_query ($dblink, 'EXPLAIN ' . $sql);
     // false here means a bad query
@@ -3469,7 +3487,7 @@ function dbQuery ($sql)
   if (!$result)
     showSQLerror ($sql);
 
-  if (isAdmin () && preg_match ("/^[ ]*SELECT /i", $sql))
+  if (isSQLdebugger () && preg_match ("/^[ ]*SELECT /i", $sql))
     {
     $sql_result = mysqli_query ($dblink, 'EXPLAIN ' . $sql);
     // false here means a bad query
@@ -3563,7 +3581,7 @@ function dbQueryParam ($sql, $params, $max_rows = -1)
 
   // Debugging of SQL statements
 
-  if (isAdmin () && !preg_match ("/^[ ]*SHOW /i", $sql))
+  if (isSQLdebugger () && !preg_match ("/^[ ]*SHOW /i", $sql))
     {
     $explain_results = dbQueryParam_helper ('EXPLAIN ' . $sql, $params);  // no limit on rows
     $sql_evaluations [] = array ( 'sql' => $sql, 'explanation' => $explain_results );
@@ -3835,6 +3853,11 @@ function isLoggedOnToForum ()
 
   return $foruminfo ['bbuser_id'];
   } // end of isLoggedOnToForum
+
+function isSQLdebugger ()
+  {
+  return isAdmin () || isServerAdministrator ();  // possibly also: isGlobalModerator ()
+  } // end of isSQLdebugger
 
 function beingThrottled ($basis = 'minutes_since_last_post', $last_date = 'last_post_date')
   {

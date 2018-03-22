@@ -3861,7 +3861,13 @@ function isLoggedOnToForum ()
 
 function isSQLdebugger ()
   {
-  return isAdmin () || isServerAdministrator ();  // possibly also: isGlobalModerator ()
+  global $userinfo;
+
+  // see if sql_debugging set in user table
+  if (!isset ($userinfo) || !$userinfo || !isset ($userinfo ['sql_debugging']))
+    return isAdmin ();  // possibly also: isGlobalModerator ()
+
+  return $userinfo ['sql_debugging'];
   } // end of isSQLdebugger
 
 function beingThrottled ($basis = 'minutes_since_last_post', $last_date = 'last_post_date')

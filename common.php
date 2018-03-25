@@ -3766,6 +3766,12 @@ function isGlobalModerator ()
  return isset ($foruminfo ['global_moderator']) && $foruminfo ['global_moderator'];
  } // end of isGlobalModerator
 
+function isForumSQLdebugger ()
+ {
+ global $foruminfo;
+ return isset ($foruminfo) && isset ($foruminfo ['sql_debugging']) && $foruminfo ['sql_debugging'];
+ } // end of isForumSQLdebugger
+
 function isAdminOrModerator ($bbsection_id = 0, $bbtopic_id = 0)
 {
   global $foruminfo, $headingrow;
@@ -3864,10 +3870,11 @@ function isSQLdebugger ()
   global $userinfo;
 
   // see if sql_debugging set in user table
-  if (!isset ($userinfo) || !$userinfo || !isset ($userinfo ['sql_debugging']))
-    return isAdmin ();  // possibly also: isGlobalModerator ()
+  if (isset ($userinfo) && $userinfo && isset ($userinfo ['sql_debugging']) && $userinfo ['sql_debugging'])
+    return true;
 
-  return $userinfo ['sql_debugging'];
+  // if not, see if sql_debugging set in the bbuser table
+  return isForumSQLdebugger ();
   } // end of isSQLdebugger
 
 function beingThrottled ($basis = 'minutes_since_last_post', $last_date = 'last_post_date')

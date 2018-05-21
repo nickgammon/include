@@ -71,13 +71,14 @@ $log_on_error = "That username/password combination is not on file";
 
 // validation regexps for getP, getG etc.
 
-$VALID_NUMBER  = '^[+\-]?\d+$';             // just digits with optional sign
-$VALID_FLOAT   = '^[+\-]?(\d*\.)?(\d+)$';   // optional sign, optional number and decimal point, then number
-$VALID_DATE    = '^[\w \-]+$';              // Expect letters, numbers spaces, hyphens
-$VALID_ACTION  = '^[\w ]+$';                // actions are usually just words with underscore and maybe numbers and spaces
-$VALID_BOOLEAN = '^[01]$';                  // must be 0 or 1
-$VALID_SQL_ID  = '^\w+$';                   // SQL names are usually just words with underscore and maybe numbers (max 30 probably)
-$VALID_COLOUR  = '^(#[0-9A-F]{1,6}|\w+)$';  // HTML colour name
+$VALID_NUMBER     = '^[+\-]?\d+$';             // just digits with optional sign
+$VALID_FLOAT      = '^[+\-]?(\d*\.)?(\d+)$';   // optional sign, optional number and decimal point, then number
+$VALID_DATE       = '^[\w \-]+$';              // Expect letters, numbers spaces, hyphens
+$VALID_DATE_TIME  = '^[\w :\-]+$';             // Expect letters, numbers spaces, hyphens, and colons
+$VALID_ACTION     = '^[\w ]+$';                // actions are usually just words with underscore and maybe numbers and spaces
+$VALID_BOOLEAN    = '^[01]$';                  // must be 0 or 1
+$VALID_SQL_ID     = '^\w+$';                   // SQL names are usually just words with underscore and maybe numbers (max 30 probably)
+$VALID_COLOUR     = '^(#[0-9A-F]{1,6}|\w+)$';  // HTML colour name
 $VALID_REGISTRATION_NUMBER = '^[A-Z]+\-?[0-9]+((\.[0-9]+)|[A-Z]+)?$';   // HHS registration numbers
 
 $sql_evaluations = array ();
@@ -3680,76 +3681,83 @@ function fixsql ($sql)
   return mysqli_real_escape_string ($dblink, $sql);
   } // end of fixsql
 
-function validateArgument ($name, $value, $maxLength, $validation)
+function validateArgument ($name, $value, $maxLength, $validation, $decode = false)
   {
   $value = trim ($value);
+  // first decode it if required
+  if ($decode)
+    $value = urldecode ($value);
+
   if ($maxLength > 0 && strlen ($value) > $maxLength)
     Problem ("Parameter '$name' is too long");
   if (strlen ($value) && $validation)
     {
     if (!preg_match ("\xFF" . $validation . "\xFF" . 'i', $value))
       {
-//      if (isAdminOrModerator ())
+//      if (isAdminOrModerator () || isServerAdministrator ())
+//        {
+//        echo ("<p>Got '" . htmlspecialchars ($value) . "' with validation '" . htmlspecialchars ($validation) . "'");
 //        showBacktrace (2);
+//        }
       Problem  ("Parameter '$name' is not in the expected format (unexpected characters).");
       }
     }
   return $value;
   } // end of validateArgument
 
-function getGPC ($name, $maxLength = 0, $validation = "")
+function getGPC ($name, $maxLength = 0, $validation = "", $decode = false)
   {
   if (isset ($_GET [$name]))
-    return validateArgument ($name, $_GET [$name], $maxLength, $validation);
+    return validateArgument ($name, $_GET [$name], $maxLength, $validation, $decode);
   if (isset ($_POST [$name]))
-    return validateArgument ($name, $_POST [$name], $maxLength, $validation);
+    return validateArgument ($name, $_POST [$name], $maxLength, $validation, $decode);
   if (isset ($_COOKIE [$name]))
-    return validateArgument ($name, $_COOKIE [$name], $maxLength, $validation);
+    return validateArgument ($name, $_COOKIE [$name], $maxLength, $validation, $decode);
   return false;
   }  // getGPC
 
-function getGP ($name, $maxLength = 0, $validation = "")
+function getGP ($name, $maxLength = 0, $validation = "", $decode = false)
   {
   if (isset ($_GET [$name]))
-    return validateArgument ($name, $_GET [$name], $maxLength, $validation);
+    return validateArgument ($name, $_GET [$name], $maxLength, $validation, $decode);
   if (isset ($_POST [$name]))
-    return validateArgument ($name, $_POST [$name], $maxLength, $validation);
+    return validateArgument ($name, $_POST [$name], $maxLength, $validation, $decode);
   return false;
   }  // getGP
 
 function getPGC ($name, $maxLength = 0, $validation = "")
   {
   if (isset ($_POST [$name]))
-    return validateArgument ($name, $_POST [$name], $maxLength, $validation);
+    return validateArgument ($name, $_POST [$name], $maxLength, $validation, $decode);
   if (isset ($_GET [$name]))
-    return validateArgument ($name, $_GET [$name], $maxLength, $validation);
+    return validateArgument ($name, $_GET [$name], $maxLength, $validation, $decode);
   if (isset ($_COOKIE [$name]))
-    return validateArgument ($name, $_COOKIE [$name], $maxLength, $validation);
+    return validateArgument ($name, $_COOKIE [$name], $maxLength, $validation, $decode);
   return false;
   }  // getPGC
 
-function getPG ($name, $maxLength = 0, $validation = "")
+function getPG ($name, $maxLength = 0, $validation = "", $decode = false)
   {
   if (isset ($_POST [$name]))
-    return validateArgument ($name, $_POST [$name], $maxLength, $validation);
+    return validateArgument ($name, $_POST [$name], $maxLength, $validation, $decode);
   if (isset ($_GET [$name]))
-    return validateArgument ($name, $_GET [$name], $maxLength, $validation);
+    return validateArgument ($name, $_GET [$name], $maxLength, $validation, $decode);
 
   return false;
   }  // getPG
 
-function getP ($name, $maxLength = 0, $validation = "")
+function getP ($name, $maxLength = 0, $validation = "", $decode = false)
   {
   if (isset ($_POST [$name]))
-    return validateArgument ($name, $_POST [$name], $maxLength, $validation);
+    return validateArgument ($name, $_POST [$name], $maxLength, $validation, $decode);
 
   return false;
   }  // getP
 
-function getG ($name, $maxLength = 0, $validation = "")
+function getG ($name, $maxLength = 0, $validation = "", $decode = false)
   {
   if (isset ($_GET [$name]))
-    return validateArgument ($name, $_GET [$name], $maxLength, $validation);
+    return validateArgument ($name, $_GET [$name], $maxLength, $validation, $decode);
 
   return false;
   }  // getG

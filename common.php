@@ -3725,7 +3725,7 @@ function getGP ($name, $maxLength = 0, $validation = "", $decode = false)
   return false;
   }  // getGP
 
-function getPGC ($name, $maxLength = 0, $validation = "")
+function getPGC ($name, $maxLength = 0, $validation = "", $decode = false)
   {
   if (isset ($_POST [$name]))
     return validateArgument ($name, $_POST [$name], $maxLength, $validation, $decode);

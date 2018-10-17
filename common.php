@@ -4122,8 +4122,9 @@ function ShowBackupDays ()
 
 /* ********************************************************************************
  ShowMessage - shows a message (in HTML) stored in the control file
+ * $subs is an optional table of substituting key with value
  ********************************************************************************  */
-function ShowMessage ($which)
+function ShowMessage ($which, $subs = false)
   {
   global $control;
 
@@ -4146,7 +4147,15 @@ function ShowMessage ($which)
       echo "<td>\n";
       }
 
-    echo (str_replace ('<h1></h1>', '', $html . "\n"));
+    $html = str_replace ('<h1></h1>', '', $html . "\n");
+
+    // do substitutions
+    if ($subs)
+      foreach ($subs as $from => $to)
+         $html = str_replace ($from, $to, $html);
+
+    // show message
+    echo ($html);
 
     // close the box
     if ($colour)

@@ -494,6 +494,35 @@ function HandleAuthenticator ($userid, $authenticator_table)
 // -------------------
 // One-time password stuff for when authenticator cannot be used
 // -------------------
+/*
+
+Generation:
+
+    base64 /dev/urandom | head -n200 > ~/rands.txt
+
+    SQL: create table one_time_password (  passwd varchar(15) not null primary key )
+
+    Lua:
+
+    rands =
+      [[
+                (above file)
+      ]]
+
+      -- for inserting into database:
+
+      for w in string.gmatch (rands, "%S%S%S%S%S%S%S%S%S%S%S%S") do
+        print ("INSERT INTO one_time_password (passwd) VALUES ('" .. w .. "');")
+      end -- for
+
+      -- for printing out:
+
+      for w in string.gmatch (rands, "%S%S%S%S%S%S%S%S%S%S%S%S") do
+        print (w)
+      end -- for
+
+
+*/
 
   $authrow = dbQueryOneParam ("SELECT * FROM one_time_password WHERE passwd = ?",
                               array ('s', &$authenticator));

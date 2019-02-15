@@ -568,7 +568,7 @@ Generation:
    $crc = crc16 ($decrypted, 16);
 
    if ($crc != 0xf0b8)
-     return "Authentication failed (CRC check)";
+     return "Authentication failed";
 
    $privateUID_converted = bin2hex (substr ($decrypted, 0, 6));
 
@@ -601,7 +601,7 @@ Generation:
 //  echo "<br>authrow ['Counter'] = " . $authrow ['Counter'];
 
   if ($totalCount <= $authrow ['Counter'])
-    return "Authentication failed (token re-used)";
+    return "Authentication failed (token re-used)"; //  - got session count of $sessionCounter
 
    $Auth_ID = $authrow ['Auth_ID'];
 

@@ -4636,6 +4636,86 @@ function SVGtext ($handle, $args)
                    htmlspecialchars ($args ['text']) . "</text>\n");
   } // end of SVGtext
 
+// x and y are the centre
+// diameter is the outside of the star
+// innerdiameter (if not zero) is the inside of the star.
+// if innerdiameter is zero then you get a polygon, not a star
+// points = number of points on the outside (double for a star) - minimum of 3
+// rotate = rotation amount (to start at a different point)
+
+function SVGstar ($handle, $args)
+  {
+  checkHandle ($handle);
+
+  $defaults = array (
+    'x'             => 0,
+    'y'             => 0,
+    'diameter'      => 10,  // outside
+    'innerdiameter' => 5,   // inside (0 for none)
+    'points'        => 6,
+    'units'         => 'px',
+    'strokeColour'  => 'black',
+    'strokeWidth'   => 1,
+    'fillColour'    => 'none',
+    'rotate'        => 0,  // rotation in degrees
+     );
+
+  // to convert from given units to user units
+  $scaleConversion = array (
+    'px'  => 1,   // pixels (same as user units)
+    'pt'  => 1,   // points
+    'mm'  => 3.7795,
+    'cm'  => 37.795,
+    'in'  => 96,
+    'pc'  => 16,  // picas
+  );
+
+  $args = array_merge($defaults, array_intersect_key($args, $defaults));
+
+  $points = $args ['points'];
+
+  // can't do less than three points
+  if ($points < 3)
+    return;
+
+  $scale = $scaleConversion [$args ['units']];
+  if (!$scale)
+    return;  // can't do it without a scale factor
+
+  fwrite ($handle, "<g transform=\"scale($scale)\">\n");
+  fwrite ($handle, "<path d=\"");
+  $x = $args ['x'];
+  $y = $args ['y'];
+  $diameter = $args ['diameter'];
+  $innerdiameter = $args ['innerdiameter'];
+  $action = 'M';  // move to
+  $rotate = $args ['rotate'];
+  $slice = 360 / $points;  // how many degrees to progress each time
+  $halfSlice = $slice / 2; // direction to inner point
+
+  // do the points
+  for ($i = 0; $i < $points; $i++)
+    {
+    $x_coord = cos (deg2rad($i * $slice + $rotate)) * $diameter + $x;
+    $y_coord = sin (deg2rad($i * $slice + $rotate)) * $diameter + $y;
+    fwrite ($handle, "$action $x_coord,$y_coord ");
+    $action = 'L';  // line to
+    if ($innerdiameter)
+      {
+      $x_coord = cos (deg2rad($i * $slice + $halfSlice + $rotate)) * $innerdiameter + $x;
+      $y_coord = sin (deg2rad($i * $slice + $halfSlice + $rotate)) * $innerdiameter + $y;
+      fwrite ($handle, "$action $x_coord,$y_coord ");
+      }
+    } // end of for loop
+
+  fwrite ($handle, "Z \" " .   // close path
+               "fill=\""          . $args ['fillColour'] . "\" " .
+               "stroke-width=\""  . $args ['strokeWidth'] . "\" " .
+               "stroke=\""        . $args ['strokeColour'] . "\" " .
+               "/>\n");
+  fwrite ($handle, "</g>\n");
+  } // end of SVGstar
+
 // shows a duration in more human-readable ways
 function duration ($days)
   {

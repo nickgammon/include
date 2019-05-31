@@ -4519,9 +4519,10 @@ function openSVGfile ($filename, $labelRow)
        xmlns="http://www.w3.org/2000/svg"
        xmlns:xlink="http://www.w3.org/1999/xlink"
        version="1.1"
-       viewBox="0 0 $width $height"
        width="$width"
-       height="$height" >
+       height="$height"
+       viewBox="0 0 $width $height"
+       >
 
   <!-- SVG generated in PHP
 
@@ -4593,6 +4594,7 @@ function SVGline ($handle, $args)
     'y2'            => 10,
     'units'         => 'px',
     'colour'        => 'black',
+    'dashes'        => 'none',
     'strokeWidth'   => 1,
      );
 
@@ -4604,6 +4606,7 @@ function SVGline ($handle, $args)
                "x2=\""            . $args ['x2']      . $args ['units'] . "\" " .
                "y2=\""            . $args ['y2']      . $args ['units'] . "\" " .
                "stroke-width=\""  . $args ['strokeWidth'] . "\" " .
+               "stroke-dasharray=\""  . $args ['dashes'] . "\" " .
                "stroke=\""        . $args ['colour']  . "\" " .
                "/>\n");
   } // end of SVGline
@@ -4651,13 +4654,14 @@ function SVGstar ($handle, $args)
     'x'             => 0,
     'y'             => 0,
     'diameter'      => 10,  // outside
-    'innerdiameter' => 5,   // inside (0 for none)
+    'innerDiameter' => 5,   // inside (0 for none)
     'points'        => 6,
     'units'         => 'px',
     'strokeColour'  => 'black',
     'strokeWidth'   => 1,
     'fillColour'    => 'none',
     'rotate'        => 0,  // rotation in degrees
+    'innerRotate'   => 0,  // rotation of inner part in degrees (in ADDITION to rotate amount)
      );
 
   // to convert from given units to user units
@@ -4687,9 +4691,10 @@ function SVGstar ($handle, $args)
   $x = $args ['x'];
   $y = $args ['y'];
   $diameter = $args ['diameter'];
-  $innerdiameter = $args ['innerdiameter'];
+  $innerdiameter = $args ['innerDiameter'];
   $action = 'M';  // move to
   $rotate = $args ['rotate'];
+  $innerRotate = $args ['innerRotate'];
   $slice = 360 / $points;  // how many degrees to progress each time
   $halfSlice = $slice / 2; // direction to inner point
 
@@ -4698,13 +4703,13 @@ function SVGstar ($handle, $args)
     {
     $x_coord = cos (deg2rad($i * $slice + $rotate)) * $diameter + $x;
     $y_coord = sin (deg2rad($i * $slice + $rotate)) * $diameter + $y;
-    fwrite ($handle, "$action $x_coord,$y_coord ");
+    fwrite ($handle, " $action " . number_format ($x_coord, 2, '.', '') . ',' . number_format ($y_coord, 2, '.', ''));
     $action = 'L';  // line to
     if ($innerdiameter)
       {
-      $x_coord = cos (deg2rad($i * $slice + $halfSlice + $rotate)) * $innerdiameter + $x;
-      $y_coord = sin (deg2rad($i * $slice + $halfSlice + $rotate)) * $innerdiameter + $y;
-      fwrite ($handle, "$action $x_coord,$y_coord ");
+      $x_coord = cos (deg2rad($i * $slice + $halfSlice + $rotate + $innerRotate)) * $innerdiameter + $x;
+      $y_coord = sin (deg2rad($i * $slice + $halfSlice + $rotate + $innerRotate)) * $innerdiameter + $y;
+      fwrite ($handle, " $action " . number_format ($x_coord, 2, '.', '') . ',' . number_format ($y_coord, 2, '.', ''));
       }
     } // end of for loop
 

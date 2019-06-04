@@ -4511,8 +4511,15 @@ function openSVGfile ($filename, $labelRow)
   if (!$handle)
     MajorProblem ("Cannot open file: $filename");
 
-  $width  = $labelRow ['Page_Width'] . 'mm';
-  $height = $labelRow ['Page_Height'] . 'mm';
+  // Note that some rendering (eg. stars) seem much better if we use pixels (or no units)
+  // rather than mm.
+
+  // However, default to mm for backwards compatibility
+  if (!isset ($labelRow ['Units']))
+    $labelRow ['Units'] = 'mm';
+
+  $width  = $labelRow ['Page_Width']  . $labelRow ['Units'];
+  $height = $labelRow ['Page_Height'] . $labelRow ['Units'];
 
   fwrite ($handle, <<< EOD
     <svg
@@ -4524,6 +4531,7 @@ function openSVGfile ($filename, $labelRow)
        viewBox="0 0 $width $height"
        >
 
+
   <!-- SVG generated in PHP
 
     Author:  Nick Gammon
@@ -4531,6 +4539,10 @@ function openSVGfile ($filename, $labelRow)
 
 EOD
 );
+
+
+//  Use this to have a white background:
+//  <rect width="100%" height="100%" fill="white"/>
 
   // timestamp
   fwrite ($handle, "\n    This file generated on: " . strftime ("%A %d %B %Y at %I:%M:%S %p", time ()));
@@ -4686,7 +4698,7 @@ function SVGstar ($handle, $args)
   if (!$scale)
     return;  // can't do it without a scale factor
 
-  fwrite ($handle, "<g transform=\"scale($scale)\">\n");
+ // fwrite ($handle, "<g transform=\"scale($scale)\">\n");
   fwrite ($handle, "<path d=\"");
   $x = $args ['x'];
   $y = $args ['y'];
@@ -4703,22 +4715,24 @@ function SVGstar ($handle, $args)
     {
     $x_coord = cos (deg2rad($i * $slice + $rotate)) * $diameter + $x;
     $y_coord = sin (deg2rad($i * $slice + $rotate)) * $diameter + $y;
-    fwrite ($handle, " $action " . number_format ($x_coord, 2, '.', '') . ',' . number_format ($y_coord, 2, '.', ''));
+    fwrite ($handle, " $action " . number_format ($x_coord * $scale, 2, '.', '') . ' ' .
+                                   number_format ($y_coord * $scale, 2, '.', ''));
     $action = 'L';  // line to
     if ($innerdiameter)
       {
       $x_coord = cos (deg2rad($i * $slice + $halfSlice + $rotate + $innerRotate)) * $innerdiameter + $x;
       $y_coord = sin (deg2rad($i * $slice + $halfSlice + $rotate + $innerRotate)) * $innerdiameter + $y;
-      fwrite ($handle, " $action " . number_format ($x_coord, 2, '.', '') . ',' . number_format ($y_coord, 2, '.', ''));
+      fwrite ($handle, " $action " . number_format ($x_coord * $scale, 2, '.', '') . ' ' .
+                                     number_format ($y_coord * $scale, 2, '.', ''));
       }
     } // end of for loop
 
   fwrite ($handle, "Z \" " .   // close path
                "fill=\""          . $args ['fillColour'] . "\" " .
-               "stroke-width=\""  . $args ['strokeWidth'] . "\" " .
+               "stroke-width=\""  . $args ['strokeWidth']  * $scale . "\" " .
                "stroke=\""        . $args ['strokeColour'] . "\" " .
                "/>\n");
-  fwrite ($handle, "</g>\n");
+//  fwrite ($handle, "</g>\n");
   } // end of SVGstar
 
 // shows a duration in more human-readable ways

@@ -4607,6 +4607,7 @@ function SVGline ($handle, $args)
     'units'         => 'px',
     'colour'        => 'black',
     'dashes'        => 'none',
+    'linecap'       => 'butt',
     'strokeWidth'   => 1,
      );
 
@@ -4618,6 +4619,7 @@ function SVGline ($handle, $args)
                "x2=\""            . $args ['x2']      . $args ['units'] . "\" " .
                "y2=\""            . $args ['y2']      . $args ['units'] . "\" " .
                "stroke-width=\""  . $args ['strokeWidth'] . "\" " .
+               "stroke-linecap=\""  . $args ['linecap'] . "\" " .
                "stroke-dasharray=\""  . $args ['dashes'] . "\" " .
                "stroke=\""        . $args ['colour']  . "\" " .
                "/>\n");

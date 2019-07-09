@@ -2123,14 +2123,17 @@ function ShowTable ($table, $params, $specials)
               echo "selected ";
             echo "/>(none)\n";
             } // end if no entry required
-          reset ($values);
-          while (list ($selectvalue, $selectdescription) = each ($values))
+          if (gettype ($values) == 'array')   // allow for no foreign key items
             {
-            echo "<option value=\"$selectvalue\" ";
-            if ($contents == $selectvalue)
-              echo "selected ";
-            echo "/>$selectdescription\n";
-            } // end of each item
+            reset ($values);
+            while (list ($selectvalue, $selectdescription) = each ($values))
+              {
+              echo "<option value=\"$selectvalue\" ";
+              if ($contents == $selectvalue)
+                echo "selected ";
+              echo "/>$selectdescription\n";
+              } // end of each item
+            }
           echo "</select>\n";
           break;    // end of combo box
 
@@ -2143,15 +2146,18 @@ function ShowTable ($table, $params, $specials)
               echo "selected ";
             echo "/>(none)\n";
             } // end if no entry required
-          reset ($values);
-          while (list ($selectvalue, $selectdescription) = each ($values))
+          if (gettype ($values) == 'array')   // allow for no foreign key items
             {
-            $selectvalue = htmlspecialchars ($selectvalue);
-            echo "<option value=\"$selectvalue\" ";
-            if ($contents == $selectvalue)
-              echo "selected ";
-            echo "/>$selectdescription\n";
-            } // end of each item
+            reset ($values);
+            while (list ($selectvalue, $selectdescription) = each ($values))
+              {
+              $selectvalue = htmlspecialchars ($selectvalue);
+              echo "<option value=\"$selectvalue\" ";
+              if ($contents == $selectvalue)
+                echo "selected ";
+              echo "/>$selectdescription\n";
+              } // end of each item
+            }
           echo "</select>\n";
           break;    // end of list box
 
@@ -3914,6 +3920,31 @@ function isSQLdebugger ()
   return isForumSQLdebugger ();
   } // end of isSQLdebugger
 
+/* ********************************************************************************
+  GetAccess - check access rights to this table
+ ********************************************************************************  */
+function GetAccess ($table)
+  {
+  global $userid, $userinfo, $access, $PHP_SELF;
+
+  $access = ""; // default of no access
+
+  if (isLoggedOn ())
+    {
+    // now get their access levels for editing *this* table
+    $userid = $userinfo ["userid"];
+    if ($userid)
+      {
+      $access = dbQueryOne ("SELECT * FROM access "
+                           . "WHERE userid = $userid AND "
+                           . "(tablename = '$table' OR tablename = '%')");
+      } // end of being logged in
+    }
+
+  $PHP_SELF = $_SERVER['PHP_SELF'];
+  } // end of GetAccess
+
+
 function beingThrottled ($basis = 'minutes_since_last_post', $last_date = 'last_post_date')
   {
   global $foruminfo;
@@ -4386,13 +4417,17 @@ function ShowSqlResult ($result)
 
   } // end of ShowSqlResult
 
-function ConvertMarkup ($value, $outputName = 'HTML', $headerLevel = 2, $toc = '')
+function ConvertMarkup ($value, $outputName = 'HTML', $headerLevel = 2, $toc = '', $to='--to=html5', $options='')
   {
   global $control;
 
   // where it is
   $pandocProg = $control ['pandoc'];
-  $pandocOptions = $control ['pandoc_options'];
+  $pandocOptions =  $options;
+
+  if (!$options)
+    $options = $control ['pandoc_options'];
+
   // check we found it
   if (!is_file ($pandocProg))
     $error = "Cannot find pandoc";
@@ -4400,14 +4435,14 @@ function ConvertMarkup ($value, $outputName = 'HTML', $headerLevel = 2, $toc = '
 
     {
     $cmd = "$pandocProg $pandocOptions " .
-           "--from=markdown " .
+           "--from=markdown+smart " .
            "--base-header-level=$headerLevel " .
-           "$toc ".
-           "--to=html5";
+           "$toc " .
+           $to;  // HTML5 or whatever
 
     $descriptorspec = array(
-       0 => array("pipe", "r"),  // stdin is a pipe that the child will read from
-       1 => array("pipe", "w"),  // stdout is a pipe that the child will write to
+       0 => array('pipe', 'r'),  // stdin is a pipe that the child will read from
+       1 => array('pipe', 'w'),  // stdout is a pipe that the child will write to
        2 => array('pipe', 'w')   // stderr is a pipe that the child will write to
     );
 
@@ -4559,6 +4594,18 @@ function checkHandle ($handle)
     }
   } // end of checkHandle
 
+// to convert from given units to user units
+$SCALE_CONVERSION = array (
+  'px'  => 1,   // pixels (same as user units)
+  'pt'  => 1,   // points
+  'mm'  => 3.7795,
+  'cm'  => 37.795,
+  'in'  => 96,
+  'pc'  => 16,  // picas
+);
+
+
+
 function SVGcomment ($handle, $comment)
   {
   checkHandle ($handle);
@@ -4566,6 +4613,131 @@ function SVGcomment ($handle, $comment)
   } // end of SVGcomment
 
 function SVGrect ($handle, $args)
+  {
+  global $SCALE_CONVERSION;
+
+  checkHandle ($handle);
+
+  $defaults = array (
+    'x'             => 0,
+    'y'             => 0,
+    'width'         => 10,
+    'height'        => 10,
+    'units'         => 'px',
+    'strokeColour'  => 'black',
+    'strokeWidth'   => 1,
+    'fillColour'    => 'none',
+    'ry'            => 0,
+    'scale'         => 1,
+     );
+
+  $args = array_merge($defaults, array_intersect_key($args, $defaults));
+  $scale = $args ['scale'];
+  if (!$scale)
+    $scale = 1;
+
+  fwrite ($handle, "<rect " .
+               "x=\""             . ($args ['x']  * 1 / $scale)      . $args ['units'] . "\" " .
+               "y=\""             . ($args ['y']  * 1 / $scale)      . $args ['units'] . "\" " .
+               "width=\""         . $args ['width']   . $args ['units'] . "\" " .
+               "height=\""        . $args ['height']  . $args ['units'] . "\" " .
+               "fill=\""          . $args ['fillColour'] . "\" " .
+               "stroke-width=\""  . $args ['strokeWidth'] . "\" " .
+               "ry=\""            . $args ['ry']      . $args ['units'] . "\" " .
+               "stroke=\""        . $args ['strokeColour'] . "\" " .
+               "transform=\""     . "scale($scale)\" " .
+               "/>\n");
+  } // end of SVGrect
+
+function SVGimage ($handle, $args)
+  {
+  global $SCALE_CONVERSION;
+
+  checkHandle ($handle);
+
+  $defaults = array (
+    'x'             => 0,
+    'y'             => 0,
+    'width'         => 10,
+    'height'        => 10,
+    'units'         => 'px',
+    'filename'      => 'none',
+    'scale'         => 1,
+     );
+
+  $args = array_merge($defaults, array_intersect_key($args, $defaults));
+  $scale = $args ['scale'];
+  if (!$scale)
+    $scale = 1;
+  $x = $args ['x'];
+  $y = $args ['y'];
+
+  $scaleMultiplier = $SCALE_CONVERSION [$args ['units']];
+
+  $xOffset = $x * $scaleMultiplier;
+  $yOffset = $y * $scaleMultiplier;
+
+  // I am scaling first (the RH end) with the image drawn at 0,0 which will scale around
+  // the origin, and then translating the scaled image into the desired position.
+  fwrite ($handle, "<image " .
+               "width=\""         . $args ['width']   . $args ['units'] . "\" " .
+               "height=\""        . $args ['height']  . $args ['units'] . "\" " .
+               "xlink:href=\""        . $args ['filename'] . "\" " .
+               "preserveAspectRatio=\"xMaxYMax meet\" " .   // xMidYMid
+               "style=\"image-rendering:optimizeQuality;\" " .
+               "transform=\"translate($xOffset $yOffset) scale($scale)\" " .
+               "/>\n");
+  } // end of SVGimage
+
+// embed SVG inside SVD
+function SVGimageSVG ($handle, $args)
+  {
+  global $SCALE_CONVERSION;
+
+  checkHandle ($handle);
+
+  $defaults = array (
+    'x'             => 0,
+    'y'             => 0,
+    'width'         => 10,
+    'height'        => 10,
+    'units'         => 'px',
+    'filename'      => 'none',
+    'scale'         => 1,
+    'clip'          => '',
+     );
+
+  $args = array_merge($defaults, array_intersect_key($args, $defaults));
+  $x = $args ['x'];
+  $y = $args ['y'];
+  $width = $args ['width']   . $args ['units'];
+  $height = $args ['height']  . $args ['units'];
+  $scale = $args ['scale'];
+  if (!$scale)
+    $scale = 1;
+
+  if ($args ['clip'])
+    $extra = 'clip-path="' . $args ['clip'] . '"';
+  else
+    $extra = '';
+
+  $scaleMultiplier = $SCALE_CONVERSION [$args ['units']];
+
+  $xOffset = $x * $scaleMultiplier;
+  $yOffset = $y * $scaleMultiplier;
+
+  // I am scaling first (the RH end) with the image drawn at 0,0 which will scale around
+  // the origin, and then translating the scaled image into the desired position.
+  fwrite ($handle, "<use " .
+               "xlink:href=\""    . $args ['filename'] . "#layer1\" " .
+               "width=\""         . $width. "\" " .
+               "height=\""        . $height . "\" " .
+               "transform=\""     . "translate($xOffset $yOffset) scale($scale)\" " .  //    translate(-$x -$y)
+               $extra .
+               "/>\n");
+  } // end of SVGimageSVG
+
+function SVGellipse ($handle, $args)
   {
   checkHandle ($handle);
 
@@ -4583,17 +4755,16 @@ function SVGrect ($handle, $args)
 
   $args = array_merge($defaults, array_intersect_key($args, $defaults));
 
-  fwrite ($handle, "<rect " .
-               "x=\""             . $args ['x']       . $args ['units'] . "\" " .
-               "y=\""             . $args ['y']       . $args ['units'] . "\" " .
-               "width=\""         . $args ['width']   . $args ['units'] . "\" " .
-               "height=\""        . $args ['height']  . $args ['units'] . "\" " .
+  fwrite ($handle, "<ellipse " .
+               "cx=\""            . ($args ['x'] + ($args ['width'] / 2))  . $args ['units'] . "\" " .
+               "cy=\""            . ($args ['y'] + ($args ['height'] / 2)) . $args ['units'] . "\" " .
+               "rx=\""            . ($args ['width'] / 2)  . $args ['units'] . "\" " .
+               "ry=\""            . ($args ['height'] / 2) . $args ['units'] . "\" " .
                "fill=\""          . $args ['fillColour'] . "\" " .
                "stroke-width=\""  . $args ['strokeWidth'] . "\" " .
-               "ry=\""            . $args ['ry'] . "\" " .
                "stroke=\""        . $args ['strokeColour'] . "\" " .
                "/>\n");
-  } // end of SVGrect
+  } // end of SVGellipse
 
 function SVGline ($handle, $args)
   {
@@ -4662,6 +4833,8 @@ function SVGtext ($handle, $args)
 
 function SVGstar ($handle, $args)
   {
+  global $SCALE_CONVERSION;
+
   checkHandle ($handle);
 
   $defaults = array (
@@ -4678,16 +4851,6 @@ function SVGstar ($handle, $args)
     'innerRotate'   => 0,  // rotation of inner part in degrees (in ADDITION to rotate amount)
      );
 
-  // to convert from given units to user units
-  $scaleConversion = array (
-    'px'  => 1,   // pixels (same as user units)
-    'pt'  => 1,   // points
-    'mm'  => 3.7795,
-    'cm'  => 37.795,
-    'in'  => 96,
-    'pc'  => 16,  // picas
-  );
-
   $args = array_merge($defaults, array_intersect_key($args, $defaults));
 
   $points = $args ['points'];
@@ -4696,7 +4859,7 @@ function SVGstar ($handle, $args)
   if ($points < 3)
     return;
 
-  $scale = $scaleConversion [$args ['units']];
+  $scale = $SCALE_CONVERSION [$args ['units']];
   if (!$scale)
     return;  // can't do it without a scale factor
 

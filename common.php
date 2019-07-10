@@ -4614,8 +4614,6 @@ function SVGcomment ($handle, $comment)
 
 function SVGrect ($handle, $args)
   {
-  global $SCALE_CONVERSION;
-
   checkHandle ($handle);
 
   $defaults = array (
@@ -4628,31 +4626,29 @@ function SVGrect ($handle, $args)
     'strokeWidth'   => 1,
     'fillColour'    => 'none',
     'ry'            => 0,
-    'scale'         => 1,
      );
 
   $args = array_merge($defaults, array_intersect_key($args, $defaults));
-  $scale = $args ['scale'];
-  if (!$scale)
-    $scale = 1;
+  $x      = $args ['x'];
+  $y      = $args ['y'];
+  $width  = $args ['width'];
+  $height = $args ['height'];
+  $units  = $args ['units'];
 
   fwrite ($handle, "<rect " .
-               "x=\""             . ($args ['x']  * 1 / $scale)      . $args ['units'] . "\" " .
-               "y=\""             . ($args ['y']  * 1 / $scale)      . $args ['units'] . "\" " .
-               "width=\""         . $args ['width']   . $args ['units'] . "\" " .
-               "height=\""        . $args ['height']  . $args ['units'] . "\" " .
+               "x=\"$x$units\" " .
+               "y=\"$y$units\" " .
+               "width=\"$width$units\" " .
+               "height=\"$height$units\" " .
                "fill=\""          . $args ['fillColour'] . "\" " .
                "stroke-width=\""  . $args ['strokeWidth'] . "\" " .
                "ry=\""            . $args ['ry']      . $args ['units'] . "\" " .
                "stroke=\""        . $args ['strokeColour'] . "\" " .
-               "transform=\""     . "scale($scale)\" " .
                "/>\n");
   } // end of SVGrect
 
 function SVGimage ($handle, $args)
   {
-  global $SCALE_CONVERSION;
-
   checkHandle ($handle);
 
   $defaults = array (
@@ -4662,35 +4658,28 @@ function SVGimage ($handle, $args)
     'height'        => 10,
     'units'         => 'px',
     'filename'      => 'none',
-    'scale'         => 1,
      );
 
   $args = array_merge($defaults, array_intersect_key($args, $defaults));
-  $scale = $args ['scale'];
-  if (!$scale)
-    $scale = 1;
-  $x = $args ['x'];
-  $y = $args ['y'];
+  $x      = $args ['x'];
+  $y      = $args ['y'];
+  $width  = $args ['width'];
+  $height = $args ['height'];
+  $units  = $args ['units'];
 
-  $scaleMultiplier = $SCALE_CONVERSION [$args ['units']];
-
-  $xOffset = $x * $scaleMultiplier;
-  $yOffset = $y * $scaleMultiplier;
-
-  // I am scaling first (the RH end) with the image drawn at 0,0 which will scale around
-  // the origin, and then translating the scaled image into the desired position.
   fwrite ($handle, "<image " .
-               "width=\""         . $args ['width']   . $args ['units'] . "\" " .
-               "height=\""        . $args ['height']  . $args ['units'] . "\" " .
+               "x=\"$x$units\" " .
+               "y=\"$y$units\" " .
+               "width=\"$width$units\" " .
+               "height=\"$height$units\" " .
                "xlink:href=\""        . $args ['filename'] . "\" " .
                "preserveAspectRatio=\"xMaxYMax meet\" " .   // xMidYMid
                "style=\"image-rendering:optimizeQuality;\" " .
-               "transform=\"translate($xOffset $yOffset) scale($scale)\" " .
                "/>\n");
   } // end of SVGimage
 
-// embed SVG inside SVD
-function SVGimageSVG ($handle, $args)
+// embed SVG inside SVG
+function SVGembed ($handle, $args)
   {
   global $SCALE_CONVERSION;
 
@@ -4708,34 +4697,70 @@ function SVGimageSVG ($handle, $args)
      );
 
   $args = array_merge($defaults, array_intersect_key($args, $defaults));
-  $x = $args ['x'];
-  $y = $args ['y'];
-  $width = $args ['width']   . $args ['units'];
-  $height = $args ['height']  . $args ['units'];
-  $scale = $args ['scale'];
+  $x      = $args ['x'];
+  $y      = $args ['y'];
+  $width  = $args ['width'];
+  $height = $args ['height'];
+  $units  = $args ['units'];
+  $filename = $args ['filename'];
+
+/*
+
+This took two days' work ...
+
+The only way I seem to be able to scale and move the graphic is:
+
+a) Find out its original size from the actual SVG file
+b) Make that the viewBox for the <svg> tag
+c) Make the desired width and height as arguments to the <svg> tag
+d) <use> the file, taking layer 1
+e) Make a group to translate it to the desired part of the page
+
+*/
+
+  // find viewport size
+  $svgHandle = fopen($filename, "r");
+
+  if ($svgHandle)
+    {
+    $contents = fread($svgHandle, 2000);
+    fclose($svgHandle);
+    if (!preg_match ('`width="(\d+).*?height="(\d+)`s', $contents, $matches))
+      $svgHandle = FALSE;
+    } // end of having a file
+
+  // no file or cannot find size? draw red box
+  if ($svgHandle === FALSE)
+    {
+    SVGrect ($handle, array (
+        'x'             => $x,
+        'y'             => $y,
+        'width'         => $width,
+        'height'        => $height,
+        'units'         => $units,
+        'strokeColour'  => 'darkred',
+        'strokeWidth'   => 1,
+        'fillColour'    => 'red',
+          ));
+    return;
+    }
+
+  $scale = $SCALE_CONVERSION [$units];
   if (!$scale)
-    $scale = 1;
+    return;  // can't do it without a scale factor
 
-  if ($args ['clip'])
-    $extra = 'clip-path="' . $args ['clip'] . '"';
-  else
-    $extra = '';
+  $xOffset = $x * $scale;
+  $yOffset = $y * $scale;
+  $viewBoxX = $matches [1];
+  $viewBoxY = $matches [2];
 
-  $scaleMultiplier = $SCALE_CONVERSION [$args ['units']];
-
-  $xOffset = $x * $scaleMultiplier;
-  $yOffset = $y * $scaleMultiplier;
-
-  // I am scaling first (the RH end) with the image drawn at 0,0 which will scale around
-  // the origin, and then translating the scaled image into the desired position.
-  fwrite ($handle, "<use " .
-               "xlink:href=\""    . $args ['filename'] . "#layer1\" " .
-               "width=\""         . $width. "\" " .
-               "height=\""        . $height . "\" " .
-               "transform=\""     . "translate($xOffset $yOffset) scale($scale)\" " .  //    translate(-$x -$y)
-               $extra .
-               "/>\n");
-  } // end of SVGimageSVG
+  fwrite ($handle, "<g transform=\"translate($xOffset $yOffset)\" >");
+  fwrite ($handle, "<svg width=\"$width\" height=\"$height\" viewBox=\"0 0 $viewBoxX $viewBoxY\"
+          preserveAspectRatio=\"xMinYMin meet\">\n");
+  fwrite ($handle, "<use xlink:href=\"$filename#layer1\" />\n");
+  fwrite ($handle, "</svg>\n");
+  fwrite ($handle, "</g>\n");
+  } // end of SVGembed
 
 function SVGellipse ($handle, $args)
   {

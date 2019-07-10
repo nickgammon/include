@@ -4626,6 +4626,7 @@ function SVGrect ($handle, $args)
     'strokeWidth'   => 1,
     'fillColour'    => 'none',
     'ry'            => 0,
+    'opacity'       => 100,
      );
 
   $args = array_merge($defaults, array_intersect_key($args, $defaults));
@@ -4634,12 +4635,14 @@ function SVGrect ($handle, $args)
   $width  = $args ['width'];
   $height = $args ['height'];
   $units  = $args ['units'];
+  $opacity= $args ['opacity'] / 100;
 
   fwrite ($handle, "<rect " .
                "x=\"$x$units\" " .
                "y=\"$y$units\" " .
                "width=\"$width$units\" " .
                "height=\"$height$units\" " .
+               "opacity=\"$opacity\" " .
                "fill=\""          . $args ['fillColour'] . "\" " .
                "stroke-width=\""  . $args ['strokeWidth'] . "\" " .
                "ry=\""            . $args ['ry']      . $args ['units'] . "\" " .
@@ -4658,6 +4661,7 @@ function SVGimage ($handle, $args)
     'height'        => 10,
     'units'         => 'px',
     'filename'      => 'none',
+    'opacity'       => 100,
      );
 
   $args = array_merge($defaults, array_intersect_key($args, $defaults));
@@ -4666,12 +4670,14 @@ function SVGimage ($handle, $args)
   $width  = $args ['width'];
   $height = $args ['height'];
   $units  = $args ['units'];
+  $opacity= $args ['opacity'] / 100;
 
   fwrite ($handle, "<image " .
                "x=\"$x$units\" " .
                "y=\"$y$units\" " .
                "width=\"$width$units\" " .
                "height=\"$height$units\" " .
+               "opacity=\"$opacity\" " .
                "xlink:href=\""        . $args ['filename'] . "\" " .
                "preserveAspectRatio=\"xMaxYMax meet\" " .   // xMidYMid
                "style=\"image-rendering:optimizeQuality;\" " .
@@ -4694,6 +4700,7 @@ function SVGembed ($handle, $args)
     'filename'      => 'none',
     'scale'         => 1,
     'clip'          => '',
+    'opacity'       => 100,
      );
 
   $args = array_merge($defaults, array_intersect_key($args, $defaults));
@@ -4703,6 +4710,7 @@ function SVGembed ($handle, $args)
   $height = $args ['height'];
   $units  = $args ['units'];
   $filename = $args ['filename'];
+  $opacity= $args ['opacity'] / 100;
 
 /*
 
@@ -4711,10 +4719,9 @@ This took two days' work ...
 The only way I seem to be able to scale and move the graphic is:
 
 a) Find out its original size from the actual SVG file
-b) Make that the viewBox for the <svg> tag
-c) Make the desired width and height as arguments to the <svg> tag
-d) <use> the file, taking layer 1
-e) Make a group to translate it to the desired part of the page
+b) Make a group to translate it to the desired part of the page, and scale it by
+   a factor being the larger (x or y) of the ratio between the original image and the desired size
+c) <use> the file, taking layer 1
 
 */
 
@@ -4725,7 +4732,7 @@ e) Make a group to translate it to the desired part of the page
     {
     $contents = fread($svgHandle, 2000);
     fclose($svgHandle);
-    if (!preg_match ('`width="(\d+).*?height="(\d+)`s', $contents, $matches))
+    if (!preg_match ('`width="(\d+)[a-z]*"\s+?height="(\d+)[a-z]*"`s', $contents, $matches))
       $svgHandle = FALSE;
     } // end of having a file
 
@@ -4754,11 +4761,13 @@ e) Make a group to translate it to the desired part of the page
   $viewBoxX = $matches [1];
   $viewBoxY = $matches [2];
 
-  fwrite ($handle, "<g transform=\"translate($xOffset $yOffset)\" >");
-  fwrite ($handle, "<svg width=\"$width\" height=\"$height\" viewBox=\"0 0 $viewBoxX $viewBoxY\"
-          preserveAspectRatio=\"xMinYMin meet\">\n");
+  $scaleAmount = min ($width / $viewBoxX, $height / $viewBoxY);
+
+  fwrite ($handle, "<g transform=\"translate($xOffset $yOffset) scale($scaleAmount)\" opacity=\"$opacity\" >");
+//  fwrite ($handle, "<svg width=\"$width\" height=\"$height\" viewBox=\"0 0 $viewBoxX $viewBoxY\"
+//          preserveAspectRatio=\"xMinYMin meet\">\n");
   fwrite ($handle, "<use xlink:href=\"$filename#layer1\" />\n");
-  fwrite ($handle, "</svg>\n");
+//  fwrite ($handle, "</svg>\n");
   fwrite ($handle, "</g>\n");
   } // end of SVGembed
 
@@ -4776,15 +4785,18 @@ function SVGellipse ($handle, $args)
     'strokeWidth'   => 1,
     'fillColour'    => 'none',
     'ry'            => 0,
+    'opacity'       => 100,
      );
 
   $args = array_merge($defaults, array_intersect_key($args, $defaults));
+  $opacity= $args ['opacity'] / 100;
 
   fwrite ($handle, "<ellipse " .
                "cx=\""            . ($args ['x'] + ($args ['width'] / 2))  . $args ['units'] . "\" " .
                "cy=\""            . ($args ['y'] + ($args ['height'] / 2)) . $args ['units'] . "\" " .
                "rx=\""            . ($args ['width'] / 2)  . $args ['units'] . "\" " .
                "ry=\""            . ($args ['height'] / 2) . $args ['units'] . "\" " .
+               "opacity=\"$opacity\" " .
                "fill=\""          . $args ['fillColour'] . "\" " .
                "stroke-width=\""  . $args ['strokeWidth'] . "\" " .
                "stroke=\""        . $args ['strokeColour'] . "\" " .
@@ -4805,15 +4817,18 @@ function SVGline ($handle, $args)
     'dashes'        => 'none',
     'linecap'       => 'butt',
     'strokeWidth'   => 1,
+    'opacity'       => 100,
      );
 
   $args = array_merge($defaults, array_intersect_key($args, $defaults));
+  $opacity= $args ['opacity'] / 100;
 
   fwrite ($handle, "<line " .
                "x1=\""            . $args ['x1']      . $args ['units'] . "\" " .
                "y1=\""            . $args ['y1']      . $args ['units'] . "\" " .
                "x2=\""            . $args ['x2']      . $args ['units'] . "\" " .
                "y2=\""            . $args ['y2']      . $args ['units'] . "\" " .
+               "opacity=\"$opacity\" " .
                "stroke-width=\""  . $args ['strokeWidth'] . "\" " .
                "stroke-linecap=\""  . $args ['linecap'] . "\" " .
                "stroke-dasharray=\""  . $args ['dashes'] . "\" " .
@@ -4835,9 +4850,11 @@ function SVGtext ($handle, $args)
     'fontSize'      => 9,
     'fontFamily'    => 'Arial',
     'position'      => 'start',   // start / middle / end / inherit
+    'opacity'       => 100,
      );
 
   $args = array_merge($defaults, array_intersect_key($args, $defaults));
+  $opacity= $args ['opacity'] / 100;
 
   fwrite ($handle, "<text " .
                    "style=\"fill:"    . $args ['colour'] . "; " .
@@ -4845,6 +4862,7 @@ function SVGtext ($handle, $args)
                    "font-family:"     . $args ['fontFamily'] . "\" " .
                    "x=\""             . $args ['x']       . $args ['units'] . "\" " .
                    "y=\""             . $args ['y']       . $args ['units'] . "\" " .
+                   "opacity=\"$opacity\" " .
                    "text-anchor=\""   . $args ['position'] . "\">" .
                    htmlspecialchars ($args ['text']) . "</text>\n");
   } // end of SVGtext
@@ -4874,9 +4892,11 @@ function SVGstar ($handle, $args)
     'fillColour'    => 'none',
     'rotate'        => 0,  // rotation in degrees
     'innerRotate'   => 0,  // rotation of inner part in degrees (in ADDITION to rotate amount)
+    'opacity'       => 100,
      );
 
   $args = array_merge($defaults, array_intersect_key($args, $defaults));
+  $opacity= $args ['opacity'] / 100;
 
   $points = $args ['points'];
 
@@ -4921,6 +4941,7 @@ function SVGstar ($handle, $args)
                "fill=\""          . $args ['fillColour'] . "\" " .
                "stroke-width=\""  . $args ['strokeWidth']  * $scale . "\" " .
                "stroke=\""        . $args ['strokeColour'] . "\" " .
+               "opacity=\"$opacity\" " .
                "/>\n");
 //  fwrite ($handle, "</g>\n");
   } // end of SVGstar

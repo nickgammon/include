@@ -228,7 +228,7 @@ end
 function BulletList(items)
   local buffer = {}
   for _, item in pairs(items) do
-    table.insert(buffer, '<flowPara xml:space="preserve">   • ' .. item .. "</flowPara>")
+    table.insert(buffer, '<flowPara >• ' .. item .. "</flowPara>")  -- xml:space="preserve"
   end
   return table.concat(buffer, "\n")
 end

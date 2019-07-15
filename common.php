@@ -4627,6 +4627,7 @@ function SVGrect ($handle, $args)
     'fillColour'    => 'none',
     'ry'            => 0,
     'opacity'       => 100,
+    'extra'         => '',
      );
 
   $args = array_merge($defaults, array_intersect_key($args, $defaults));
@@ -4636,6 +4637,7 @@ function SVGrect ($handle, $args)
   $height = $args ['height'];
   $units  = $args ['units'];
   $opacity= $args ['opacity'] / 100;
+  $extra  = $args ['extra'];
 
   fwrite ($handle, "<rect " .
                "x=\"$x$units\" " .
@@ -4647,6 +4649,7 @@ function SVGrect ($handle, $args)
                "stroke-width=\""  . $args ['strokeWidth'] . "\" " .
                "ry=\""            . $args ['ry']      . $args ['units'] . "\" " .
                "stroke=\""        . $args ['strokeColour'] . "\" " .
+               "style=\"$extra\"" .   // arbitrary extra parameters
                "/>\n");
   } // end of SVGrect
 
@@ -4662,6 +4665,7 @@ function SVGimage ($handle, $args)
     'units'         => 'px',
     'filename'      => 'none',
     'opacity'       => 100,
+    'extra'         => '',
      );
 
   $args = array_merge($defaults, array_intersect_key($args, $defaults));
@@ -4671,6 +4675,7 @@ function SVGimage ($handle, $args)
   $height = $args ['height'];
   $units  = $args ['units'];
   $opacity= $args ['opacity'] / 100;
+  $extra  = $args ['extra'];
 
   fwrite ($handle, "<image " .
                "x=\"$x$units\" " .
@@ -4679,8 +4684,8 @@ function SVGimage ($handle, $args)
                "height=\"$height$units\" " .
                "opacity=\"$opacity\" " .
                "xlink:href=\""        . $args ['filename'] . "\" " .
-               "preserveAspectRatio=\"xMaxYMax meet\" " .   // xMidYMid
-               "style=\"image-rendering:optimizeQuality;\" " .
+               "preserveAspectRatio=\"xMidYMid meet\" " .   // xMidYMid
+               "style=\"image-rendering:optimizeQuality; $extra\" " .
                "/>\n");
   } // end of SVGimage
 
@@ -4701,6 +4706,7 @@ function SVGembed ($handle, $args)
     'scale'         => 1,
     'clip'          => '',
     'opacity'       => 100,
+    'extra'         => '',
      );
 
   $args = array_merge($defaults, array_intersect_key($args, $defaults));
@@ -4711,6 +4717,7 @@ function SVGembed ($handle, $args)
   $units  = $args ['units'];
   $filename = $args ['filename'];
   $opacity= $args ['opacity'] / 100;
+  $extra  = $args ['extra'];
 
 /*
 
@@ -4726,15 +4733,53 @@ c) <use> the file, taking layer 1
 */
 
   // find viewport size
-  $svgHandle = fopen($filename, "r");
+  $svgHandle = @fopen($filename, "r");
+
+  $multiplier = 1;
 
   if ($svgHandle)
     {
-    $contents = fread($svgHandle, 2000);
+    $contents = fread($svgHandle, 4000);
     fclose($svgHandle);
-    if (!preg_match ('`width="(\d+)[a-z]*"\s+?height="(\d+)[a-z]*"`s', $contents, $matches))
-      $svgHandle = FALSE;
+
+    if (preg_match ('`units="([a-z]+)"`', $contents, $matches))
+      {
+      $multiplier = $SCALE_CONVERSION [$matches [1]];
+      if (!$multiplier)
+        return;
+      } // end of finding document units
+
+
+    if (!preg_match ('`width="([0-9.]+)[a-z]*"\s+height="([0-9.]+)([a-z]*)"`s', $contents, $matches))
+      if (!preg_match ('`viewBox="[0-9.]+\s+[0-9.]+\s+([0-9.]+)\s+([0-9.]+)\s*"`s', $contents, $matches))
+        {
+        $svgHandle = FALSE;
+        $reason = "Cannot find image dimensions";
+        }
+
+    // if document is given in pixels convert back to mm to match rest of units
+    if ($multiplier == 1)
+      {
+      if (!$matches [3])
+        $multiplier = $SCALE_CONVERSION ['mm'];
+      }
+
+    // we have to adjust for the document units
+    if ($svgHandle)
+      {
+      $viewBoxX = $matches [1] / $multiplier;
+      $viewBoxY = $matches [2] / $multiplier;
+      }
+
+    if (!preg_match ('`inkscape:current-layer="layer1"`s', $contents, $matches))
+        {
+        $svgHandle = FALSE;
+        $reason = "Cannot find layer1";
+        }
+
     } // end of having a file
+  else
+    $reason = "File $filename not found";
 
   // no file or cannot find size? draw red box
   if ($svgHandle === FALSE)
@@ -4749,6 +4794,18 @@ c) <use> the file, taking layer 1
         'strokeWidth'   => 1,
         'fillColour'    => 'red',
           ));
+
+    // explain what the problem is
+    SVGtext ($handle, array (
+      'x' => $x + 5,
+      'y' => $y + 5,
+      'text' => $reason,
+      'units'   => 'mm',
+      'fontSize'      => 8,
+      'opacity'       => 100,
+      'colour'    => 'white',
+    ));
+
     return;
     }
 
@@ -4758,16 +4815,11 @@ c) <use> the file, taking layer 1
 
   $xOffset = $x * $scale;
   $yOffset = $y * $scale;
-  $viewBoxX = $matches [1];
-  $viewBoxY = $matches [2];
 
   $scaleAmount = min ($width / $viewBoxX, $height / $viewBoxY);
 
   fwrite ($handle, "<g transform=\"translate($xOffset $yOffset) scale($scaleAmount)\" opacity=\"$opacity\" >");
-//  fwrite ($handle, "<svg width=\"$width\" height=\"$height\" viewBox=\"0 0 $viewBoxX $viewBoxY\"
-//          preserveAspectRatio=\"xMinYMin meet\">\n");
-  fwrite ($handle, "<use xlink:href=\"$filename#layer1\" />\n");
-//  fwrite ($handle, "</svg>\n");
+  fwrite ($handle, "<use xlink:href=\"$filename#layer1\" style=\"$extra\" />\n");
   fwrite ($handle, "</g>\n");
   } // end of SVGembed
 
@@ -4786,10 +4838,12 @@ function SVGellipse ($handle, $args)
     'fillColour'    => 'none',
     'ry'            => 0,
     'opacity'       => 100,
+    'extra'         => '',
      );
 
   $args = array_merge($defaults, array_intersect_key($args, $defaults));
   $opacity= $args ['opacity'] / 100;
+  $extra  = $args ['extra'];
 
   fwrite ($handle, "<ellipse " .
                "cx=\""            . ($args ['x'] + ($args ['width'] / 2))  . $args ['units'] . "\" " .
@@ -4800,7 +4854,9 @@ function SVGellipse ($handle, $args)
                "fill=\""          . $args ['fillColour'] . "\" " .
                "stroke-width=\""  . $args ['strokeWidth'] . "\" " .
                "stroke=\""        . $args ['strokeColour'] . "\" " .
+               "style=\"$extra\" " .   // arbitrary extra parameters
                "/>\n");
+
   } // end of SVGellipse
 
 function SVGline ($handle, $args)
@@ -4818,10 +4874,12 @@ function SVGline ($handle, $args)
     'linecap'       => 'butt',
     'strokeWidth'   => 1,
     'opacity'       => 100,
+    'extra'         => '',
      );
 
   $args = array_merge($defaults, array_intersect_key($args, $defaults));
   $opacity= $args ['opacity'] / 100;
+  $extra  = $args ['extra'];
 
   fwrite ($handle, "<line " .
                "x1=\""            . $args ['x1']      . $args ['units'] . "\" " .
@@ -4833,6 +4891,7 @@ function SVGline ($handle, $args)
                "stroke-linecap=\""  . $args ['linecap'] . "\" " .
                "stroke-dasharray=\""  . $args ['dashes'] . "\" " .
                "stroke=\""        . $args ['colour']  . "\" " .
+               "style=\"$extra\" " .   // arbitrary extra parameters
                "/>\n");
   } // end of SVGline
 
@@ -4851,10 +4910,12 @@ function SVGtext ($handle, $args)
     'fontFamily'    => 'Arial',
     'position'      => 'start',   // start / middle / end / inherit
     'opacity'       => 100,
+    'extra'         => '',
      );
 
   $args = array_merge($defaults, array_intersect_key($args, $defaults));
   $opacity= $args ['opacity'] / 100;
+  $extra  = $args ['extra'];
 
   fwrite ($handle, "<text " .
                    "style=\"fill:"    . $args ['colour'] . "; " .
@@ -4863,6 +4924,7 @@ function SVGtext ($handle, $args)
                    "x=\""             . $args ['x']       . $args ['units'] . "\" " .
                    "y=\""             . $args ['y']       . $args ['units'] . "\" " .
                    "opacity=\"$opacity\" " .
+                   $extra .   // arbitrary extra parameters
                    "text-anchor=\""   . $args ['position'] . "\">" .
                    htmlspecialchars ($args ['text']) . "</text>\n");
   } // end of SVGtext
@@ -4893,10 +4955,12 @@ function SVGstar ($handle, $args)
     'rotate'        => 0,  // rotation in degrees
     'innerRotate'   => 0,  // rotation of inner part in degrees (in ADDITION to rotate amount)
     'opacity'       => 100,
+    'extra'         => '',
      );
 
   $args = array_merge($defaults, array_intersect_key($args, $defaults));
   $opacity= $args ['opacity'] / 100;
+  $extra  = $args ['extra'];
 
   $points = $args ['points'];
 
@@ -4942,6 +5006,7 @@ function SVGstar ($handle, $args)
                "stroke-width=\""  . $args ['strokeWidth']  * $scale . "\" " .
                "stroke=\""        . $args ['strokeColour'] . "\" " .
                "opacity=\"$opacity\" " .
+               "style=\"$extra\"" .   // arbitrary extra parameters
                "/>\n");
 //  fwrite ($handle, "</g>\n");
   } // end of SVGstar

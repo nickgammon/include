@@ -5314,4 +5314,117 @@ function passwordCheck ($pass, $username = "")
 
   return "";    // OK
   } // end of passwordCheck
+
+// dump a table to a text file as SQL with an optional "WHERE" clause (you have to supply the word WHERE)
+//  is_OK must be true to authorize the dump - if not, you are checked that you are logged on an an administrator
+function DumpSQL ($table, $filename, $is_OK = false, $where = '')
+  {
+  global $control;
+  global $userinfo;
+
+  if (!$is_OK)
+    {
+    if (!(isLoggedOn () && isServerAdministrator ()))
+          Problem ("You are not permitted to do this");
+    }
+
+  // tell the browser it's going to be a text file
+  header('Content-Type: text/plain');
+  // tell the browser we want to save it instead of displaying it
+  header('Content-Disposition: attachment; filename="' . $filename . '"');
+
+  echo "
+   --
+   -- Table: $table
+   -- Date saved: " . date("d M Y") . "
+   --
+   -- To import:
+
+   --  $ mysql -uUSERNAME -pPASSWORD --default-character-set=utf8 DATATBASE
+
+   --  mysql> SET names 'utf8'
+   --  mysql> SOURCE $filename
+
+";
+
+  // get the data
+  $result = dbQuery ("SELECT * FROM $table $where");
+  $totalRows = dbRows ($result);
+
+  if ($totalRows == 0)
+    {
+    echo "--\n";
+    echo "-- Empty table \n";
+    dbFree ($result);
+    return;
+    }
+
+  // get the field names
+  $names = array ();
+  $namesResult = dbQuery ("SHOW COLUMNS FROM " . $table);
+
+  while ($row = dbFetch ($namesResult))
+      $names [$row ['Field']] = preg_match ('|int|i', $row ['Type']);
+
+  dbFree ($namesResult);
+
+  echo ("BEGIN;\n");
+  echo ("DELETE FROM `$table` $where;\n");  // delete existing entries for this project
+
+  echo ("INSERT INTO `$table` (");
+
+  reset ($names);
+  $count = 0;
+
+  while (list ($fieldName, $isNull) = each ($names))
+    {
+    if ($count)
+      echo ", ";
+    echo "`$fieldName`";
+    $count++;
+    } // end of while each field
+
+  echo (") VALUES\n");
+  $rowCount = 0;
+
+  while ($row = dbFetch ($result))
+    {
+
+    echo "(";
+    reset ($names);
+    $count = 0;
+
+    while (list ($fieldName, $isNumber) = each ($names))
+      {
+      if ($count)
+        echo ", ";
+      $data = $row [$fieldName];
+
+      if (is_null ($data))
+        echo "NULL";
+      else if ($isNumber)
+        echo ($data);
+      else
+        {
+        $data = fixsql ($data);
+        echo "'$data'";
+        }
+
+      $count++;
+      } // end of while each field
+
+    $rowCount++;
+    echo ")";
+    if ($rowCount >= $totalRows)
+      echo ";\n";
+    else
+      echo ",\n";
+    } // end of while each row
+
+  dbFree ($result);
+
+  echo ("COMMIT;\n");
+
+  } // end of DumpSQL
+
 ?>

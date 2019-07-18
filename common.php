@@ -5317,7 +5317,7 @@ function passwordCheck ($pass, $username = "")
 
 // dump a table to a text file as SQL with an optional "WHERE" clause (you have to supply the word WHERE)
 //  is_OK must be true to authorize the dump - if not, you are checked that you are logged on an an administrator
-function DumpSQL ($table, $filename, $is_OK = false, $where = '')
+function DumpSQL ($table, $filename, $is_OK = false, $where = '', $primary_key_to_null = false)
   {
   global $control;
   global $userinfo;
@@ -5342,7 +5342,7 @@ function DumpSQL ($table, $filename, $is_OK = false, $where = '')
 
    --  $ mysql -uUSERNAME -pPASSWORD --default-character-set=utf8 DATATBASE
 
-   --  mysql> SET names 'utf8'
+   --  mysql> SET names 'utf8';
    --  mysql> SOURCE $filename
 
 ";
@@ -5362,11 +5362,19 @@ function DumpSQL ($table, $filename, $is_OK = false, $where = '')
   // get the field names
   $names = array ();
   $namesResult = dbQuery ("SHOW COLUMNS FROM " . $table);
+  $primaryKey = '';
 
   while ($row = dbFetch ($namesResult))
-      $names [$row ['Field']] = preg_match ('|int|i', $row ['Type']);
+    {
+    $names [$row ['Field']] = preg_match ('|int|i', $row ['Type']);
+    if ($row ['Key'] == 'PRI')
+      $primaryKey = $row ['Field'];
+    } // end of while each field
 
   dbFree ($namesResult);
+
+  if ($primary_key_to_null && !$primaryKey)
+    Problem ("Primary key not found");
 
   echo ("BEGIN;\n");
   echo ("DELETE FROM `$table` $where;\n");  // delete existing entries for this project
@@ -5402,7 +5410,10 @@ function DumpSQL ($table, $filename, $is_OK = false, $where = '')
 
       if (is_null ($data))
         echo "NULL";
-      else if ($isNumber)
+      // if they don't want the primary key retained, set it to NULL
+      elseif ($primary_key_to_null && $fieldName == $primaryKey)
+        echo "NULL";
+      elseif ($isNumber)
         echo ($data);
       else
         {

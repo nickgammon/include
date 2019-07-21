@@ -2922,7 +2922,7 @@ function DoExtendedDate (& $thedate, $defaultEndOfPeriod = false)
   // look for alpha day name (eg. Monday)
   if (preg_match ("|^[a-z]+$|", $day) && count ($items) < 3)
     {
-     $daynames = "";
+     $daynames = array ();
      $seconds = utctime();
      // find the dates of the next 7 days
      for ($count = 1; $count <= 7; $count++)

@@ -5333,18 +5333,29 @@ function DumpSQL ($table, $filename, $is_OK = false, $where = '', $primary_key_t
   // tell the browser we want to save it instead of displaying it
   header('Content-Disposition: attachment; filename="' . $filename . '"');
 
-  echo "
-   --
-   -- Table: $table
-   -- Date saved: " . date("d M Y") . "
-   --
-   -- To import:
+  echo "--
+-- Table: $table
+-- Date saved: " . date("d M Y") . "
+--
 
-   --  $ mysql -uUSERNAME -pPASSWORD --default-character-set=utf8 DATATBASE
+-- Note: To import correctly the character set must be latin1, not utf8.
 
-   --  mysql> SET names 'utf8';
-   --  mysql> SOURCE $filename
+-- See: https://www.inforbiro.com/blog-eng/mysqldump-and-utf-8-problem/
 
+-- If you change it to utf8 the utf8 characters in the file are converted during the import giving garbage.
+
+-- Making it latin1 preserves the encoding (it is already utf8 as dumped, it doesn't need converting).
+
+-- Similarly, if you use mysqldump (rather than my function DumpSQL) then you must use the option:
+--    --default-character-set=latin1 --no-set-names
+
+-- That stops any conversion during the dump, and stops \"SET NAMES\" being placed in the output file.
+--
+-- eg. mysqldump -uUSERNAME -pPASSWORD --default-character-set=latin1 --no-set-names DATABASE > OUTPUT.sql
+
+-- The SET NAMES line below should do the job correctly.
+
+SET NAMES 'latin1';
 ";
 
   // get the data

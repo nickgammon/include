@@ -38,7 +38,7 @@ local function attributes(attr)
   local attr_table = {}
   for x,y in pairs(attr) do
     if y and y ~= "" then
-      table.insert(attr_table, ' ' .. x .. '="' .. escape(y,true) .. '"')
+      table.insert(attr_table, ' ' .. x .. ':' .. escape(y,true) .. '; ')
     end
   end
   return table.concat(attr_table)
@@ -170,7 +170,7 @@ function Note(s)
 end
 
 function Span(s, attr)
-  return "<span" .. attributes(attr) .. ">" .. s .. "</span>"
+  return "<flowSpan style=\" " .. attributes(attr) .. "\">" .. s .. "</flowSpan>"
 end
 
 function RawInline(format, str)
@@ -200,11 +200,13 @@ end
 
 -- lev is an integer, the header level.
 function Header(lev, s, attr)
- -- return "<h" .. lev .. attributes(attr) ..  ">" .. s .. "</h" .. lev .. ">"
+  attr.id = nil  -- don't want that (the name)
 
   return '<flowPara><flowSpan style="font-size:' ..
          (6 - lev) * 2 + 10 ..
-         '; font-weight:bold;" >' .. s .. "</flowSpan></flowPara>\n"
+         '; font-weight:bold;  ' ..
+         attributes(attr) ..   -- convert attributes into a list, eg. fill:blue;
+         ' " >' .. s .. "</flowSpan></flowPara>\n"
 
 end
 

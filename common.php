@@ -4627,6 +4627,7 @@ function SVGrect ($handle, $args)
     'fillColour'    => 'none',
     'ry'            => 0,
     'opacity'       => 100,
+    'extra_attributes' => '',
     'extra'         => '',
      );
 
@@ -4637,7 +4638,8 @@ function SVGrect ($handle, $args)
   $height = $args ['height'];
   $units  = $args ['units'];
   $opacity= $args ['opacity'] / 100;
-  $extra  = $args ['extra'];
+  $extra_attributes  = $args ['extra_attributes'];
+  $extra_styles  = $args ['extra'];
 
   fwrite ($handle, "<rect " .
                "x=\"$x$units\" " .
@@ -4649,7 +4651,8 @@ function SVGrect ($handle, $args)
                "stroke-width=\""  . $args ['strokeWidth'] . "\" " .
                "ry=\""            . $args ['ry']      . $args ['units'] . "\" " .
                "stroke=\""        . $args ['strokeColour'] . "\" " .
-               "style=\"$extra\"" .   // arbitrary extra parameters
+               "$extra_attributes " .
+               "style=\"$extra_styles\"" .   // arbitrary extra parameters
                "/>\n");
   } // end of SVGrect
 
@@ -4955,12 +4958,14 @@ function SVGstar ($handle, $args)
     'rotate'        => 0,  // rotation in degrees
     'innerRotate'   => 0,  // rotation of inner part in degrees (in ADDITION to rotate amount)
     'opacity'       => 100,
+    'extra_attributes' => '',
     'extra'         => '',
      );
 
   $args = array_merge($defaults, array_intersect_key($args, $defaults));
   $opacity= $args ['opacity'] / 100;
-  $extra  = $args ['extra'];
+  $extra_styles  = $args ['extra'];
+  $extra_attributes  = $args ['extra_attributes'];
 
   $points = $args ['points'];
 
@@ -5006,7 +5011,8 @@ function SVGstar ($handle, $args)
                "stroke-width=\""  . $args ['strokeWidth']  * $scale . "\" " .
                "stroke=\""        . $args ['strokeColour'] . "\" " .
                "opacity=\"$opacity\" " .
-               "style=\"$extra\"" .   // arbitrary extra parameters
+               "$extra_attributes  " .       // arbitrary extra attributes
+               "style=\"$extra_styles\"" .   // arbitrary extra styles
                "/>\n");
 //  fwrite ($handle, "</g>\n");
   } // end of SVGstar

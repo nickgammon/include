@@ -337,6 +337,10 @@ function DoubleQuoted(s)
   return "“" .. s .. "”"
 end
 
+function SingleQuoted(s)
+  return "‘" .. s .. "’"
+end
+
 -- The following code will produce runtime warnings when you haven't defined
 -- all of the functions you need for the custom writer, so it's useful
 -- to include when you're working on a writer.

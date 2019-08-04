@@ -47,6 +47,7 @@ $SSO_AUTHENTICATORS_TABLE = 'sso_authenticators';
 $SSO_BANNED_IPS_TABLE     = 'sso_banned_ips';
 $SSO_SUSPECT_IPS_TABLE    = 'sso_suspect_ips';
 $SSO_AUDIT_TABLE          = 'sso_audit';
+$SSO_EMAIL_GUESS_TABLE    = 'sso_email_guess_ip';
 
 // name of cookie token
 $SSO_COOKIE_NAME          = 'sso_cookie';
@@ -56,7 +57,9 @@ $SSO_LOGON           = 'sso_logon'           ;    // handle logon form being sen
 $SSO_LOGON_FORM      = 'sso_logon_form'      ;    // show the logon form
 $SSO_LOGOFF          = 'sso_logoff'          ;    // log off this particular session
 $SSO_LOGOFF_ALL      = 'sso_logoff_all'      ;    // log off all sessions
-$SSO_FORGOT_PASSWORD = 'sso_forgot_password' ;    // forgot my password, duh!
+$SSO_FORGOT_PASSWORD = 'sso_forgot_password' ;    // forgot my password, duh! (show the form)
+$SSO_REQUEST_PASSWORD_RESET = 'sso_request_password_reset' ;  // handle the password form being filled in
+$SSO_PASSWORD_RESET  = 'sso_password_reset' ;     // process the password reset
 $SSO_AUTHENTICATOR   = 'sso_authenticator'   ;    // handle authenticator input being sent
 $SSO_SHOW_SESSIONS   = 'sso_show_sessions'   ;    // show list of sessions
 
@@ -68,12 +71,32 @@ $SSO_AUDIT_REQUEST_PASSWORD_RESET = 4;
 $SSO_AUDIT_CHANGED_PASSWORD = 5;
 $SSO_AUDIT_CHANGED_EMAIL = 6;
 
+$MAX_EMAIL_GUESSES = 5;  // number of times they can guess their own email address
+
+
 $loginInfo = array (
         'errors'      => array (),  // put here reasons for login failure
         'info'        => array (),  // put here success messages (eg. "logged in OK")
         'show_login'  => false,     // make true to redisplay the login form
         'show_authenticator' => false,  // make true to show the authenticator form
+        'show_forgotten_password' => false, // show the forgotten password form
         );
+
+$FORM_STYLE = <<< EOD
+<div style="margin-left:1em;
+    margin-bottom:2em;
+    border-spacing:10px 10px;
+    border-width:7px;
+    border-color:DeepSkyBlue;
+    border-style:solid;
+    border-radius:10px;
+    background-color:AliceBlue;
+    padding:1em;
+    display: inline-block;
+    font-size:80%;
+    width:60%;
+    ">
+EOD;
 
 function showVariables ($which)
   {
@@ -298,7 +321,7 @@ function SSO_Handle_Logon ()
     } // end of a match
 
   // get email_address and password
-  $email_address = getP ('email_address', 30);
+  $email_address = getP ('email_address', 255);
   $password      = getP ('password', 50);
 
   if (!$email_address || !$password)
@@ -309,20 +332,22 @@ function SSO_Handle_Logon ()
 
   if (!validateEmail ($email_address))
     {
-    $loginInfo ['errors'] [] = "Email address is not in valid format";
-    SSO_Login_Failure ($email_address, $password, $remote_ip);
+    $loginInfo ['errors'] [] = "That email address is not in a valid format\n" .
+           "It should be something like: yourName@yourProvider.com.au\n" .
+           "Do not use quotes or '<' and '>' symbols.";
+
+    $loginInfo ['show_login'] = true;  // show the form again
     return;
     } // end of bad email address
 
   // look user up on users table
-  $SSO_UserDetails = dbQueryOneParam ("SELECT * FROM $SSO_USER_TABLE WHERE email_address = ? ",
+  $SSO_UserDetails = dbQueryOneParam ("SELECT * FROM $SSO_USER_TABLE WHERE email_address = ?",
                                array ('s', &$email_address) );
 
   // user not found - immediate failure
   if (!$SSO_UserDetails)
     {
     $loginInfo ['errors'] [] = "Email address/password combination is not correct";
-    $SSO_UserDetails = false;  // wrong password
     SSO_Login_Failure ($email_address, $password, $remote_ip);
     return;
     } // end of wrong password
@@ -401,6 +426,7 @@ function SSO_ShowLoginForm ()
   global $PHP_SELF;
   global $email_address;
   global $SSO_UserDetails, $loginInfo;
+  global $FORM_STYLE;
 
   if ($SSO_UserDetails)
     {
@@ -411,19 +437,7 @@ function SSO_ShowLoginForm ()
 // show the form in a nice blue box
 echo <<< EOD
 <form METHOD="post" ACTION="$PHP_SELF">
-<div style="margin-left:1em;
-    margin-bottom:2em;
-    border-spacing:10px 10px;
-    border-width:7px;
-    border-color:DeepSkyBlue;
-    border-style:solid;
-    border-radius:10px;
-    background-color:AliceBlue;
-    padding:1em;
-    display: inline-block;
-    font-size:80%;
-    width:60%;
-    ">
+$FORM_STYLE
 
 <table>
 <tr>
@@ -453,6 +467,7 @@ function SSO_ShowAuthenticatorForm ()
   global $SSO_LOGON, $SSO_LOGON_FORM, $SSO_LOGOFF, $SSO_FORGOT_PASSWORD, $SSO_AUTHENTICATOR, $SSO_SHOW_SESSIONS;
   global $PHP_SELF;
   global $SSO_UserDetails, $loginInfo;
+  global $FORM_STYLE;
 
   $token  = $loginInfo ['token'];
   $sso_id = $SSO_UserDetails ['sso_id'];
@@ -460,19 +475,7 @@ function SSO_ShowAuthenticatorForm ()
 // show the form in a nice blue box
 echo <<< EOD
 <form METHOD="post" ACTION="$PHP_SELF">
-<div style="margin-left:1em;
-    margin-bottom:2em;
-    border-spacing:10px 10px;
-    border-width:7px;
-    border-color:DeepSkyBlue;
-    border-style:solid;
-    border-radius:10px;
-    background-color:AliceBlue;
-    padding:1em;
-    display: inline-block;
-    font-size:80%;
-    width:60%;
-    ">
+$FORM_STYLE
 
 <h2>Authenticator required</h2>
 <p><table>
@@ -503,11 +506,13 @@ function SSO_ShowLoginInfo ()
       ShowWarning ($error);
 
   // show login form if wanted
-  if ($loginInfo ['show_login'] || $action == $SSO_LOGON_FORM)
+  if ($loginInfo ['show_login'])
     SSO_ShowLoginForm ();
   // or the authenticator form
   elseif ($loginInfo ['show_authenticator'])
     SSO_ShowAuthenticatorForm ();
+  elseif ($loginInfo ['show_forgotten_password'])
+    SSO_Show_Forgot_Password_Form ();
 
   // show successes
   foreach ($loginInfo ['info'] as $info)
@@ -580,8 +585,7 @@ function SSO_See_If_Logged_On ()
   // do NOT get POST variable or we switch users when editing the user table
   if (isset ($_COOKIE [$SSO_COOKIE_NAME]))
     $token = $_COOKIE [$SSO_COOKIE_NAME];
-
-  if (!$token)
+  else
     return; // no cookie, can't be logged on
 
   $tokenRow = dbQueryOneParam ("SELECT sso_id FROM $SSO_TOKENS_TABLE WHERE token = ? "  .
@@ -661,15 +665,224 @@ function SSO_Handle_Logoff ($all)
 
   } // end of SSO_Handle_Logoff
 
+function SSO_Show_Forgot_Password_Form ()
+  {
+  global $SSO_LOGON, $SSO_LOGON_FORM, $SSO_LOGOFF, $SSO_FORGOT_PASSWORD, $SSO_REQUEST_PASSWORD_RESET,
+         $SSO_AUTHENTICATOR, $SSO_SHOW_SESSIONS;
+  global $PHP_SELF;
+  global $SSO_UserDetails, $loginInfo;
+  global $FORM_STYLE;
+  global $email_address;
+
+  if ($SSO_UserDetails)
+    {
+    $loginInfo ['info'] [] = "You are already logged on - no password reset required.";
+    return; // give up
+    }
+
+// show the form in a nice blue box
+echo <<< EOD
+<form METHOD="post" ACTION="$PHP_SELF">
+$FORM_STYLE
+
+<h2>Password reset request</h2>
+<table>
+<tr>
+<th align=right>Email address:</th>
+<td><input type="text"      name="email_address" size=50 maxlength=255
+    value="$email_address" autofocus style="width:95%;" required></td>
+</tr>
+<tr><td></td>
+<td><input type="submit"    value="Reset password"></td>
+</tr>
+</table>
+</div>
+<input type="hidden"    name="action" value="$SSO_REQUEST_PASSWORD_RESET">
+</form>
+EOD;
+  } // end of SSO_Show_Forgot_Password_Form
+
+function SSO_Handle_Password_Reset_Request ()
+  {
+  global $SSO_LOGON, $SSO_LOGON_FORM, $SSO_LOGOFF, $SSO_FORGOT_PASSWORD, $SSO_REQUEST_PASSWORD_RESET,
+         $SSO_PASSWORD_RESET, $SSO_AUTHENTICATOR, $SSO_SHOW_SESSIONS;
+  global $PHP_SELF;
+  global $SSO_UserDetails, $loginInfo;
+  global $FORM_STYLE;
+  global $remote_ip;
+  global $control;
+  global $MAX_EMAIL_GUESSES;
+
+  global $SSO_USER_TABLE, $SSO_FAILED_LOGINS_TABLE, $SSO_TOKENS_TABLE, $SSO_AUTHENTICATORS_TABLE,
+         $SSO_BANNED_IPS_TABLE, $SSO_SUSPECT_IPS_TABLE, $SSO_AUDIT_TABLE, $SSO_EMAIL_GUESS_TABLE;
+
+  global $SSO_AUDIT_LOGON, $SSO_AUDIT_LOGOFF, $SSO_AUDIT_LOGOFF_ALL, $SSO_AUDIT_REQUEST_PASSWORD_RESET,
+         $SSO_AUDIT_CHANGED_PASSWORD, $SSO_AUDIT_CHANGED_EMAIL;
+
+
+  if ($SSO_UserDetails)
+    {
+    $loginInfo ['info'] [] = "You are already logged on - no password reset required.";
+    return; // give up
+    }
+
+  $banned_row = dbQueryOneParam ("SELECT * FROM $SSO_BANNED_IPS_TABLE WHERE ip_address  = ?",
+                                array ('s', &$remote_ip));
+  if ($banned_row)
+    {
+    $loginInfo ['errors'] [] = "That TCP/IP address is not permitted to log on";
+    return; // give up
+    } // end of a match
+
+  // get email_address
+  $email_address = getP ('email_address', 255);
+
+  if (!$email_address)
+    {
+    $loginInfo ['errors'] [] = "Email address must be given";
+    return;
+    } // end of no email_address
+
+  if (!validateEmail ($email_address))
+    {
+    $loginInfo ['errors'] [] = "That email address is not in a valid format\n" .
+           "It should be something like: yourName@yourProvider.com.au\n" .
+           "Do not use quotes or '<' and '>' symbols.";
+    $loginInfo ['show_forgotten_password'] = true;  // show the form again
+
+    return;
+    } // end of bad email address
+
+
+  // clear old email guess failure tracking records (so they can reset by waiting a day)
+  dbUpdate ("DELETE FROM $SSO_EMAIL_GUESS_TABLE
+             WHERE date_failed < DATE_ADD(NOW(), INTERVAL -1 DAY)");
+
+  $failureRow = dbQueryOneParam ("SELECT * FROM $SSO_EMAIL_GUESS_TABLE WHERE failure_ip = ?",
+                                  array ('s', &$remote_ip));
+  if ($failureRow && $failureRow ['count'] >= $MAX_EMAIL_GUESSES)
+    {
+    $loginInfo ['errors'] [] = "Too many attempts to guess your email address.\n" .
+                                "You can try again tomorrow if necessary.";
+    return;
+    }
+
+/* TESTING
+  if ($failureRow && $failureRow ['password_sent'] == 1)
+    {
+    $loginInfo ['errors'] [] = "A password has already been emailed to this IP address in the last 24 hours.\n" .
+                                "You can try again later if necessary.";
+    return;
+    }
+*/
+  // look user up on users table
+  $SSO_UserDetails = dbQueryOneParam ("SELECT * FROM $SSO_USER_TABLE WHERE email_address = ? ",
+                               array ('s', &$email_address) );
+
+  if (!$SSO_UserDetails)
+    {
+    // track their attempts
+    if ($failureRow)
+      dbUpdateParam ("UPDATE $SSO_EMAIL_GUESS_TABLE SET count = count + 1, date_failed = NOW(), password_sent = NULL " .
+                "WHERE failure_ip = ?", array ('s', &$remote_ip));
+    else
+      dbUpdateParam ("INSERT INTO $SSO_EMAIL_GUESS_TABLE (count, date_failed, failure_ip) VALUES " .
+                "(1, NOW(), ?) ", array ('s', &$remote_ip));
+    $loginInfo ['errors'] [] = "That email address is not on file";
+    $SSO_UserDetails = false;  // wrong email
+    SSO_Login_Failure ($email_address, '(unknown)', $remote_ip);
+    return;
+    }
+
+   $todayRow = dbQueryOne ("SELECT CURDATE() as today");  // no user input
+
+  // don't let them keep asking for it
+  if ($SSO_UserDetails ['password_sent_date'] == $todayRow ['today'])
+    {
+    $loginInfo ['errors'] [] = "You have already been sent your password today.\n" .
+                               "Please check your email.\n" .
+                               "You can try again tomorrow if necessary.";
+    $SSO_UserDetails = false;
+    return;
+    }
+
+  $sso_id = $SSO_UserDetails ['sso_id'];
+
+  // generate a hash for when they agree to change the password
+  srand ((double) microtime () * 1000000);
+  $password = base64_encode (openssl_random_pseudo_bytes (12));
+
+  $md5_password = md5 ($password);   // the validation hash, not the password
+
+  // update the password on file
+  $query = "UPDATE $SSO_USER_TABLE SET password_reset_hash = ? WHERE sso_id = ?";
+
+  dbUpdateParam ($query, array ('ss', &$md5_password, &$sso_id )) ;
+
+  $sso_name = $control ['sso_name'];
+  $sso_url  = $control ['sso_url'];
+
+  // send mail message
+
+  $mailresult = mail ($email_address,
+        "$sso_name password",
+        "Hi $email_address,\n\n" .
+        "Someone (possibly you) requested that your $sso_name password be reset.\n\n" .
+        "To reset your password, please click on:\n\n" .
+        "  $sso_url$PHP_SELF?action=$SSO_PASSWORD_RESET&sso_id=$sso_id&hash=$md5_password\n\n" .
+        "The password must be reset on the same day the request was made.\n\n" .
+        "If you do not want your password reset, just ignore this message.\n\n" .
+        $control ['email_signature'],
+      // mail header
+      "From: " . $control ['email_from'] . "\r\n" .
+      "Content-Type: text/plain\r\n" .
+      "X-mailer: PHP/" . phpversion()
+      );
+
+  if (!$mailresult)
+    Problem ("An error occurred sending the email message");
+
+  $loginInfo ['info'] [] = "Your password reset request is now being emailed to: $email_address";
+
+  // remember when we sent the password
+  dbUpdateParam ("UPDATE $SSO_USER_TABLE SET password_sent_date = NOW() WHERE sso_id = ?",
+                  array ('s', &$sso_id));
+
+  // remember we sent one for this IP
+  if ($failureRow)
+    dbUpdateParam ("UPDATE $SSO_EMAIL_GUESS_TABLE SET count = 0, date_failed = NOW(), password_sent = 1
+                   WHERE failure_ip = ?", array ('s', &$remote_ip));
+  else
+    dbUpdateParam ("INSERT INTO $SSO_EMAIL_GUESS_TABLE  (count, date_failed, failure_ip, password_sent) VALUES
+                   (0, NOW(), ?, 1) ", array ('s', &$remote_ip));
+
+  // audit password reset requests
+  SSO_Audit ($SSO_AUDIT_REQUEST_PASSWORD_RESET, $sso_id);
+
+  } // end of SSO_Handle_Password_Reset_Request
+
+function SSO_Handle_Password_Reset ()
+  {
+  global $SSO_LOGON, $SSO_LOGON_FORM, $SSO_LOGOFF, $SSO_FORGOT_PASSWORD, $SSO_REQUEST_PASSWORD_RESET,
+         $SSO_PASSWORD_RESET, $SSO_AUTHENTICATOR, $SSO_SHOW_SESSIONS;
+  global $PHP_SELF;
+  global $SSO_UserDetails, $loginInfo;
+  global $FORM_STYLE;
+  global $remote_ip;
+  global $control;
+
+  $loginInfo ['errors'] [] = "foo";
+  } // end of SSO_Handle_Password_Reset
+
 // *****************************************************************
-//      authenticate - call for all authentication actions
+//      SSO_Authenticate - call for all authentication actions
 // *****************************************************************
 
 function SSO_Authenticate ()
   {
   global $DATABASE_SERVER, $GENERAL_DATABASE_USER, $GENERAL_DATABASE_NAME, $GENERAL_DATABASE_PASSWORD;
-  global $SSO_LOGON, $SSO_LOGON_FORM, $SSO_LOGOFF, $SSO_LOGOFF_ALL , $SSO_FORGOT_PASSWORD,
-         $SSO_AUTHENTICATOR, $SSO_SHOW_SESSIONS;
+  global $SSO_LOGON, $SSO_LOGON_FORM, $SSO_LOGOFF, $SSO_LOGOFF_ALL, $SSO_FORGOT_PASSWORD,
+         $SSO_REQUEST_PASSWORD_RESET, $SSO_PASSWORD_RESET, $SSO_AUTHENTICATOR, $SSO_SHOW_SESSIONS;
   global $action;
   global $PHP_SELF, $remote_ip;
   global $SSO_UserDetails, $loginInfo;
@@ -695,9 +908,12 @@ function SSO_Authenticate ()
   switch ($action)
     {
     case $SSO_LOGON           : SSO_Handle_Logon (); break;
+    case $SSO_LOGON_FORM      : $loginInfo ['show_login'] = true; break;
     case $SSO_LOGOFF          : SSO_Handle_Logoff (false); break;
     case $SSO_LOGOFF_ALL      : SSO_Handle_Logoff (true); break;
-    case $SSO_FORGOT_PASSWORD : SSO_Handle_Forgot_Password (); break;
+    case $SSO_FORGOT_PASSWORD : $loginInfo ['show_forgotten_password'] = true; break;
+    case $SSO_REQUEST_PASSWORD_RESET  : SSO_Handle_Password_Reset_Request (); break;
+    case $SSO_PASSWORD_RESET  : SSO_Handle_Password_Reset (); break;
     case $SSO_AUTHENTICATOR   : SSO_Handle_Authenticator (); break;
     case $SSO_SHOW_SESSIONS   : SSO_Handle_Show_Sessions (); break;
     } // end of switch on $action

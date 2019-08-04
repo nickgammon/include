@@ -28,6 +28,10 @@ Copyright © 2019 Nick Gammon.
  tort or otherwise, arising from, out of or in connection with the software
  or the use or other dealings in the software.
 
+SSO = Single Sign On
+
+My new system for having one set of credentials rather than one each for administration (eg. of home database),
+forum, and Historical Society.
 
 */
 
@@ -48,18 +52,27 @@ $SSO_AUDIT_TABLE          = 'sso_audit';
 $SSO_COOKIE_NAME          = 'sso_cookie';
 
 // actions
-$SSO_LOGON           = 'sso_logon'           ;
-$SSO_LOGON_FORM      = 'sso_logon_form'      ;
-$SSO_LOGOFF          = 'sso_logoff'          ;
-$SSO_FORGOT_PASSWORD = 'sso_forgot_password' ;
-$SSO_AUTHENTICATOR   = 'sso_authenticator'   ;
-$SSO_SHOW_SESSIONS   = 'sso_show_sessions'   ;
+$SSO_LOGON           = 'sso_logon'           ;    // handle logon form being sent
+$SSO_LOGON_FORM      = 'sso_logon_form'      ;    // show the logon form
+$SSO_LOGOFF          = 'sso_logoff'          ;    // log off this particular session
+$SSO_LOGOFF_ALL      = 'sso_logoff_all'      ;    // log off all sessions
+$SSO_FORGOT_PASSWORD = 'sso_forgot_password' ;    // forgot my password, duh!
+$SSO_AUTHENTICATOR   = 'sso_authenticator'   ;    // handle authenticator input being sent
+$SSO_SHOW_SESSIONS   = 'sso_show_sessions'   ;    // show list of sessions
 
+// audit types
+$SSO_AUDIT_LOGON      = 1;
+$SSO_AUDIT_LOGOFF     = 2;
+$SSO_AUDIT_LOGOFF_ALL = 3;
+$SSO_AUDIT_REQUEST_PASSWORD_RESET = 4;
+$SSO_AUDIT_CHANGED_PASSWORD = 5;
+$SSO_AUDIT_CHANGED_EMAIL = 6;
 
 $loginInfo = array (
-        'errors'    => array (),  // put here reasons for login failure
-        'info'      => array (),  // put here success messages (eg. "logged in OK")
-        'try_again' => false,     // make true to redisplay the login form
+        'errors'      => array (),  // put here reasons for login failure
+        'info'        => array (),  // put here success messages (eg. "logged in OK")
+        'show_login'  => false,     // make true to redisplay the login form
+        'show_authenticator' => false,  // make true to show the authenticator form
         );
 
 function showVariables ($which)
@@ -71,6 +84,22 @@ function showVariables ($which)
   echo '</pre>';
   } // end of showVariables
 
+// audit something they have done
+function SSO_Audit ($audit_type_id, $sso_id)
+  {
+  global $SSO_USER_TABLE, $SSO_FAILED_LOGINS_TABLE, $SSO_TOKENS_TABLE, $SSO_AUTHENTICATORS_TABLE,
+         $SSO_BANNED_IPS_TABLE, $SSO_SUSPECT_IPS_TABLE, $SSO_AUDIT_TABLE;
+  global $remote_ip;
+
+  $query =  "INSERT INTO $SSO_AUDIT_TABLE (audit_date, audit_type_id, sso_id, ip_address)
+                          VALUES (            NOW(),       ?,           ?,        ?)";
+
+  $count = dbUpdateParam ($query,
+                          array ('sss', &$audit_type_id, &$sso_id, &$remote_ip));
+  if ($count == 0)
+    Problem ("Could not insert audit record");
+  } // end of SSO_Audit
+
 
 function SSO_Login_Failure ($email_address, $password, $remote_ip)
   {
@@ -80,7 +109,7 @@ function SSO_Login_Failure ($email_address, $password, $remote_ip)
   global $MAX_LOGIN_FAILURES, $MAX_UNKNOWN_USER_FAILURES;
   global $loginInfo;
 
-  $loginInfo ['try_again'] = true;
+  $loginInfo ['show_login'] = true;
 
   $email_address = strtolower ($email_address);
   $password      = strtolower ($password);
@@ -91,6 +120,9 @@ function SSO_Login_Failure ($email_address, $password, $remote_ip)
        . "VALUES (?, ?, NOW(), ?);";
 
   dbUpdateParam ($query, array ('sss', &$email_address, &$password, &$remote_ip));
+
+  // delete old tracking records so the database doesn't get too cluttered
+  dbUpdate ("DELETE FROM $SSO_FAILED_LOGINS_TABLE WHERE date_failed < DATE_ADD(NOW(), INTERVAL -1 YEAR)");
 
   $query = "UPDATE $SSO_USER_TABLE SET "
          . "count_failed_logins = count_failed_logins + 1 "
@@ -103,9 +135,6 @@ function SSO_Login_Failure ($email_address, $password, $remote_ip)
          . "WHERE email_address = ? AND failure_ip = ? "
          . "AND date_failed < DATE_ADD(NOW(), INTERVAL -1 DAY) ";
   dbUpdateParam ($query, array ('ss', &$email_address, &$remote_ip));
-
-  // delete old tracking records so the database doesn't get too cluttered
-  dbUpdate ("DELETE FROM $SSO_FAILED_LOGINS_TABLE WHERE date_failed < DATE_ADD(NOW(), INTERVAL -1 YEAR)");
 
   // see how many times they failed from this IP address
   $query = "SELECT count(*) AS counter "
@@ -133,6 +162,7 @@ function SSO_Login_Failure ($email_address, $password, $remote_ip)
   if ($row)
     return;  // username exists, all is OK
 
+  // turn suspect IPs into banned IPs
   $row = dbQueryOneParam ("SELECT * FROM $SSO_SUSPECT_IPS_TABLE WHERE ip_address = ? ",
                           array ('s', &$remote_ip));
 
@@ -168,11 +198,6 @@ function SSO_Login_Failure ($email_address, $password, $remote_ip)
 
   }  // end of SSO_Login_Failure
 
-  // find the token on their cookie
-  // do NOT get POST variable or we switch users when editing the user table
-//  if (isset ($_COOKIE [$SSO_COOKIE_NAME]))
-//    $token = $_COOKIE [$SSO_COOKIE_NAME];
-
 // finish the logon process (this guy is OK)
 //
 // this is done as part of a normal logon (if no authenticator is required)
@@ -186,7 +211,8 @@ function SSO_Complete_Logon ($sso_id)
   global $remote_ip;
   global $SSO_COOKIE_NAME;
 
- global $AUDIT_LOGGED_ON, $AUDIT_LOGGED_OFF;
+  global $SSO_AUDIT_LOGON, $SSO_AUDIT_LOGOFF, $SSO_AUDIT_LOGOFF_ALL, $SSO_AUDIT_REQUEST_PASSWORD_RESET,
+         $SSO_AUDIT_CHANGED_PASSWORD, $SSO_AUDIT_CHANGED_EMAIL;
 
   $server_name = $_SERVER["HTTP_HOST"];
 
@@ -197,6 +223,10 @@ function SSO_Complete_Logon ($sso_id)
          . "  last_remote_ip = ? "
          . "WHERE sso_id = ?";
   dbUpdateParam ($query, array ('ss', &$remote_ip, &$sso_id));
+
+  // grab user details in case we came in via the authenticator
+  $SSO_UserDetails = dbQueryOneParam ("SELECT * from $SSO_USER_TABLE WHERE sso_id = ?",
+                                      array ('s', &$sso_id));
 
   // delete out-of-date tokens
   $query = "DELETE FROM $SSO_TOKENS_TABLE WHERE sso_id = ? AND date_expires <= NOW()";
@@ -221,7 +251,7 @@ function SSO_Complete_Logon ($sso_id)
   dbUpdateParam ($query, array ('ssss', &$sso_id, &$token, &$remote_ip, &$server_name ));
 
   // audit that they logged on
-  audit ($AUDIT_LOGGED_ON, $sso_id);
+  SSO_Audit ($SSO_AUDIT_LOGON, $sso_id);
 
   // set their cookie
   setcookie ($SSO_COOKIE_NAME, $token, utctime() + $expiry, "/");
@@ -239,6 +269,8 @@ function SSO_Complete_Logon ($sso_id)
   // confirmation message
   $loginInfo ['info'] [] = "Logged on for email: $email_address";
 
+  // save the token for this session on case they want to log off
+  $SSO_UserDetails ['token'] = $token;
   } // end of SSO_Complete_Logon
 
 function SSO_Handle_Logon ()
@@ -251,7 +283,11 @@ function SSO_Handle_Logon ()
   global $remote_ip;
   global $email_address;
 
-  $SSO_UserDetails = false;    // no user found yet
+  if ($SSO_UserDetails)
+    {
+    $loginInfo ['info'] [] = "You are already logged on.";
+    return; // give up
+    }
 
   $banned_row = dbQueryOneParam ("SELECT * FROM $SSO_BANNED_IPS_TABLE WHERE ip_address  = ?",
                                 array ('s', &$remote_ip));
@@ -267,7 +303,7 @@ function SSO_Handle_Logon ()
 
   if (!$email_address || !$password)
     {
-    $loginInfo ['try_again'] = true;  // just assume they didn't see the form
+    $loginInfo ['show_login'] = true;  // just assume they didn't see the form
     return;
     } // end of no email_address or no password
 
@@ -350,11 +386,12 @@ function SSO_Handle_Logon ()
     }
 
   // security check for when they respond - the token identifies who we are authenticating
+  // if the user has multiple authenticators all will get this token
   dbUpdateParam ("UPDATE $SSO_AUTHENTICATORS_TABLE SET Token = ?, Date_Token_Sent = NOW() WHERE sso_id = ?",
                  array ('si', &$token, &$sso_id));
 
-
-  SSO_ShowAuthenticatorForm ($token);
+  $loginInfo ['show_authenticator'] = true; // get the authenticator form to appear once we have our HTML header
+  $loginInfo ['token'] = $token;            // token to be put into the form
 
   } // end of SSO_Handle_Logon
 
@@ -363,6 +400,13 @@ function SSO_ShowLoginForm ()
   global $SSO_LOGON, $SSO_LOGON_FORM, $SSO_LOGOFF, $SSO_FORGOT_PASSWORD, $SSO_AUTHENTICATOR, $SSO_SHOW_SESSIONS;
   global $PHP_SELF;
   global $email_address;
+  global $SSO_UserDetails, $loginInfo;
+
+  if ($SSO_UserDetails)
+    {
+    $loginInfo ['info'] [] = "You are already logged on.";
+    return; // give up
+    }
 
 // show the form in a nice blue box
 echo <<< EOD
@@ -404,11 +448,14 @@ echo <<< EOD
 EOD;
   } // end of SSO_ShowLoginForm
 
-function SSO_ShowAuthenticatorForm ($token)
+function SSO_ShowAuthenticatorForm ()
   {
   global $SSO_LOGON, $SSO_LOGON_FORM, $SSO_LOGOFF, $SSO_FORGOT_PASSWORD, $SSO_AUTHENTICATOR, $SSO_SHOW_SESSIONS;
   global $PHP_SELF;
-  global $email_address;
+  global $SSO_UserDetails, $loginInfo;
+
+  $token  = $loginInfo ['token'];
+  $sso_id = $SSO_UserDetails ['sso_id'];
 
 // show the form in a nice blue box
 echo <<< EOD
@@ -439,7 +486,8 @@ echo <<< EOD
 </table>
 </div>
 <input type="hidden"  name="action" value="$SSO_AUTHENTICATOR">
-<input type="token"   name="action" value="$token">
+<input type="hidden"  name="token"  value="$token">
+<input type="hidden"  name="sso_id" value="$sso_id">
 </form>
 EOD;
   } // end of SSO_ShowAuthenticatorForm
@@ -454,16 +502,164 @@ function SSO_ShowLoginInfo ()
   foreach ($loginInfo ['errors'] as $error)
       ShowWarning ($error);
 
+  // show login form if wanted
+  if ($loginInfo ['show_login'] || $action == $SSO_LOGON_FORM)
+    SSO_ShowLoginForm ();
+  // or the authenticator form
+  elseif ($loginInfo ['show_authenticator'])
+    SSO_ShowAuthenticatorForm ();
+
   // show successes
   foreach ($loginInfo ['info'] as $info)
       ShowInfo ($info);
 
-  // redisplay login form if wanted
-  if ($loginInfo ['try_again'] || $action == $SSO_LOGON_FORM)
-    SSO_ShowLoginForm ();
-
   return $SSO_UserDetails;    // will be false if login failed
   } // end of SSO_ShowLoginInfo
+
+function SSO_Handle_Authenticator ()
+  {
+  global $SSO_USER_TABLE, $SSO_FAILED_LOGINS_TABLE, $SSO_TOKENS_TABLE, $SSO_AUTHENTICATORS_TABLE,
+         $SSO_BANNED_IPS_TABLE, $SSO_SUSPECT_IPS_TABLE, $SSO_AUDIT_TABLE;
+
+  global $VALID_NUMBER, $VALID_FLOAT, $VALID_DATE, $VALID_ACTION, $VALID_BOOLEAN, $VALID_SQL_ID,
+         $VALID_COLOUR, $VALID_REGISTRATION_NUMBER;
+  global $SSO_UserDetails, $loginInfo;
+  global $PHP_SELF, $remote_ip;
+
+  if ($SSO_UserDetails)
+    {
+    $loginInfo ['info'] [] = "You are already logged on.";
+    return; // give up
+    }
+
+  $sso_id  = getP ('sso_id', 8, $VALID_NUMBER);
+  $token  =  getP ('token', 50, '^[a-zA-Z0-9]+$');
+
+  // check user ID and token are OK
+  $authRow = dbQueryOneParam ("SELECT COUNT(*) AS counter FROM $SSO_AUTHENTICATORS_TABLE " .
+                              "WHERE sso_id = ? ".
+                              "AND   Token = ? " .
+                              "AND   NOW() < DATE_ADD(Date_Token_Sent, INTERVAL 5 MINUTE) ",
+                              array ('ss', &$sso_id, &$token));
+
+  if ($authRow ['counter'] == 0)
+   {
+   $loginInfo ['errors'] [] = "Authenticator request out of date or invalid";
+   $SSO_UserDetails = false;
+   SSO_Login_Failure ('(unknown)', '(unknown)', $remote_ip);
+   return;
+   }
+
+  $log_on_error = HandleAuthenticator ($sso_id, $SSO_AUTHENTICATORS_TABLE, 'sso_id');
+  if ($log_on_error)
+   {
+   // find email address for the failure log
+   $row = dbQueryOneParam ("SELECT email_address from $SSO_USER_TABLE WHERE sso_id = ?",
+                           array ('s', &$sso_id));
+   $loginInfo ['errors'] [] = $log_on_error;
+   $SSO_UserDetails = false;
+   SSO_Login_Failure ($row ['email_address'], '(unknown)', $remote_ip);
+   return;
+   }
+
+  // cancel that token string on the authenticator table
+  dbUpdateParam ("UPDATE $SSO_AUTHENTICATORS_TABLE SET Token = '' WHERE sso_id = ?", array ('i', &$sso_id));
+  SSO_Complete_Logon ($sso_id);
+  } // end of SSO_Handle_Authenticator
+
+function SSO_See_If_Logged_On ()
+  {
+  global $SSO_USER_TABLE, $SSO_FAILED_LOGINS_TABLE, $SSO_TOKENS_TABLE, $SSO_AUTHENTICATORS_TABLE,
+         $SSO_BANNED_IPS_TABLE, $SSO_SUSPECT_IPS_TABLE, $SSO_AUDIT_TABLE;
+
+  global $SSO_COOKIE_NAME;
+  global $SSO_UserDetails, $loginInfo;
+  global $remote_ip;
+
+  // find the token on their cookie
+  // do NOT get POST variable or we switch users when editing the user table
+  if (isset ($_COOKIE [$SSO_COOKIE_NAME]))
+    $token = $_COOKIE [$SSO_COOKIE_NAME];
+
+  if (!$token)
+    return; // no cookie, can't be logged on
+
+  $tokenRow = dbQueryOneParam ("SELECT sso_id FROM $SSO_TOKENS_TABLE WHERE token = ? "  .
+                                "AND date_expires >= NOW()",
+                                array ('s', &$token) );
+
+  if (!$tokenRow)
+    return;   // token not on file
+
+  $sso_id = $tokenRow ['sso_id'];
+
+  // grab user details
+  $SSO_UserDetails = dbQueryOneParam ("SELECT * from $SSO_USER_TABLE WHERE sso_id = ?",
+                                      array ('s', &$sso_id));
+
+  // see if they have been blocked since they logged in
+  if ($SSO_UserDetails ['blocked'])
+    {
+    $loginInfo ['errors'] [] = "You are not permitted to log on (banned)";
+    $SSO_UserDetails = false;
+    return; // give up
+    }
+
+  // check if they carried a good token to a bad IP
+  if ($SSO_UserDetails ['required_ip'])
+    if ($SSO_UserDetails ['required_ip'] != $remote_ip)
+      {
+      $loginInfo ['errors'] [] = "You cannot log on from that IP address";
+      $SSO_UserDetails = false;
+      return;  // don't generate a cookie
+      }
+
+  // in case they want to log off
+  $SSO_UserDetails ['token'] = $token;
+
+  } // end of SSO_See_If_Logged_On
+
+function SSO_Handle_Logoff ($all)
+  {
+  global $SSO_USER_TABLE, $SSO_FAILED_LOGINS_TABLE, $SSO_TOKENS_TABLE, $SSO_AUTHENTICATORS_TABLE,
+         $SSO_BANNED_IPS_TABLE, $SSO_SUSPECT_IPS_TABLE, $SSO_AUDIT_TABLE;
+
+  global $SSO_UserDetails, $loginInfo;
+  global $SSO_AUDIT_LOGON, $SSO_AUDIT_LOGOFF, $SSO_AUDIT_LOGOFF_ALL, $SSO_AUDIT_REQUEST_PASSWORD_RESET,
+         $SSO_AUDIT_CHANGED_PASSWORD, $SSO_AUDIT_CHANGED_EMAIL;
+
+  if (!$SSO_UserDetails)
+    {
+    $loginInfo ['info'] [] = "You are already logged off.";
+    return; // give up
+    }
+
+  $sso_id = $SSO_UserDetails ['sso_id'];
+  $token  = $SSO_UserDetails ['token'];
+
+  // delete token from tokens table
+  if ($all)
+    {
+    dbUpdateParam ("DELETE FROM $SSO_TOKENS_TABLE WHERE sso_id = ?",
+                  array ('s', &$sso_id));
+
+    $loginInfo ['info'] [] = "Logged off from all devices.";
+    // audit that they logged on
+    SSO_Audit ($SSO_AUDIT_LOGOFF_ALL, $sso_id);
+    }
+  else
+    {
+    dbUpdateParam ("DELETE FROM $SSO_TOKENS_TABLE WHERE sso_id = ? AND token = ?",
+                  array ('ss', &$sso_id, &$token));
+    $loginInfo ['info'] [] = "Logged off from this device.";
+    // audit that they logged on
+    SSO_Audit ($SSO_AUDIT_LOGOFF, $sso_id);
+    }
+
+  // invalidate their login details
+  $SSO_UserDetails = false;
+
+  } // end of SSO_Handle_Logoff
 
 // *****************************************************************
 //      authenticate - call for all authentication actions
@@ -472,12 +668,15 @@ function SSO_ShowLoginInfo ()
 function SSO_Authenticate ()
   {
   global $DATABASE_SERVER, $GENERAL_DATABASE_USER, $GENERAL_DATABASE_NAME, $GENERAL_DATABASE_PASSWORD;
-  global $SSO_LOGON, $SSO_LOGON_FORM, $SSO_LOGOFF, $SSO_FORGOT_PASSWORD, $SSO_AUTHENTICATOR, $SSO_SHOW_SESSIONS;
+  global $SSO_LOGON, $SSO_LOGON_FORM, $SSO_LOGOFF, $SSO_LOGOFF_ALL , $SSO_FORGOT_PASSWORD,
+         $SSO_AUTHENTICATOR, $SSO_SHOW_SESSIONS;
   global $action;
   global $PHP_SELF, $remote_ip;
-  global $loginInfo;
+  global $SSO_UserDetails, $loginInfo;
 
   // Note: $action is already set by common.php
+
+  $SSO_UserDetails = false;    // no user found yet
 
   // find this page
   $PHP_SELF = $_SERVER['PHP_SELF'];  // what page this is
@@ -489,11 +688,15 @@ function SSO_Authenticate ()
 
   GetControlItems ();
 
+  // first see if our cookie gives us logged-on status
+  SSO_See_If_Logged_On ();
+
   // logon form is handled in SSO_ShowLoginInfo (as we need to have shown the HTML header)
   switch ($action)
     {
     case $SSO_LOGON           : SSO_Handle_Logon (); break;
-    case $SSO_LOGOFF          : SSO_Handle_Logoff (); break;
+    case $SSO_LOGOFF          : SSO_Handle_Logoff (false); break;
+    case $SSO_LOGOFF_ALL      : SSO_Handle_Logoff (true); break;
     case $SSO_FORGOT_PASSWORD : SSO_Handle_Forgot_Password (); break;
     case $SSO_AUTHENTICATOR   : SSO_Handle_Authenticator (); break;
     case $SSO_SHOW_SESSIONS   : SSO_Handle_Show_Sessions (); break;

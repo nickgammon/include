@@ -83,6 +83,11 @@ $VALID_REGISTRATION_NUMBER = '^[A-Z]+\-?[0-9]+((\.[0-9]+)|[A-Z]+)?$';   // HHS r
 
 $sql_evaluations = array ();
 
+$USER_TABLE = 'user';
+$USER_TOKEN_TABLE = 'usertoken';
+
+$dblink = false;
+
 /*
 global $VALID_NUMBER, $VALID_FLOAT, $VALID_DATE, $VALID_ACTION, $VALID_BOOLEAN, $VALID_SQL_ID,
        $VALID_COLOUR, $VALID_REGISTRATION_NUMBER;
@@ -90,6 +95,8 @@ global $VALID_NUMBER, $VALID_FLOAT, $VALID_DATE, $VALID_ACTION, $VALID_BOOLEAN, 
 
 // save doing this in every file
 $action      = getGPC ('action', 40, $VALID_ACTION);
+
+$shownHTMLheader = false;  // eg. <html><head> etc.
 
 DefaultColours ();
 
@@ -287,7 +294,7 @@ function ShowError ($theerror)
 
   echo "<table border=\"0\" cellpadding=\"5\"> <tr bgcolor=\"$COLOUR_ERROR_BGND\"> "
      . "<td><font color=\"$COLOUR_ERROR_TEXT\"><b>\n";
-  echo (htmlspecialchars ($theerror, ENT_SUBSTITUTE | ENT_QUOTES | ENT_HTML5) . "\n");
+  echo (nl2br_http (htmlspecialchars ($theerror, ENT_SUBSTITUTE | ENT_QUOTES | ENT_HTML5) . "\n"));
   echo "</b></font></td></tr></table>\n";
   } // end of ShowError
 
@@ -300,6 +307,16 @@ function ShowWarning ($theWarning)
   {
   ShowWarningH (nl2br_http (htmlspecialchars ($theWarning, ENT_SUBSTITUTE | ENT_QUOTES | ENT_HTML5)));
   } // end of ShowWarning
+
+function ShowInfoH ($theInfo)
+  {
+  echo ("<p style=\"color:darkgreen; font-weight:bold;\">" . $theInfo . "</p>\n");
+  } // end of ShowInfoH
+
+function ShowInfo ($theInfo)
+  {
+  ShowInfoH (nl2br_http (htmlspecialchars ($theInfo, ENT_SUBSTITUTE | ENT_QUOTES | ENT_HTML5)));
+  } // end of ShowInfo
 
 function ColourEchoH ($theMessage, $theColour, $bold = false, $italic = false)
   {
@@ -325,11 +342,33 @@ function ColourEcho ($theMessage, $theColour, $bold = false, $italic = false)
 function MajorProblem ($why)
   {
   global $WEBMASTER;
-  echo "<html><head><title>System error</title></head>\n";
-  echo "<h3>We apologise that there has been a problem with the web server ...</h3>\n";
+  global $shownHTMLheader;
+
+  if (!$shownHTMLheader)
+echo <<< EOD
+<!DOCTYPE html>
+<html lang="en">
+<head><title>System error</title></head>
+<div style="
+    margin-left:1em;
+    margin-bottom:2em;
+    border-spacing:10px 10px;
+    border-width:7px;
+    border-color:#CD5C5C;
+    border-style:dotted;
+    background-color:#EEE8AA;
+    padding:1em;
+    font-size:120%;
+    width:90%;
+    box-shadow:7px 7px 10px black;
+    " >
+<p>We apologise that there has been a problem with the web server ...</h3>
+EOD;
+
   ShowError ($why);
   echo "<p>Error occurred at " . strftime ("%Y-%m-%d %H:%M:%S", time()) . "</p>\n";
   echo "<p>Please notify <a href=\"mailto:$WEBMASTER\">$WEBMASTER</a> of the above message and time.</p>";
+  echo "</div>\n";
   echo "</body></html>\n";
   die ();
   } // end of MajorProblem
@@ -351,6 +390,10 @@ function OpenDatabase ($dbserver, $dbuser, $dbname, $dbpassword)
 
   // save database name in case needed later
   $current_database_name = $dbname;
+
+  // if database already open, don't open it again
+  if (gettype ($dblink) == 'object')
+    return;
 
   $dblink = mysqli_connect($dbserver, $dbuser, $dbpassword, $dbname);
 
@@ -377,19 +420,27 @@ function GetControlItems ()
   $result = mysqli_query ($dblink, "SELECT * FROM control")   // WTF?
     or MajorProblem ("Select of control table failed: " . mysqli_connect_error ());
 
+  // read entire control table into memory
   while ($row = dbFetch ($result))
     $control [$row ['item']] = $row ['contents'];
-
   dbFree ($result);
 
   $control ['forum_url'] = "//" . $_SERVER ["HTTP_HOST"] . "/forum";
-  $HEADING_COLOUR = '#72A2C9';
-  $BODY_COLOUR    = '#BBDEEA';
 
-  if (isset ($control ['colour_table_heading']))
-    $HEADING_COLOUR = $control ['colour_table_heading'];
-  if (isset ($control ['colour_table_body']))
-    $BODY_COLOUR = $control ['colour_table_body'];
+  // put any defaults you want here
+  $defaults = array (
+    'colour_table_heading' => '#72A2C9',
+    'colour_table_body'    => '#BBDEEA',
+
+  );  // end of defaults
+
+  // add in any defaults not provided
+  foreach ($defaults as $key => $value)
+    if (!$control [$key])
+      $control [$key] = $value;
+
+  $HEADING_COLOUR = $control ['colour_table_heading'];
+  $BODY_COLOUR    = $control ['colour_table_body'];
 
   // Set the timezone in the current script
   date_default_timezone_set("Australia/Melbourne");
@@ -484,7 +535,7 @@ function crc16 ($data, $len)
   return $decoded;
 } // end of modHexDecode
 
-function HandleAuthenticator ($userid, $authenticator_table)
+function HandleAuthenticator ($userid, $authenticator_table, $userField = 'User')
   {
   $authenticator  = trim ($_POST ['authenticator']);
 
@@ -541,29 +592,33 @@ Generation:
  //   return "Authenticator token wrong length, should be 44, is actually " . strlen ($authenticator);
 
 
-  $decodedToken = modHexDecode($authenticator);
+  $decodedToken = modHexDecode($authenticator);  // this halves the number of bytes to 22
 
   if (!$decodedToken)
     return "Authenticator token incorrect format";
 
-  $publicUID = substr ($decodedToken, 0, 6);
-  $encryptedToken = substr ($decodedToken, 6);
+  $publicUID = substr ($decodedToken, 0, 6);   // first 6 are not encrypted
+  $encryptedToken = substr ($decodedToken, 6, 16); // remaining 16 are encrypted
 
   // the public user ID is not encrypted
   $publicUID_converted = bin2hex ($publicUID);
 
   // see if this authenticator is on file (for the desired user id)
-  $authrow = dbQueryOneParam ("SELECT * FROM $authenticator_table WHERE User = ? AND Public_UID = ?",
+  $authrow = dbQueryOneParam ("SELECT * FROM $authenticator_table WHERE $userField = ? AND Public_UID = ?",
                               array ('ss', &$userid, &$publicUID_converted));
 
   if (!$authrow)
     return "That authenticator is not on file";
+
 
   $decrypted = mcrypt_decrypt (MCRYPT_RIJNDAEL_128 ,
                                 pack('H*',$authrow ['AES_key']),
                                 $encryptedToken,
                                 MCRYPT_MODE_CBC,
                                 str_repeat("\0", 16));
+
+// doesn't work for some reason at present: returns false
+//  $decrypted = openssl_decrypt ($encryptedToken, 'AES-256-CBC', pack('H*',$authrow ['AES_key']), OPENSSL_RAW_DATA, str_repeat("\0", 16));
 
    $crc = crc16 ($decrypted, 16);
 
@@ -621,6 +676,7 @@ function CheckAdminSession ()
   global $userinfo, $userid, $adminaction, $username;
   global $TABLE_AUDIT_LOGON;
   global $log_on_error;
+  global $USER_TABLE, $USER_TOKEN_TABLE;
 
   // do NOT get POST variable or we switch users when editing the user table
   if (isset ($_GET ['session']))
@@ -638,7 +694,7 @@ function CheckAdminSession ()
     {
     $username = getP ('username', 30);
     $password = getP ('password', 50);
-    $userinfo = dbQueryOneParam ("SELECT * FROM user WHERE username = ? ",
+    $userinfo = dbQueryOneParam ("SELECT * FROM $USER_TABLE WHERE username = ? ",
                                  array ('s', &$username) );
 
     // if no password on the database, logging in MUST fail
@@ -687,12 +743,30 @@ function CheckAdminSession ()
        }
 
       // generate session
-      $session = MakeToken ();
+      $token = MakeToken ();
+      $server_name = $_SERVER["HTTP_HOST"];
 
-      $query = "UPDATE user SET session = '$session', "
-             . "date_logged_on = "
-             . "'" . strftime ("%Y-%m-%d %H:%M:%S", utctime()) . "' "
-             . "WHERE userid = $userid";
+      // delete expired tokens
+      $query = "DELETE FROM $USER_TOKEN_TABLE WHERE userid = ? AND date_expires <= NOW()";
+
+      dbUpdateParam ($query, array ('s', &$userid));
+
+      $expiry = $userinfo ['cookie_expiry'];
+      if (!$expiry)
+        $expiry = 60 * 60 * 24 * 7;    // expire in 7 days as default
+
+      $days = ceil ($expiry / (60 * 60 * 24));
+
+      $query = "INSERT INTO $USER_TOKEN_TABLE "
+             .        "(userid, token, date_logged_on, last_remote_ip, server_name, date_expires) "
+             . "VALUES ( ?,           ?,     NOW(),             ?,           ?, "      // see below
+             . "DATE_ADD(NOW(), INTERVAL '$days' DAY))";
+
+      dbUpdateParam ($query, array ('ssss', &$userid, &$token, &$remote_ip, &$server_name ));
+
+      $query = "UPDATE $USER_TABLE SET date_logged_on =
+                '" . strftime ("%Y-%m-%d %H:%M:%S", utctime()) . "'
+                WHERE userid = $userid";
 
       dbUpdate ($query);   // internally generated
 
@@ -702,7 +776,7 @@ function CheckAdminSession ()
         if (PasswordCompat\binary\_strlen ($userinfo ['password']) <= 32)
           {
           $md5_password = password_hash($password, PASSWORD_BCRYPT, array("cost" => 13));
-          $query = "UPDATE user SET salt = NULL, password = '$md5_password' "
+          $query = "UPDATE $USER_TABLE SET salt = NULL, password = '$md5_password' "
                  . "WHERE userid = $userid";
           dbUpdate ($query);   // internally generated
           } // end of generating better password hash and saving it
@@ -713,14 +787,14 @@ function CheckAdminSession ()
           {
           $salt = MakeToken ();
           $md5_password = md5 ($password . $salt);  // now have salted password hash
-          $query = "UPDATE user SET salt = '$salt', password = '$md5_password' "
+          $query = "UPDATE $USER_TABLE SET salt = '$salt', password = '$md5_password' "
                  . "WHERE userid = $userid";
           dbUpdate ($query);   // internally generated
           }
 
         }  // end of bcrypt not available
 
-      $userinfo ['session'] = $session;
+      $userinfo ['session'] = $token;
       $expiry = $userinfo ['cookie_expiry'];
       if (!$expiry)
         $expiry = 60 * 60 * 24 * 7;    // expire in 7 days as default
@@ -728,7 +802,7 @@ function CheckAdminSession ()
         setcookie ('session', $userinfo ['session'], utctime() + $expiry, "/");
 
       // audit logons
-      edittableAudit ($TABLE_AUDIT_LOGON, 'user', $userid);
+      edittableAudit ($TABLE_AUDIT_LOGON, $USER_TABLE, $userid);
 
       } // end of user on file
 
@@ -739,10 +813,20 @@ function CheckAdminSession ()
   if (empty ($adminsession))    // not logged on yet
     return;   // no session, and not logging in
 
-  $userinfo = dbQueryOneParam ("SELECT * FROM user WHERE session = ?",
+  $usertoken = dbQueryOneParam ("SELECT * FROM $USER_TOKEN_TABLE WHERE token = ? AND date_expires >= NOW()",
                                array ('s', &$adminsession));
 
-  if ($userinfo) // will be empty if no match
+  if ($usertoken)
+    {
+    $userid = $usertoken ['userid'];
+    $userinfo = dbQueryOneParam ("SELECT * FROM $USER_TABLE WHERE userid = ? ",
+                                  array ('s', &$userid) );
+    $userinfo ['session'] = $adminsession;  // this particular token was used for this page
+    }
+  else
+    $userinfo = false;
+
+  if ($userinfo) // will be empty if no token found
     {
 
       /*
@@ -1149,7 +1233,7 @@ function CheckForumToken ()
   $query = "DELETE FROM bbbanned_ip "
          . "WHERE ip_address = ? AND "
          . "date_banned < DATE_ADD(NOW(), INTERVAL -1 DAY) AND "
-         . "reason LIKE 'Too many forum login failures for%' ";
+         . "reason LIKE 'Too many %login failures for%' ";
 
   dbUpdateParam ($query, array ('s', &$remote_ip));
 
@@ -1223,15 +1307,14 @@ function LogOff ()
   {
   global $userinfo;
   global $TABLE_AUDIT_LOGOFF;
+  global $USER_TABLE, $USER_TOKEN_TABLE;
 
-  // generate another random token - they won't know that one!
-  $session = MakeToken ();
+  $query = "DELETE FROM $USER_TOKEN_TABLE WHERE token = ? AND userid = ?";
 
-  $query = "UPDATE user SET session = ? WHERE userid = ?";
-  dbUpdateParam ($query, array ('ss', &$session, &$userinfo ['userid']));
+  dbUpdateParam ($query, array ('ss', &$userinfo ['session'], &$userinfo ['userid']));
 
   // audit log offs
-  edittableAudit ($TABLE_AUDIT_LOGOFF, 'user',  $userinfo ['userid']);
+  edittableAudit ($TABLE_AUDIT_LOGOFF, $USER_TABLE,  $userinfo ['userid']);
 
   $userinfo = "";    // user info is no good
 
@@ -1581,9 +1664,23 @@ function GetStatusName ($statusid, &$statusname)
 
 function Problem ($why)
   {
+  global $shownHTMLheader;
+  global $control;
+
+  if (!$shownHTMLheader)
+    echo <<< EOD
+<!DOCTYPE html>
+<html lang="en">
+<head><title>System error</title></head>
+EOD;
+
   echo "<h3>There is a problem ...</h3><p>\n";
   ShowError ($why);
-  MessageTail (false);
+  if (isset ($control ['tail']))
+    MessageTail (false);
+  else
+    echo "</body></html>\n";
+
   die ();
   } // end of Problem
 
@@ -5144,13 +5241,13 @@ function getInterval ($days)
 
   } // end of getInterval
 
-function passwordCheck ($pass, $username = "")
+function passwordCheck ($pass, $username = "", $username_description = 'username')
   {
   $MINIMUM_LENGTH = 10;
-  $MINIMUM_NUMBERS = 2;
-  $MINIMUM_UC_LETTERS = 2;
-  $MINIMUM_LC_LETTERS = 2;
-  $MINIMUM_PUNCTUATION = 2;
+  $MINIMUM_NUMBERS = 1;
+  $MINIMUM_UC_LETTERS = 1;
+  $MINIMUM_LC_LETTERS = 1;
+  $MINIMUM_PUNCTUATION = 1;
   $MAXIMUM_REPEATED_CHARACTER = 4;
   $MAXIMUM_SEQUENCE = 3;
   $PUNCTUATION = "~!@#$%^&*()_+`-={}|[]\:\";'<>?,./";
@@ -5311,10 +5408,10 @@ function passwordCheck ($pass, $username = "")
       {
       $word = substr ($username, $i, 4);  // get 4 characters of name
       if (stristr ($pass, $word) !== FALSE)
-        return "Part of your username ($word) is inside the password";
+        return "Part of your $username_description ($word) is inside the password";
       $revword = strrev ($word);
       if (stristr ($pass, $revword) !== FALSE)
-        return "Part of your username ($word) is inside the password (reversed)";
+        return "Part of your $username_description ($word) is inside the password (reversed)";
       } // end of checking each 4 characters
     } // end if have a username
 

@@ -62,6 +62,7 @@ $SSO_REQUEST_PASSWORD_RESET = 'sso_request_password_reset' ;  // handle the pass
 $SSO_PASSWORD_RESET  = 'sso_password_reset' ;     // process the password reset
 $SSO_AUTHENTICATOR   = 'sso_authenticator'   ;    // handle authenticator input being sent
 $SSO_SHOW_SESSIONS   = 'sso_show_sessions'   ;    // show list of sessions
+$SSO_CHANGE_PASSWORD = 'sso_change_password'   ;  // change the password
 
 // audit types
 $SSO_AUDIT_LOGON      = 1;
@@ -80,6 +81,9 @@ $loginInfo = array (
         'show_login'  => false,     // make true to redisplay the login form
         'show_authenticator' => false,  // make true to show the authenticator form
         'show_forgotten_password' => false, // show the forgotten password form
+        'show_new_password' => false, // show the new password form
+        'new_password_hash' => false, // no hash yet
+        'sso_id'      => false,       // for password changing
         );
 
 $FORM_STYLE = <<< EOD
@@ -427,6 +431,7 @@ function SSO_ShowLoginForm ()
   global $email_address;
   global $SSO_UserDetails, $loginInfo;
   global $FORM_STYLE;
+  global $control;
 
   if ($SSO_UserDetails)
     {
@@ -434,11 +439,13 @@ function SSO_ShowLoginForm ()
     return; // give up
     }
 
+  $sso_name = htmlspecialchars ($control ['sso_name']);
+
 // show the form in a nice blue box
 echo <<< EOD
 <form METHOD="post" ACTION="$PHP_SELF">
 $FORM_STYLE
-
+<h2>Log on to $sso_name</h2>
 <table>
 <tr>
 <th align=right>Email address:</th>
@@ -495,11 +502,83 @@ $FORM_STYLE
 EOD;
   } // end of SSO_ShowAuthenticatorForm
 
+function SSO_ShowNewPasswordForm ()
+  {
+  global $SSO_LOGON, $SSO_LOGON_FORM, $SSO_LOGOFF, $SSO_FORGOT_PASSWORD, $SSO_AUTHENTICATOR, $SSO_SHOW_SESSIONS, $SSO_CHANGE_PASSWORD;
+  global $PHP_SELF;
+  global $email_address;
+  global $SSO_UserDetails, $loginInfo;
+  global $FORM_STYLE;
+  global $control;
+
+  $hash   = $loginInfo ['new_password_hash'];  // possibly not there if we are logged in
+  $sso_id = $loginInfo ['sso_id'];
+
+  $sso_name = htmlspecialchars ($control ['sso_name']);
+
+// show the form in a nice blue box
+echo <<< EOD
+<form METHOD="post" ACTION="$PHP_SELF">
+$FORM_STYLE
+<input type="hidden" name="hash" value="$hash">
+<input type="hidden" name="sso_id" value="$sso_id">
+<h2>New password for $sso_name</h2>
+<table>
+EOD;
+
+// for forgotten passwords they will have a hash from an email, otherwise they must know the old password
+if (!$hash && $SSO_UserDetails)
+  {
+  $sso_id = $SSO_UserDetails ['sso_id'];
+  echo <<< EOD
+  <tr>
+  <th align=right>Old password:</th>
+  <td><input type="password"      name="old_password" size=50 maxlength=50 required
+      style="width:95%;" ></td>
+  </tr>
+EOD;
+  }
+
+// this stuff is always there
+echo <<< EOD
+<tr>
+<th align=right>New password:</th>
+<td><input type="password"  name="new_password" size=50 maxlength=50 required style="width:95%;"></td>
+</tr>
+<tr>
+<th align=right>Confirm new password:</th>
+<td><input type="password"  name="confirm_password" size=50 maxlength=50 required style="width:95%;"></td>
+</tr>
+<tr><td></td>
+<td><input type="submit"    value="Change password"></td>
+</tr>
+</table>
+<h2>Rules for passwords</h2>
+<p>The password:
+<ul>
+<li>Must be at least <b>10 characters</b> long.
+<li>Must contain <b>at least</b> two numbers, two upper-case letters, two lower-case letters, and two punctuation characters.
+<li>Must <b>not be in a dictionary</b> of the most common 100 passwords (eg. "password" or "letmein")
+<li>May not consist of more than 4 of the <b>same character</b> in any position (eg. "a1a2a3a4" would not be allowed).
+<li>May not contain <b>sequences</b> of 3 or more characters going up or down (eg. "abc", "456", "ZYX", "765").
+<li>May not contain <b>repeats</b> of 3 or more characters in a row (eg. "aaa" or "666" would not be allowed).
+<li>May <b>not end with a number</b> (so you can't just add numbers to a word, like "gorilla489")
+<li>May not contain <b>part of your email address</b> (so if your name is "barbara@gmail.com" the password can't be "barb9642")
+</ul>
+
+<p>Note: Leading and trailing spaces are discarded.
+</div>
+<input type="hidden"    name="action" value="$SSO_CHANGE_PASSWORD">
+</form>
+EOD;
+  } // end of SSO_ShowNewPasswordForm
+
 function SSO_ShowLoginInfo ()
   {
   global $SSO_LOGON, $SSO_LOGON_FORM, $SSO_LOGOFF, $SSO_FORGOT_PASSWORD, $SSO_AUTHENTICATOR, $SSO_SHOW_SESSIONS;
   global $SSO_UserDetails, $loginInfo;
   global $action;
+  global $PHP_SELF;
 
   // show errors
   foreach ($loginInfo ['errors'] as $error)
@@ -513,10 +592,17 @@ function SSO_ShowLoginInfo ()
     SSO_ShowAuthenticatorForm ();
   elseif ($loginInfo ['show_forgotten_password'])
     SSO_Show_Forgot_Password_Form ();
+  elseif ($loginInfo ['show_new_password'])
+    SSO_ShowNewPasswordForm ();
 
   // show successes
   foreach ($loginInfo ['info'] as $info)
       ShowInfo ($info);
+
+  if ($SSO_UserDetails)
+    echo ("You are logged on as: " . htmlspecialchars ($SSO_UserDetails ['email_address']));
+  else
+    hLink ("Log on", $PHP_SELF, "action=sso_logon_form");
 
   return $SSO_UserDetails;    // will be false if login failed
   } // end of SSO_ShowLoginInfo
@@ -672,7 +758,9 @@ function SSO_Show_Forgot_Password_Form ()
   global $PHP_SELF;
   global $SSO_UserDetails, $loginInfo;
   global $FORM_STYLE;
-  global $email_address;
+  global $email_address, $control;
+
+  $sso_name = htmlspecialchars ($control ['sso_name']);
 
   if ($SSO_UserDetails)
     {
@@ -685,15 +773,19 @@ echo <<< EOD
 <form METHOD="post" ACTION="$PHP_SELF">
 $FORM_STYLE
 
-<h2>Password reset request</h2>
+<h2>Password reset request for $sso_name</h2>
 <table>
 <tr>
-<th align=right>Email address:</th>
+<th align=right>Your email address:</th>
 <td><input type="text"      name="email_address" size=50 maxlength=255
     value="$email_address" autofocus style="width:95%;" required></td>
 </tr>
 <tr><td></td>
-<td><input type="submit"    value="Reset password"></td>
+<td><input type="submit"    value="Reset password">
+<p>Click the button <b>once</b> and then please <b>be patient</b> while a reset email is generated.
+<p>A password reset message will be emailed to you. Please check for that
+email and follow the link in it, to have your password reset.
+</td>
 </tr>
 </table>
 </div>
@@ -796,6 +888,7 @@ function SSO_Handle_Password_Reset_Request ()
 
    $todayRow = dbQueryOne ("SELECT CURDATE() as today");  // no user input
 
+/*  TESTING
   // don't let them keep asking for it
   if ($SSO_UserDetails ['password_sent_date'] == $todayRow ['today'])
     {
@@ -805,6 +898,8 @@ function SSO_Handle_Password_Reset_Request ()
     $SSO_UserDetails = false;
     return;
     }
+
+*/
 
   $sso_id = $SSO_UserDetails ['sso_id'];
 
@@ -829,7 +924,7 @@ function SSO_Handle_Password_Reset_Request ()
         "Hi $email_address,\n\n" .
         "Someone (possibly you) requested that your $sso_name password be reset.\n\n" .
         "To reset your password, please click on:\n\n" .
-        "  $sso_url$PHP_SELF?action=$SSO_PASSWORD_RESET&sso_id=$sso_id&hash=$md5_password\n\n" .
+        "  $sso_url$PHP_SELF?action=$SSO_PASSWORD_RESET&id=$sso_id&hash=$md5_password\n\n" .
         "The password must be reset on the same day the request was made.\n\n" .
         "If you do not want your password reset, just ignore this message.\n\n" .
         $control ['email_signature'],
@@ -863,16 +958,169 @@ function SSO_Handle_Password_Reset_Request ()
 
 function SSO_Handle_Password_Reset ()
   {
-  global $SSO_LOGON, $SSO_LOGON_FORM, $SSO_LOGOFF, $SSO_FORGOT_PASSWORD, $SSO_REQUEST_PASSWORD_RESET,
-         $SSO_PASSWORD_RESET, $SSO_AUTHENTICATOR, $SSO_SHOW_SESSIONS;
-  global $PHP_SELF;
-  global $SSO_UserDetails, $loginInfo;
-  global $FORM_STYLE;
-  global $remote_ip;
-  global $control;
+  global $SSO_USER_TABLE, $SSO_FAILED_LOGINS_TABLE, $SSO_TOKENS_TABLE, $SSO_AUTHENTICATORS_TABLE,
+         $SSO_BANNED_IPS_TABLE, $SSO_SUSPECT_IPS_TABLE, $SSO_AUDIT_TABLE, $SSO_EMAIL_GUESS_TABLE;
 
-  $loginInfo ['errors'] [] = "foo";
+  global $SSO_UserDetails, $loginInfo;
+
+  if ($SSO_UserDetails)
+    {
+    $loginInfo ['info'] [] = "You are already logged on - no password reset required.";
+    return; // give up
+    }
+
+  $hash             = getG ('hash', 32);
+  $id               = getG ('id', 8);
+
+  if (strlen ($hash) != 32
+      || !strlen ($id)
+      || !preg_match ("/^[0-9A-Fa-f]+$/", $hash)
+      || !preg_match ("/^[0-9]+$/", $id))
+      {
+      $loginInfo ['errors'] [] = "Password reset URL invalid format";
+      return;
+      }
+
+  $query = "SELECT * FROM $SSO_USER_TABLE WHERE sso_id = ?
+            AND password_reset_hash = ? AND password_sent_date = DATE(NOW())";
+
+  $row = dbQueryOneParam ($query, array ('ss', &$id, &$hash)) ;
+
+  if (!$row)
+     {
+     $loginInfo ['errors'] [] = "That password reset request is not on file or has expired";
+     return;
+     }
+
+  $loginInfo ['show_new_password'] = true;
+  $loginInfo ['new_password_hash'] = $hash;
+  $loginInfo ['sso_id'] = $id;
+
   } // end of SSO_Handle_Password_Reset
+
+function SSO_Handle_Change_Password ()
+  {
+  global $SSO_USER_TABLE, $SSO_FAILED_LOGINS_TABLE, $SSO_TOKENS_TABLE, $SSO_AUTHENTICATORS_TABLE,
+         $SSO_BANNED_IPS_TABLE, $SSO_SUSPECT_IPS_TABLE, $SSO_AUDIT_TABLE, $SSO_EMAIL_GUESS_TABLE;
+
+  global $SSO_AUDIT_LOGON, $SSO_AUDIT_LOGOFF, $SSO_AUDIT_LOGOFF_ALL, $SSO_AUDIT_REQUEST_PASSWORD_RESET,
+         $SSO_AUDIT_CHANGED_PASSWORD, $SSO_AUDIT_CHANGED_EMAIL;
+
+  global $SSO_UserDetails, $loginInfo;
+
+  $hash             = getP ('hash', 32);
+  $sso_id           = getP ('sso_id', 8);
+  $oldpassword      = getP ('old_password', 50);
+  $newpassword      = getP ('new_password', 50);
+  $confirmpassword  = getP ('confirm_password', 50);
+
+  if ($SSO_UserDetails)
+    {
+    $hash = false;
+    $email_address = $SSO_UserDetails ['email_address'];
+    if (!strlen ($sso_id) || !preg_match ("/^[0-9]+$/", $sso_id) || ($sso_id != $SSO_UserDetails ['sso_id']))
+      {
+      $loginInfo ['errors'] [] = "Bad format of change password submission";
+      return;
+      }
+    }
+  else
+    {   // must have a hash
+    if (strlen ($hash) != 32
+        || !strlen ($sso_id)
+        || !preg_match ("/^[0-9A-Fa-f]+$/", $hash)
+        || !preg_match ("/^[0-9]+$/", $sso_id))
+        {
+        $loginInfo ['errors'] [] = "Password change hash invalid format";
+        return;
+        }
+    } // end of not logged on
+
+  // get the user from the hash and ID
+  if ($hash)
+    {
+    $query = "SELECT * FROM $SSO_USER_TABLE WHERE sso_id = ?
+              AND password_reset_hash = ? AND password_sent_date = DATE(NOW())";
+
+    $row = dbQueryOneParam ($query, array ('ss', &$sso_id, &$hash)) ;
+
+    if (!$row)
+       {
+       $loginInfo ['errors'] [] = "That password reset request is not on file or has expired";
+       return;
+       }
+     $email_address = $row ['email_address'];
+     } // end of having a hash and therefore finding the user record
+   else
+    {
+     // check password with bcrypt
+      if (PasswordCompat\binary\check() &&
+          PasswordCompat\binary\_strlen ($SSO_UserDetails ['password']) > 32)
+        {
+        if (!password_verify ($password, $SSO_UserDetails ['password']))
+          {
+          $loginInfo ['errors'] [] = "Old password is not correct";
+          $loginInfo ['sso_id'] = $sso_id;
+          $loginInfo ['new_password_hash'] = $hash;
+          $loginInfo ['show_new_password'] = true;
+          return;
+          } // end of wrong password
+        } // end of password > 32 bytes
+      else
+        {
+        $loginInfo ['errors'] [] = "Authentication system not set up correctly";
+        $SSO_UserDetails = false;    // discard user information
+        return;
+        } // end of <= 32 bytes
+    } // end of user being logged on, and therefore having to check the old password
+
+  // check confirmation agrees
+  if ($newpassword != $confirmpassword)
+    {
+    $loginInfo ['errors'] [] = "New password and confirmation password do not match";
+    $loginInfo ['sso_id'] = $sso_id;
+    $loginInfo ['new_password_hash'] = $hash;
+    $loginInfo ['show_new_password'] = true;
+    return;
+    }
+
+  // check reasonable password given, such as: foobar12AB.,
+  $validation = passwordCheck ($newpassword, $email_address);
+  if ($validation)
+    {
+    $loginInfo ['errors'] [] = $validation;
+    $loginInfo ['new_password_hash'] = $hash;
+    $loginInfo ['sso_id'] = $sso_id;
+    $loginInfo ['show_new_password'] = true;
+    return;
+    }
+
+  // seems to have passed the tests, let's change the password
+
+  $md5_password = password_hash($newpassword, PASSWORD_BCRYPT, array("cost" => 13));
+
+  $query = "UPDATE $SSO_USER_TABLE SET password = ? WHERE sso_id = ?";
+
+  $count = dbUpdateParam ($query, array ('ss', &$md5_password, &$sso_id )) ;
+
+  if ($count > 0)
+    {
+    $loginInfo ['info'] [] = 'Password changed';
+    sso_audit ($SSO_AUDIT_CHANGED_PASSWORD, $sso_id);
+    }
+  else
+    $loginInfo ['info'] [] = 'Password not changed';
+
+  // that old hash is no longer valid
+  dbUpdateParam ("UPDATE $SSO_USER_TABLE SET password_reset_hash = NULL,
+                  password_sent_date = NULL WHERE sso_id = ?",
+                    array ('s', &$sso_id ));
+
+  // may as well log them on once they have reset their password
+  if (!$SSO_UserDetails)
+      SSO_Complete_Logon ($sso_id);
+
+  } // end of SSO_Handle_Change_Password
 
 // *****************************************************************
 //      SSO_Authenticate - call for all authentication actions
@@ -882,7 +1130,7 @@ function SSO_Authenticate ()
   {
   global $DATABASE_SERVER, $GENERAL_DATABASE_USER, $GENERAL_DATABASE_NAME, $GENERAL_DATABASE_PASSWORD;
   global $SSO_LOGON, $SSO_LOGON_FORM, $SSO_LOGOFF, $SSO_LOGOFF_ALL, $SSO_FORGOT_PASSWORD,
-         $SSO_REQUEST_PASSWORD_RESET, $SSO_PASSWORD_RESET, $SSO_AUTHENTICATOR, $SSO_SHOW_SESSIONS;
+         $SSO_REQUEST_PASSWORD_RESET, $SSO_PASSWORD_RESET, $SSO_AUTHENTICATOR, $SSO_SHOW_SESSIONS, $SSO_CHANGE_PASSWORD;
   global $action;
   global $PHP_SELF, $remote_ip;
   global $SSO_UserDetails, $loginInfo;
@@ -907,15 +1155,16 @@ function SSO_Authenticate ()
   // logon form is handled in SSO_ShowLoginInfo (as we need to have shown the HTML header)
   switch ($action)
     {
-    case $SSO_LOGON           : SSO_Handle_Logon (); break;
-    case $SSO_LOGON_FORM      : $loginInfo ['show_login'] = true; break;
-    case $SSO_LOGOFF          : SSO_Handle_Logoff (false); break;
-    case $SSO_LOGOFF_ALL      : SSO_Handle_Logoff (true); break;
-    case $SSO_FORGOT_PASSWORD : $loginInfo ['show_forgotten_password'] = true; break;
-    case $SSO_REQUEST_PASSWORD_RESET  : SSO_Handle_Password_Reset_Request (); break;
-    case $SSO_PASSWORD_RESET  : SSO_Handle_Password_Reset (); break;
-    case $SSO_AUTHENTICATOR   : SSO_Handle_Authenticator (); break;
-    case $SSO_SHOW_SESSIONS   : SSO_Handle_Show_Sessions (); break;
+    case $SSO_LOGON           : SSO_Handle_Logon ();                            break;
+    case $SSO_LOGON_FORM      : $loginInfo ['show_login'] = true;               break;
+    case $SSO_LOGOFF          : SSO_Handle_Logoff (false);                      break;
+    case $SSO_LOGOFF_ALL      : SSO_Handle_Logoff (true);                       break;
+    case $SSO_FORGOT_PASSWORD : $loginInfo ['show_forgotten_password'] = true;  break;
+    case $SSO_REQUEST_PASSWORD_RESET  : SSO_Handle_Password_Reset_Request ();   break;
+    case $SSO_CHANGE_PASSWORD : SSO_Handle_Change_Password ();                  break;
+    case $SSO_PASSWORD_RESET  : SSO_Handle_Password_Reset ();                   break;
+    case $SSO_AUTHENTICATOR   : SSO_Handle_Authenticator ();                    break;
+    case $SSO_SHOW_SESSIONS   : SSO_Handle_Show_Sessions ();                    break;
     } // end of switch on $action
   } // end of SSO_Authenticate
 ?>

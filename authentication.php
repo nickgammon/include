@@ -57,6 +57,7 @@ $SSO_LOGON           = 'sso_logon'           ;    // handle logon form being sen
 $SSO_LOGON_FORM      = 'sso_logon_form'      ;    // show the logon form
 $SSO_LOGOFF          = 'sso_logoff'          ;    // log off this particular session
 $SSO_LOGOFF_ALL      = 'sso_logoff_all'      ;    // log off all sessions
+$SSO_LOGOFF_OTHERS   = 'sso_logoff_others'   ;    // log off all sessions except this one
 $SSO_FORGOT_PASSWORD = 'sso_forgot_password' ;    // forgot my password, duh! (show the form)
 $SSO_REQUEST_PASSWORD_RESET = 'sso_request_password_reset' ;  // handle the password form being filled in
 $SSO_PASSWORD_RESET  = 'sso_password_reset' ;     // process the password reset
@@ -64,14 +65,18 @@ $SSO_AUTHENTICATOR   = 'sso_authenticator'   ;    // handle authenticator input 
 $SSO_SHOW_SESSIONS   = 'sso_show_sessions'   ;    // show list of sessions
 $SSO_CHANGE_PASSWORD = 'sso_change_password'   ;  // change the password
 $SSO_SHOW_CHANGE_PASSWORD = 'sso_show_change_password'   ;  // show the change the password form
+$SSO_SHOW_CHANGE_NAME = 'sso_show_change_name'   ;  // show the change the screen name form
+$SSO_CHANGE_NAME      = 'sso_change_name'   ;    // handle the change name request
 
 // audit types
-$SSO_AUDIT_LOGON      = 1;
-$SSO_AUDIT_LOGOFF     = 2;
-$SSO_AUDIT_LOGOFF_ALL = 3;
-$SSO_AUDIT_REQUEST_PASSWORD_RESET = 4;
-$SSO_AUDIT_CHANGED_PASSWORD = 5;
-$SSO_AUDIT_CHANGED_EMAIL = 6;
+$SSO_AUDIT_LOGON                  = 1;
+$SSO_AUDIT_LOGOFF                 = 2;
+$SSO_AUDIT_LOGOFF_ALL             = 3;
+$SSO_AUDIT_LOGOFF_OTHERS          = 4;
+$SSO_AUDIT_REQUEST_PASSWORD_RESET = 5;
+$SSO_AUDIT_CHANGED_PASSWORD       = 6;
+$SSO_AUDIT_CHANGED_EMAIL          = 7;
+$SSO_AUDIT_CHANGED_NAME           = 8;
 
 $MAX_EMAIL_GUESSES = 5;  // number of times they can guess their own email address
 
@@ -84,8 +89,9 @@ $loginInfo = array (
         'show_forgotten_password' => false, // show the forgotten password form
         'show_new_password' => false, // show the new password form
         'show_sessions'     => false, // show logoff button etc.
+        'show_name_change'  => false, // show name change form
         'new_password_hash' => false, // no hash yet
-        'sso_id'      => false,       // for password changing
+        'sso_id'            => false, // for password changing
         );
 
 $FORM_STYLE = <<< EOD
@@ -362,7 +368,7 @@ function SSO_Handle_Logon ()
   // if no password on the database, logging in MUST fail
   if (!$SSO_UserDetails ['password'])
     {
-    $loginInfo ['errors'] [] = "User has not been set up correctly on the database";
+    $loginInfo ['errors'] [] = "No password created yet, please use the 'Forgot Password' link to make a new one";
     $SSO_UserDetails = false;    // discard user information
     return;
     }
@@ -425,6 +431,8 @@ function SSO_Handle_Logon ()
 
   $loginInfo ['show_authenticator'] = true; // get the authenticator form to appear once we have our HTML header
   $loginInfo ['token'] = $token;            // token to be put into the form
+  $loginInfo ['sso_id'] = $sso_id;          // sso_id to be put into the form
+  $SSO_UserDetails = false;                 // important! this user is not logged in yet
 
   } // end of SSO_Handle_Logon
 
@@ -467,11 +475,60 @@ $FORM_STYLE
 <td><input type="submit"    value="Log on"></td>
 </tr>
 </table>
+<a href="$PHP_SELF">Cancel log in</a>
 </div>
 <input type="hidden"    name="action" value="$SSO_LOGON">
 </form>
 EOD;
   } // end of SSO_ShowLoginForm
+
+function SSO_ShowNameChangeForm ()
+  {
+  global $SSO_LOGON, $SSO_LOGON_FORM, $SSO_LOGOFF, $SSO_LOGOFF_ALL, $SSO_LOGOFF_OTHERS,
+         $SSO_FORGOT_PASSWORD, $SSO_REQUEST_PASSWORD_RESET, $SSO_PASSWORD_RESET, $SSO_AUTHENTICATOR,
+         $SSO_SHOW_SESSIONS, $SSO_CHANGE_PASSWORD, $SSO_SHOW_CHANGE_PASSWORD,
+         $SSO_SHOW_CHANGE_NAME, $SSO_CHANGE_NAME;
+  global $PHP_SELF;
+  global $email_address;
+  global $SSO_UserDetails, $loginInfo;
+  global $FORM_STYLE;
+  global $control;
+
+  if (!$SSO_UserDetails)
+    {
+    $loginInfo ['info'] [] = "You are not logged on.";
+    return; // give up
+    }
+
+  $sso_name = htmlspecialchars ($control ['sso_name']);
+
+  $username = htmlspecialchars ($SSO_UserDetails ['username']);
+  $new_name      = getP ('new_name', 60);
+  if (!$new_name)
+    $new_name = $username;
+
+// show the form in a nice blue box
+echo <<< EOD
+<form METHOD="post" ACTION="$PHP_SELF">
+$FORM_STYLE
+<h2>Screen name change for $sso_name</h2>
+<p>Your existing screen name is: <b>$username</b>
+<table>
+<tr>
+<th align=right>New name:</th>
+<td><input type="text"      name="new_name" size=60 maxlength=60
+     autofocus value="$new_name" required style="width:95%;" ></td>
+</tr>
+<tr><td></td>
+<td><input type="submit"    value="Change name"></td>
+</tr>
+</table>
+<a href="$PHP_SELF">Cancel name change</a>
+</div>
+<input type="hidden"    name="action" value="$SSO_CHANGE_NAME">
+</form>
+EOD;
+  } // end of SSO_ShowNameChangeForm
 
 function SSO_ShowAuthenticatorForm ()
   {
@@ -481,7 +538,7 @@ function SSO_ShowAuthenticatorForm ()
   global $FORM_STYLE;
 
   $token  = $loginInfo ['token'];
-  $sso_id = $SSO_UserDetails ['sso_id'];
+  $sso_id = $loginInfo ['sso_id'];
 
 // show the form in a nice blue box
 echo <<< EOD
@@ -498,6 +555,7 @@ $FORM_STYLE
 <td><input type="submit"    value="Submit"></td>
 </tr>
 </table>
+<a href="$PHP_SELF">Cancel log in</a>
 </div>
 <input type="hidden"  name="action" value="$SSO_AUTHENTICATOR">
 <input type="hidden"  name="token"  value="$token">
@@ -571,13 +629,14 @@ echo <<< EOD
 </ul>
 
 <p>Note: Leading and trailing spaces are discarded.
+<p><a href="$PHP_SELF">Cancel password change</a>
 </div>
 <input type="hidden"    name="action" value="$SSO_CHANGE_PASSWORD">
 </form>
 EOD;
   } // end of SSO_ShowNewPasswordForm
 
-function SSO_ShowLoginInfo ()
+function SSO_ShowLoginInfo ($extra = '')
   {
   global $SSO_LOGON, $SSO_LOGON_FORM, $SSO_LOGOFF, $SSO_FORGOT_PASSWORD, $SSO_AUTHENTICATOR, $SSO_SHOW_SESSIONS;
   global $SSO_UserDetails, $loginInfo;
@@ -600,6 +659,8 @@ function SSO_ShowLoginInfo ()
     SSO_Show_Forgot_Password_Form ();
   elseif ($loginInfo ['show_new_password'])
     SSO_ShowNewPasswordForm ();
+  elseif ($loginInfo ['show_name_change'])
+    SSO_ShowNameChangeForm ();
   elseif ($loginInfo ['show_sessions'])
     SSO_Handle_Show_Sessions ();
 
@@ -609,31 +670,39 @@ function SSO_ShowLoginInfo ()
 
 if (!$loginInfo ['show_sessions'] && !$loginInfo ['show_new_password'])
   {
+
+    //
+
   echo <<< EOD
 <div style="margin-left:1em;
     border-spacing:5px;
     border-width:7px;
-    background-color:AliceBlue;
     padding:3px;
+    background-color:AliceBlue;
+    opacity:0.7;
     display: inline-block;
     font-size:70%;
     text-align:left;
+    float:right;
     ">
 EOD;
 
   // show that we are logged on
   if ($SSO_UserDetails)
     {
-    echo ("You are logged on as: <b>" . htmlspecialchars ($SSO_UserDetails ['email_address']) . "</b>");
-    echo (" <a href=\"$PHP_SELF?action=$SSO_SHOW_SESSIONS\" title=\"Log off, change password\"
-    ><img src=\"/images/gear.png\" style=\"vertical-align:bottom;\" ></a>\n");
+    echo ("You are logged on as: <b>" . htmlspecialchars ($SSO_UserDetails ['username']) . "</b> ");
+    // putting up the form won't work if we already have arguments on the URI
+    if (count ($_POST) == 0 && count ($_GET) == 0)
+      echo ("<a href=\"$PHP_SELF?action=$SSO_SHOW_SESSIONS\" title=\"Log off or change password\">
+              <img src=\"/images/gear.png\" style=\"vertical-align:bottom;\" ></a>\n");
+    echo ($extra);
     }
   // or show the logon link, unless we have already displayed the logon form or another form
   elseif (!$loginInfo ['show_login'] &&
           !$loginInfo ['show_authenticator'] &&
           !$loginInfo ['show_forgotten_password'] &&
           !$loginInfo ['show_new_password'] )
-    hLink ("Log on to $sso_name", $PHP_SELF, "action=sso_logon_form");
+    hLink ("Log on", $PHP_SELF, "action=sso_logon_form");  //  to $sso_name
 
   echo "</div>\n";
   } // end of not showing the sessions
@@ -745,14 +814,20 @@ function SSO_See_If_Logged_On ()
 
   } // end of SSO_See_If_Logged_On
 
-function SSO_Handle_Logoff ($all)
+function SSO_Handle_Logoff ()
   {
   global $SSO_USER_TABLE, $SSO_FAILED_LOGINS_TABLE, $SSO_TOKENS_TABLE, $SSO_AUTHENTICATORS_TABLE,
          $SSO_BANNED_IPS_TABLE, $SSO_SUSPECT_IPS_TABLE, $SSO_AUDIT_TABLE;
 
   global $SSO_UserDetails, $loginInfo;
-  global $SSO_AUDIT_LOGON, $SSO_AUDIT_LOGOFF, $SSO_AUDIT_LOGOFF_ALL, $SSO_AUDIT_REQUEST_PASSWORD_RESET,
-         $SSO_AUDIT_CHANGED_PASSWORD, $SSO_AUDIT_CHANGED_EMAIL;
+  global $SSO_AUDIT_LOGON, $SSO_AUDIT_LOGOFF, $SSO_AUDIT_LOGOFF_ALL, $SSO_AUDIT_LOGOFF_OTHERS,
+         $SSO_AUDIT_REQUEST_PASSWORD_RESET, $SSO_AUDIT_CHANGED_PASSWORD, $SSO_AUDIT_CHANGED_EMAIL;
+
+  global $SSO_LOGON, $SSO_LOGON_FORM, $SSO_LOGOFF, $SSO_LOGOFF_ALL, $SSO_LOGOFF_OTHERS,
+         $SSO_FORGOT_PASSWORD, $SSO_REQUEST_PASSWORD_RESET, $SSO_PASSWORD_RESET, $SSO_AUTHENTICATOR,
+         $SSO_SHOW_SESSIONS, $SSO_CHANGE_PASSWORD, $SSO_SHOW_CHANGE_PASSWORD;
+
+  global $action;
 
   if (!$SSO_UserDetails)
     {
@@ -764,26 +839,36 @@ function SSO_Handle_Logoff ($all)
   $token  = $SSO_UserDetails ['token'];
 
   // delete token from tokens table
-  if ($all)
+  if ($action == $SSO_LOGOFF_ALL)
     {
     dbUpdateParam ("DELETE FROM $SSO_TOKENS_TABLE WHERE sso_id = ?",
                   array ('s', &$sso_id));
 
     $loginInfo ['info'] [] = "Logged off from all devices.";
-    // audit that they logged on
+    // audit that they logged off
     SSO_Audit ($SSO_AUDIT_LOGOFF_ALL, $sso_id);
+    // invalidate their login details
+    $SSO_UserDetails = false;
+    }
+  else if ($action == $SSO_LOGOFF_OTHERS)
+    {
+    dbUpdateParam ("DELETE FROM $SSO_TOKENS_TABLE WHERE sso_id = ? AND token <> ?",
+                  array ('ss', &$sso_id, &$token));
+
+    $loginInfo ['info'] [] = "Logged off from all other devices (except this one).";
+    // audit that they logged off
+    SSO_Audit ($SSO_AUDIT_LOGOFF_OTHERS, $sso_id);
     }
   else
     {
     dbUpdateParam ("DELETE FROM $SSO_TOKENS_TABLE WHERE sso_id = ? AND token = ?",
                   array ('ss', &$sso_id, &$token));
     $loginInfo ['info'] [] = "Logged off from this device.";
-    // audit that they logged on
+    // audit that they logged off
     SSO_Audit ($SSO_AUDIT_LOGOFF, $sso_id);
+    // invalidate their login details
+    $SSO_UserDetails = false;
     }
-
-  // invalidate their login details
-  $SSO_UserDetails = false;
 
   } // end of SSO_Handle_Logoff
 
@@ -895,14 +980,13 @@ function SSO_Handle_Password_Reset_Request ()
     return;
     }
 
-/* TESTING
   if ($failureRow && $failureRow ['password_sent'] == 1)
     {
     $loginInfo ['errors'] [] = "A password has already been emailed to this IP address in the last 24 hours.\n" .
                                 "You can try again later if necessary.";
     return;
     }
-*/
+
   // look user up on users table
   $SSO_UserDetails = dbQueryOneParam ("SELECT * FROM $SSO_USER_TABLE WHERE email_address = ? ",
                                array ('s', &$email_address) );
@@ -924,7 +1008,6 @@ function SSO_Handle_Password_Reset_Request ()
 
    $todayRow = dbQueryOne ("SELECT CURDATE() as today");  // no user input
 
-/*  TESTING
   // don't let them keep asking for it
   if ($SSO_UserDetails ['password_sent_date'] == $todayRow ['today'])
     {
@@ -934,8 +1017,6 @@ function SSO_Handle_Password_Reset_Request ()
     $SSO_UserDetails = false;
     return;
     }
-
-*/
 
   $sso_id = $SSO_UserDetails ['sso_id'];
 
@@ -1054,6 +1135,7 @@ function SSO_Handle_Change_Password ()
     {
     $hash = false;
     $sso_id = $SSO_UserDetails ['sso_id'];
+    $email_address = $SSO_UserDetails ['email_address'];
     }
   else
     {   // must have a hash
@@ -1142,7 +1224,7 @@ function SSO_Handle_Change_Password ()
   else
     $loginInfo ['info'] [] = 'Password not changed';
 
-  // that old hash is no longer valid
+  // that old reset hash is no longer valid
   dbUpdateParam ("UPDATE $SSO_USER_TABLE SET password_reset_hash = NULL,
                   password_sent_date = NULL WHERE sso_id = ?",
                     array ('s', &$sso_id ));
@@ -1153,14 +1235,140 @@ function SSO_Handle_Change_Password ()
 
   } // end of SSO_Handle_Change_Password
 
+function SSO_Handle_Change_Name ()
+  {
+  global $SSO_USER_TABLE, $SSO_FAILED_LOGINS_TABLE, $SSO_TOKENS_TABLE, $SSO_AUTHENTICATORS_TABLE,
+         $SSO_BANNED_IPS_TABLE, $SSO_SUSPECT_IPS_TABLE, $SSO_AUDIT_TABLE, $SSO_EMAIL_GUESS_TABLE;
+
+  global $SSO_AUDIT_LOGON, $SSO_AUDIT_LOGOFF, $SSO_AUDIT_LOGOFF_ALL, $SSO_AUDIT_REQUEST_PASSWORD_RESET,
+         $SSO_AUDIT_CHANGED_PASSWORD, $SSO_AUDIT_CHANGED_EMAIL, $SSO_AUDIT_CHANGED_NAME;
+
+  global $SSO_UserDetails, $loginInfo;
+
+  $new_name      = getP ('new_name', 60);
+  $sso_id = $SSO_UserDetails ['sso_id'];
+
+  if (!$SSO_UserDetails)
+    {
+    $loginInfo ['errors'] [] = "You are not logged on.";
+    return; // give up
+    }
+
+  $new_name = preg_replace ('/\s+/', ' ', $new_name);  // get rid of weird multiple spaces
+  if (strlen ($new_name) < 4)
+    {
+    $loginInfo ['errors'] [] = "New name is too short (must be 4 or more characters).";
+    $loginInfo ['show_name_change'] = true;
+    return; // give up
+    }
+
+  // count actual letters
+  preg_match_all('`[A-Za-z]`', $new_name, $letters);
+  $letter_counts = count($letters[0]);
+
+  // we don't want them making a name like "&&--.."
+  if ($letter_counts < 4)
+    {
+    $loginInfo ['errors'] [] = "Name must contain at least 4 letters (A-Z).";
+    $loginInfo ['show_name_change'] = true;
+    return; // give up
+    }
+
+  // count non letters
+  preg_match_all('`[^A-Za-z ]`', $new_name, $letters);
+  $letter_counts = count($letters[0]);
+
+  // we don't want them making a name like "Fred Smith&&&&&&"
+  if ($letter_counts > 4)
+    {
+    $loginInfo ['errors'] [] = "Name contains too much punctuation.";
+    $loginInfo ['show_name_change'] = true;
+    return; // give up
+    }
+
+  // name should be letters, single quote (O'Brien), ampersand (Nick & Helen) or dash (Gibly-Smith)
+  if (!preg_match ("`^[A-Za-z '&\.\-]+$`", $new_name))
+    {
+    $loginInfo ['errors'] [] = "New name contains symbols that are not permitted. Use letters, single quotes, spaces, ampersand or dash";
+    $loginInfo ['show_name_change'] = true;
+    return; // give up
+    }
+
+  // capitalize words - break new name into individual words
+  preg_match_all('`[^ ]+`', $new_name, $words);
+
+  $specialWords = array (
+    'am'  => true,  // Member of the Order of Australia
+    'ac'  => true,  // Companion of the Order of Australia
+    'ao'  => true,  // Officer of the Order of Australia
+    'ak'  => true,  // Knight of the Order of Australia
+    'ad'  => true,  // Dame of the Order of Australia
+    'oam' => true,  // Medal of the Order of Australia
+    );
+
+  $fixedName = array ();  // the new name
+  // check each word
+  foreach ($words [0] as $word)
+    {
+    $word = strtolower ($word);  // start by forcing lower-case
+    if (isset ($specialWords [$word]))   // OAM, AM etc.
+      $word = strtoupper ($word);
+    elseif ($word == 'and')     // leave "and" alone
+      { }  // leave alone
+    else
+      $word = ucfirst ($word);  // make first character upper-case
+    $fixedName [] = $word;      // add back into fixed name
+    }
+
+  // put name back together at spaces
+  $new_name = implode (' ', $fixedName);
+
+  // fix names like O'Brien to capitalize the B
+  $new_name = preg_replace_callback("`['\-][a-z]`",
+              function ($matches)
+              {
+              return strtoupper($matches[0]);
+              },
+        $new_name);
+
+  // now that we have got our nice new name, check it isn't already on file by someone else
+
+  $row = dbQueryOneParam ("SELECT * FROM sso_users WHERE username = ? AND sso_id <> ?",
+                          array ('ss', &$new_name, &$sso_id ));
+
+  // we don't want them making a name like "&&--.."
+  if ($row)
+    {
+    $loginInfo ['errors'] [] = "The name \"$new_name\" is in use by someone else. Names are required to be unique.";
+    $loginInfo ['show_name_change'] = true;
+    return; // give up
+    }
+
+  $query = "UPDATE $SSO_USER_TABLE SET username = ? WHERE sso_id = ?";
+
+  $count = dbUpdateParam ($query, array ('ss', &$new_name, &$sso_id )) ;
+
+  $SSO_UserDetails ['username'] = $new_name;
+
+  if ($count > 0)
+    {
+    $loginInfo ['info'] [] = "Name changed to: $new_name";
+    sso_audit ($SSO_AUDIT_CHANGED_NAME, $sso_id);
+    }
+  else
+    $loginInfo ['info'] [] = 'Name not changed';
+
+  } // end of SSO_Handle_Change_Name
+
 function SSO_Handle_Show_Sessions ()
   {
   global $SSO_USER_TABLE, $SSO_FAILED_LOGINS_TABLE, $SSO_TOKENS_TABLE, $SSO_AUTHENTICATORS_TABLE,
          $SSO_BANNED_IPS_TABLE, $SSO_SUSPECT_IPS_TABLE, $SSO_AUDIT_TABLE, $SSO_EMAIL_GUESS_TABLE;
 
-  global $SSO_LOGON, $SSO_LOGON_FORM, $SSO_LOGOFF, $SSO_LOGOFF_ALL, $SSO_FORGOT_PASSWORD,
-         $SSO_CHANGE_PASSWORD, $SSO_PASSWORD_RESET, $SSO_AUTHENTICATOR, $SSO_SHOW_SESSIONS,
-         $SSO_SHOW_CHANGE_PASSWORD;
+  global $SSO_LOGON, $SSO_LOGON_FORM, $SSO_LOGOFF, $SSO_LOGOFF_ALL, $SSO_LOGOFF_OTHERS,
+         $SSO_FORGOT_PASSWORD, $SSO_REQUEST_PASSWORD_RESET, $SSO_PASSWORD_RESET, $SSO_AUTHENTICATOR,
+         $SSO_SHOW_SESSIONS, $SSO_CHANGE_PASSWORD, $SSO_SHOW_CHANGE_PASSWORD,
+         $SSO_SHOW_CHANGE_NAME, $SSO_CHANGE_NAME;
   global $PHP_SELF;
   global $SSO_UserDetails, $loginInfo;
   global $FORM_STYLE;
@@ -1175,6 +1383,7 @@ function SSO_Handle_Show_Sessions ()
 
 
   $sso_name = htmlspecialchars ($control ['sso_name']);
+  $username = htmlspecialchars ($SSO_UserDetails ['username']);
   $email_address = htmlspecialchars ($SSO_UserDetails ['email_address']);
 
   $row = dbQueryOneParam ("SELECT COUNT(*) AS counter FROM $SSO_TOKENS_TABLE WHERE sso_id = ?",
@@ -1185,14 +1394,17 @@ function SSO_Handle_Show_Sessions ()
 echo <<< EOD
 $FORM_STYLE
 <h2>User management for $sso_name</h2>
+You are logged on as: <b>$username</b>
 <ul>
-<li>You are logged on as: <b>$email_address</b>
+<li>Your email address is: <b>$email_address</b>
 EOD;
 
 if ($counter > 1)
   echo <<< EOD
-  <li><a href="$PHP_SELF?action=$SSO_LOGOFF">Log off this device</a>
-  <li><a href="$PHP_SELF?action=$SSO_LOGOFF_ALL">Log off all $counter devices</a>
+  <li>You are logged on at $counter devices. (A device being a computer, laptop, tablet, phone etc.)
+  <li><a href="$PHP_SELF?action=$SSO_LOGOFF">Log off <b>this</b> device</a>
+  <li><a href="$PHP_SELF?action=$SSO_LOGOFF_OTHERS">Log off all <b>other</b> devices (except this one)</a>
+  <li><a href="$PHP_SELF?action=$SSO_LOGOFF_ALL">Log off <b>all</b> your devices ($counter of them, including this one)</a>
 EOD;
 else
   echo <<< EOD
@@ -1201,7 +1413,9 @@ EOD;
 
 echo <<< EOD
 <li><a href="$PHP_SELF?action=$SSO_SHOW_CHANGE_PASSWORD">Change your password</a>
+<li><a href="$PHP_SELF?action=$SSO_SHOW_CHANGE_NAME">Change your screen name</a>
 </ul>
+<a href="$PHP_SELF">Close</a>
 </div>
 EOD;
 
@@ -1215,9 +1429,10 @@ EOD;
 function SSO_Authenticate ()
   {
   global $DATABASE_SERVER, $GENERAL_DATABASE_USER, $GENERAL_DATABASE_NAME, $GENERAL_DATABASE_PASSWORD;
-  global $SSO_LOGON, $SSO_LOGON_FORM, $SSO_LOGOFF, $SSO_LOGOFF_ALL, $SSO_FORGOT_PASSWORD,
-         $SSO_REQUEST_PASSWORD_RESET, $SSO_PASSWORD_RESET, $SSO_AUTHENTICATOR, $SSO_SHOW_SESSIONS,
-         $SSO_CHANGE_PASSWORD, $SSO_SHOW_CHANGE_PASSWORD;
+  global $SSO_LOGON, $SSO_LOGON_FORM, $SSO_LOGOFF, $SSO_LOGOFF_ALL, $SSO_LOGOFF_OTHERS,
+         $SSO_FORGOT_PASSWORD, $SSO_REQUEST_PASSWORD_RESET, $SSO_PASSWORD_RESET, $SSO_AUTHENTICATOR,
+         $SSO_SHOW_SESSIONS, $SSO_CHANGE_PASSWORD, $SSO_SHOW_CHANGE_PASSWORD,
+         $SSO_SHOW_CHANGE_NAME, $SSO_CHANGE_NAME;
   global $action;
   global $PHP_SELF, $remote_ip;
   global $SSO_UserDetails, $loginInfo;
@@ -1244,15 +1459,18 @@ function SSO_Authenticate ()
     {
     case $SSO_LOGON           : SSO_Handle_Logon ();                            break;
     case $SSO_LOGON_FORM      : $loginInfo ['show_login'] = true;               break;
-    case $SSO_LOGOFF          : SSO_Handle_Logoff (false);                      break;
-    case $SSO_LOGOFF_ALL      : SSO_Handle_Logoff (true);                       break;
+    case $SSO_LOGOFF          : SSO_Handle_Logoff ();                           break;
+    case $SSO_LOGOFF_ALL      : SSO_Handle_Logoff ();                           break;
+    case $SSO_LOGOFF_OTHERS   : SSO_Handle_Logoff ();                           break;
     case $SSO_FORGOT_PASSWORD : $loginInfo ['show_forgotten_password'] = true;  break;
     case $SSO_REQUEST_PASSWORD_RESET  : SSO_Handle_Password_Reset_Request ();   break;
     case $SSO_CHANGE_PASSWORD : SSO_Handle_Change_Password ();                  break;
+    case $SSO_CHANGE_NAME     : SSO_Handle_Change_Name ();                      break;
     case $SSO_PASSWORD_RESET  : SSO_Handle_Password_Reset ();                   break;
     case $SSO_AUTHENTICATOR   : SSO_Handle_Authenticator ();                    break;
     case $SSO_SHOW_SESSIONS   : $loginInfo ['show_sessions'] = true;  break;
     case $SSO_SHOW_CHANGE_PASSWORD : $loginInfo ['show_new_password'] = true;   break;
+    case $SSO_SHOW_CHANGE_NAME : $loginInfo ['show_name_change'] = true;        break;
     } // end of switch on $action
   } // end of SSO_Authenticate
 ?>

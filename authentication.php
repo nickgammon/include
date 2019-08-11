@@ -376,8 +376,10 @@ function SSO_Complete_Logon ($sso_id)
   // audit that they logged on
   SSO_Audit ($SSO_AUDIT_LOGON, $sso_id);
 
-  // set their cookie
-  setcookie ($SSO_COOKIE_NAME, $token, utctime() + $expiry, "/");
+  $expiryTime = utctime() + $expiry;
+
+  $cookieData = (object) array( "token" => $token, "expiry" => $expiryTime );
+  setcookie($SSO_COOKIE_NAME, json_encode($cookieData ), $expiryTime , "/");
 
   // clear login failure tracking records (so they don't accumulate)
   $query = "DELETE FROM $SSO_FAILED_LOGINS_TABLE "
@@ -885,9 +887,16 @@ function SSO_See_If_Logged_On ()
   // find the token on their cookie
   // do NOT get POST variable or we switch users when editing the user table
   if (isset ($_COOKIE [$SSO_COOKIE_NAME]))
-    $token = $_COOKIE [$SSO_COOKIE_NAME];
+    $cookie = json_decode( $_COOKIE[$SSO_COOKIE_NAME] );
   else
     return; // no cookie, can't be logged on
+
+  // fail if it isn't a JSON object
+  if (gettype ($cookie) != 'object')
+    return;
+
+  $token = $cookie->token;
+  $tokenExpiry = $cookie->expiry;
 
   $tokenRow = dbQueryOneParam ("SELECT sso_id FROM $SSO_TOKENS_TABLE WHERE token = ? "  .
                                 "AND date_expires >= NOW()",
@@ -921,6 +930,7 @@ function SSO_See_If_Logged_On ()
 
   // in case they want to log off
   $SSO_UserDetails ['token'] = $token;
+  $SSO_UserDetails ['token_expiry'] = $tokenExpiry;
 
   } // end of SSO_See_If_Logged_On
 

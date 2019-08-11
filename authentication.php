@@ -220,7 +220,7 @@ function SSO_Audit ($audit_type_id, $sso_id)
   } // end of SSO_Audit
 
 
-function SSO_Login_Failure ($email_address, $password, $remote_ip, $sso_id)
+function SSO_Login_Failure ($email_address, $password, $remote_ip, $sso_id = 0)
   {
   global $SSO_USER_TABLE, $SSO_FAILED_LOGINS_TABLE, $SSO_TOKENS_TABLE, $SSO_AUTHENTICATORS_TABLE,
          $SSO_BANNED_IPS_TABLE, $SSO_SUSPECT_IPS_TABLE, $SSO_AUDIT_TABLE;
@@ -352,32 +352,29 @@ function SSO_Complete_Logon ($sso_id)
                                       array ('i', &$sso_id));
 
   // delete out-of-date tokens
-  $query = "DELETE FROM $SSO_TOKENS_TABLE WHERE sso_id = ? AND date_expires <= NOW()";
-  dbUpdateParam ($query, array ('i', &$sso_id));
+  dbUpdate ("DELETE FROM $SSO_TOKENS_TABLE WHERE date_expires <= NOW()");
 
   // generate token
   $token = MakeToken ();
 
   // work out token (cookie) expiry date
-  $expiry = $SSO_UserDetails ['cookie_expiry'];
-  if (!$expiry)
-    $expiry = 60 * 60 * 24 * 7;    // expire in 7 days as default
+  $cookie_expiry = $SSO_UserDetails ['cookie_expiry'];
+  if (!$cookie_expiry)
+    $cookie_expiry = 60 * 60 * 24 * 7;    // expire in 7 days as default
 
-  $days = ceil ($expiry / (60 * 60 * 24));
+  $expiryTime = time() + $cookie_expiry;
 
   // add token to good tokens table
   $query = "INSERT INTO $SSO_TOKENS_TABLE "
          .        "(sso_id, token, date_logged_on, last_remote_ip, server_name, date_expires) "
-         . "VALUES ( ?,           ?,     NOW(),             ?,           ?, "      // see below
-         . "DATE_ADD(NOW(), INTERVAL '$days' DAY))";
+         . "VALUES ( ?,           ?,     NOW(),             ?,           ?,    FROM_UNIXTIME(?) )";
 
-  dbUpdateParam ($query, array ('isss', &$sso_id, &$token, &$remote_ip, &$server_name ));
+  dbUpdateParam ($query, array ('isssi', &$sso_id, &$token, &$remote_ip, &$server_name, &$expiryTime));
 
   // audit that they logged on
   SSO_Audit ($SSO_AUDIT_LOGON, $sso_id);
 
-  $expiryTime = utctime() + $expiry;
-
+  // we will JSON-encode the token *and* the expiry date, so we can find the expiry date later
   $cookieData = (object) array( "token" => $token, "expiry" => $expiryTime );
   setcookie($SSO_COOKIE_NAME, json_encode($cookieData ), $expiryTime , "/");
 
@@ -1553,6 +1550,8 @@ function SSO_Handle_Show_Sessions ()
   else
     $failedInfo = "";
 
+$logonExpiry = date ('D jS M Y \a\t g:i A', $SSO_UserDetails ['token_expiry']);
+
 // show in a nice blue box
 echo <<< EOD
 <div class="form_style">
@@ -1562,7 +1561,8 @@ echo <<< EOD
 <li>You are logged on as: <b>$username</b>
 <li>You are logged on at <b>$counter</b> device$s1. (A device being a computer, laptop, tablet, phone etc.)
 <li>Your email address is: <b>$email_address</b>
-<li>You have been logged on since: <b>$date_logged_on_formatted</b>
+<li>You have been logged on here since: <b>$date_logged_on_formatted</b>
+<li>Your session expires here on: <b>$logonExpiry </b>
 <li>You have logged on <b>$count_logins</b> time$s2
 $failedInfo
 </ul>

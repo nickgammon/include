@@ -57,6 +57,24 @@ then tries to tie the authenticated user (if they are indeed logged in) to any s
 For example, if the 'user' table has an entry for this user then they are considered logged into that as well. Ditto
 for the forum user table, and the HHS members table.
 
+
+UPDATE SQL:
+
+// copy users over
+INSERT INTO sso_users (username, email_address, password, cookie_expiry, blocked, last_remote_ip)
+    SELECT username, email, password, cookie_expiry, blocked, last_remote_ip FROM bbuser
+
+// fix up old reset passwords
+UPDATE sso_users SET password = '' WHERE password LIKE '%***%'
+
+// fix up the SSO ID
+UPDATE bbuser INNER JOIN sso_users ON bbuser.email = sso_users.email_address
+    SET bbuser.sso_id = sso_users.sso_id
+
+// authenticators
+INSERT INTO sso_authenticators  (Auth_ID, Public_UID, Secret_UID, AES_key, sso_id, Counter, Date_Last_Used)
+    SELECT Auth_ID, Public_UID, Secret_UID, AES_key, User, Counter, Date_Last_Used FROM authenticator
+
 */
 
 // for bcrypt stuff (password_hash / password_verify)
@@ -69,6 +87,7 @@ $SSO_FAILED_LOGINS_TABLE  = 'sso_failed_logins';
 $SSO_TOKENS_TABLE         = 'sso_tokens';
 $SSO_AUTHENTICATORS_TABLE = 'sso_authenticators';
 $SSO_BANNED_IPS_TABLE     = 'sso_banned_ips';
+$SSO_BANNED_EMAIL_TABLE   = 'sso_banned_email';
 $SSO_SUSPECT_IPS_TABLE    = 'sso_suspect_ips';
 $SSO_AUDIT_TABLE          = 'sso_audit';
 $SSO_EMAIL_GUESS_TABLE    = 'sso_email_guess_ip';
@@ -125,8 +144,13 @@ $SSO_loginInfo = array (
         'sso_id'            => false, // for password changing
         );
 
+// styles for our forms boxes, and also the information box on the right
 $FORM_STYLE = <<< EOD
-<div style="margin-left:1em;
+
+<style type="text/css">
+ .form_style
+    {
+    margin-left:1em;
     margin-bottom:2em;
     border-spacing:10px 10px;
     border-width:7px;
@@ -138,7 +162,22 @@ $FORM_STYLE = <<< EOD
     display: inline-block;
     font-size:80%;
     width:60%;
-    ">
+    }
+
+  .info_style
+    {
+    margin-left:1em;
+    margin-bottom:1em;
+    padding:5px;
+    background-color:AliceBlue;
+    opacity:0.7;
+    display: inline-block;
+    font-size:70%;
+    text-align:center;
+    float:right;
+    }
+
+</style>
 EOD;
 
 function showVariables ($which)
@@ -161,13 +200,13 @@ function SSO_Audit ($audit_type_id, $sso_id)
                           VALUES (            NOW(),       ?,           ?,        ?)";
 
   $count = dbUpdateParam ($query,
-                          array ('sss', &$audit_type_id, &$sso_id, &$remote_ip));
+                          array ('iis', &$audit_type_id, &$sso_id, &$remote_ip));
   if ($count == 0)
     Problem ("Could not insert audit record");
   } // end of SSO_Audit
 
 
-function SSO_Login_Failure ($email_address, $password, $remote_ip)
+function SSO_Login_Failure ($email_address, $password, $remote_ip, $sso_id)
   {
   global $SSO_USER_TABLE, $SSO_FAILED_LOGINS_TABLE, $SSO_TOKENS_TABLE, $SSO_AUTHENTICATORS_TABLE,
          $SSO_BANNED_IPS_TABLE, $SSO_SUSPECT_IPS_TABLE, $SSO_AUDIT_TABLE;
@@ -181,32 +220,34 @@ function SSO_Login_Failure ($email_address, $password, $remote_ip)
   $password      = strtolower ($password);
 
   // generate login failure tracking record
-  $query = "INSERT INTO $SSO_FAILED_LOGINS_TABLE "
-       . "(email_address, password, date_failed, failure_ip) "
-       . "VALUES (?, ?, NOW(), ?);";
+  $query = "INSERT INTO $SSO_FAILED_LOGINS_TABLE
+            (email_address, password, date_failed, failure_ip)
+            VALUES (?, ?, NOW(), ?);";
 
   dbUpdateParam ($query, array ('sss', &$email_address, &$password, &$remote_ip));
 
   // delete old tracking records so the database doesn't get too cluttered
   dbUpdate ("DELETE FROM $SSO_FAILED_LOGINS_TABLE WHERE date_failed < DATE_ADD(NOW(), INTERVAL -1 YEAR)");
 
-  $query = "UPDATE $SSO_USER_TABLE SET "
-         . "count_failed_logins = count_failed_logins + 1 "
-         . "WHERE email_address = ? ";
-
-  dbUpdateParam ($query, array ('s', &$email_address));
+  // log a failure (bad password presumably) against the correct user
+  if ($sso_id)
+    dbUpdateParam ("UPDATE $SSO_USER_TABLE SET
+                  count_failed_logins = count_failed_logins + 1,
+                  date_last_failed_login = NOW()
+                  WHERE sso_id = ? ",
+                   array ('i', &$sso_id));
 
   // clear old login failure tracking records (so they can reset by waiting a day)
-  $query = "DELETE FROM $SSO_FAILED_LOGINS_TABLE "
-         . "WHERE email_address = ? AND failure_ip = ? "
-         . "AND date_failed < DATE_ADD(NOW(), INTERVAL -1 DAY) ";
+  $query = "DELETE FROM $SSO_FAILED_LOGINS_TABLE
+            WHERE email_address = ? AND failure_ip = ?
+            AND date_failed < DATE_ADD(NOW(), INTERVAL -1 DAY) ";
   dbUpdateParam ($query, array ('ss', &$email_address, &$remote_ip));
 
   // see how many times they failed from this IP address
-  $query = "SELECT count(*) AS counter "
-          . "FROM $SSO_FAILED_LOGINS_TABLE "
-          . "WHERE failure_ip  = ? "
-          . "AND email_address = ?";
+  $query = "SELECT count(*) AS counter
+            FROM $SSO_FAILED_LOGINS_TABLE
+            WHERE failure_ip  = ?
+            AND email_address = ?";
 
   $failure_row = dbQueryOneParam ($query, array ('ss', &$remote_ip, &$email_address));
 
@@ -282,21 +323,23 @@ function SSO_Complete_Logon ($sso_id)
 
   $server_name = $_SERVER["HTTP_HOST"];
 
+  $loginTime = strftime ("%Y-%m-%d %H:%M:%S", utctime());
+
   // note when they logged on last and from where
-  $query = "UPDATE $SSO_USER_TABLE SET "
-         . "  date_logged_on = "
-         . "  '" . strftime ("%Y-%m-%d %H:%M:%S", utctime()) . "', "
-         . "  last_remote_ip = ? "
-         . "WHERE sso_id = ?";
-  dbUpdateParam ($query, array ('ss', &$remote_ip, &$sso_id));
+  $query = "UPDATE $SSO_USER_TABLE SET
+           date_logged_on = ?,
+           last_remote_ip = ?,
+           count_logins = count_logins + 1
+           WHERE sso_id = ?";
+  dbUpdateParam ($query, array ('ssi', &$loginTime, &$remote_ip, &$sso_id));
 
   // grab user details in case we came in via the authenticator
   $SSO_UserDetails = dbQueryOneParam ("SELECT * from $SSO_USER_TABLE WHERE sso_id = ?",
-                                      array ('s', &$sso_id));
+                                      array ('i', &$sso_id));
 
   // delete out-of-date tokens
   $query = "DELETE FROM $SSO_TOKENS_TABLE WHERE sso_id = ? AND date_expires <= NOW()";
-  dbUpdateParam ($query, array ('s', &$sso_id));
+  dbUpdateParam ($query, array ('i', &$sso_id));
 
   // generate token
   $token = MakeToken ();
@@ -314,7 +357,7 @@ function SSO_Complete_Logon ($sso_id)
          . "VALUES ( ?,           ?,     NOW(),             ?,           ?, "      // see below
          . "DATE_ADD(NOW(), INTERVAL '$days' DAY))";
 
-  dbUpdateParam ($query, array ('ssss', &$sso_id, &$token, &$remote_ip, &$server_name ));
+  dbUpdateParam ($query, array ('isss', &$sso_id, &$token, &$remote_ip, &$server_name ));
 
   // audit that they logged on
   SSO_Audit ($SSO_AUDIT_LOGON, $sso_id);
@@ -382,12 +425,12 @@ function SSO_Handle_Logon ()
     $SSO_UserDetails = dbQueryOneParam ("SELECT * FROM $SSO_USER_TABLE WHERE username = ?",
                                  array ('s', &$email_address) );
 
-    // user not found - immediate failure
+    // user not found (based on username) - immediate failure
     if (!$SSO_UserDetails)
       {
       $SSO_loginInfo ['errors'] [] = "User name/password combination is not correct";
       $SSO_loginInfo ['show_login'] = true;  // show the form again
-      SSO_Login_Failure ($email_address, $password, $remote_ip);
+      SSO_Login_Failure ($email_address, $password, $remote_ip, 0);  // no sso_id known
       return;
       } // end of user not on file
     }
@@ -407,12 +450,12 @@ function SSO_Handle_Logon ()
       $SSO_UserDetails = dbQueryOneParam ("SELECT * FROM $SSO_USER_TABLE WHERE email_address = ?",
                                    array ('s', &$email_address) );
 
-    // user not found - immediate failure
+    // user not found (based on email) - immediate failure
     if (!$SSO_UserDetails)
       {
       $SSO_loginInfo ['errors'] [] = "Email address/password combination is not correct";
       $SSO_loginInfo ['show_login'] = true;  // show the form again
-      SSO_Login_Failure ($email_address, $password, $remote_ip);
+      SSO_Login_Failure ($email_address, $password, $remote_ip, 0);  // no sso_id known
       return;
       } // end of user not on file
     } // end of email address given rather than username
@@ -432,10 +475,10 @@ function SSO_Handle_Logon ()
     {
     if (!password_verify ($password, $SSO_UserDetails ['password']))
       {
+      SSO_Login_Failure ($email_address, $password, $remote_ip, $SSO_UserDetails ['sso_id']);
       $SSO_loginInfo ['errors'] [] = "Email address/password combination is not correct";
       $SSO_UserDetails = false;  // wrong password
       $SSO_loginInfo ['show_login'] = true;  // show the form again
-      SSO_Login_Failure ($email_address, $password, $remote_ip);
       return;
       } // end of wrong password
     } // end of password > 32 bytes
@@ -495,7 +538,6 @@ function SSO_ShowLoginForm ()
   global $PHP_SELF;
   global $email_address;
   global $SSO_UserDetails, $SSO_loginInfo;
-  global $FORM_STYLE;
   global $control;
 
   if ($SSO_UserDetails)
@@ -509,7 +551,7 @@ function SSO_ShowLoginForm ()
 // show the form in a nice blue box
 echo <<< EOD
 <form METHOD="post" ACTION="$PHP_SELF">
-$FORM_STYLE
+<div class="form_style">
 <h2>Log on to $sso_name</h2>
 <table>
 <tr>
@@ -544,7 +586,6 @@ function SSO_ShowNameChangeForm ()
   global $PHP_SELF;
   global $email_address;
   global $SSO_UserDetails, $SSO_loginInfo;
-  global $FORM_STYLE;
   global $control;
 
   if (!$SSO_UserDetails)
@@ -554,6 +595,7 @@ function SSO_ShowNameChangeForm ()
     }
 
   $sso_name = htmlspecialchars ($control ['sso_name']);
+  $sso_max_username_length = $control ['sso_max_username_length'];
 
   $username = htmlspecialchars ($SSO_UserDetails ['username']);
   $new_name      = getP ('new_name', 60);
@@ -563,13 +605,13 @@ function SSO_ShowNameChangeForm ()
 // show the form in a nice blue box
 echo <<< EOD
 <form METHOD="post" ACTION="$PHP_SELF">
-$FORM_STYLE
-<h2>Screen name change for $sso_name</h2>
-<p>Your existing screen name is: <b>$username</b>
+<div class="form_style">
+<h2>User name change for $sso_name</h2>
+<p>Your existing user name is: <b>$username</b>
 <table>
 <tr>
 <th align=right>New name:</th>
-<td><input type="text"      name="new_name" size=60 maxlength=60
+<td><input type="text"      name="new_name" size="$sso_max_username_length" maxlength="$sso_max_username_length"
      autofocus value="$new_name" required style="width:95%;" ></td>
 </tr>
 <tr><td></td>
@@ -588,7 +630,6 @@ function SSO_ShowAuthenticatorForm ()
   global $SSO_LOGON, $SSO_LOGON_FORM, $SSO_LOGOFF, $SSO_FORGOT_PASSWORD, $SSO_AUTHENTICATOR, $SSO_SHOW_SESSIONS;
   global $PHP_SELF;
   global $SSO_UserDetails, $SSO_loginInfo;
-  global $FORM_STYLE;
 
   $token  = $SSO_loginInfo ['token'];
   $sso_id = $SSO_loginInfo ['sso_id'];
@@ -596,7 +637,7 @@ function SSO_ShowAuthenticatorForm ()
 // show the form in a nice blue box
 echo <<< EOD
 <form METHOD="post" ACTION="$PHP_SELF">
-$FORM_STYLE
+<div class="form_style">
 
 <h2>Authenticator required</h2>
 <p><table>
@@ -623,18 +664,18 @@ function SSO_ShowNewPasswordForm ()
   global $PHP_SELF;
   global $email_address;
   global $SSO_UserDetails, $SSO_loginInfo;
-  global $FORM_STYLE;
   global $control;
 
   $hash   = $SSO_loginInfo ['new_password_hash'];  // possibly not there if we are logged in
   $sso_id = $SSO_loginInfo ['sso_id'];
 
   $sso_name = htmlspecialchars ($control ['sso_name']);
+  $sso_min_password_length = $control ['sso_min_password_length'];
 
 // show the form in a nice blue box
 echo <<< EOD
 <form METHOD="post" ACTION="$PHP_SELF">
-$FORM_STYLE
+<div class="form_style">
 <input type="hidden" name="hash" value="$hash">
 <input type="hidden" name="sso_id" value="$sso_id">
 <h2>New password for $sso_name</h2>
@@ -671,7 +712,7 @@ echo <<< EOD
 <h2>Rules for passwords</h2>
 <p>The password:
 <ul>
-<li>Must be at least <b>10 characters</b> long.
+<li>Must be at least <b>$sso_min_password_length characters</b> long.
 <li>Must contain <b>at least</b> one number, one upper-case letter, one lower-case letter, and one punctuation character.
 <li>Must <b>not be in a dictionary</b> of the most common 100 passwords (eg. "password" or "letmein")
 <li>May not consist of more than 4 of the <b>same character</b> in any position (eg. "a1a2a3a4" would not be allowed).
@@ -696,6 +737,10 @@ function SSO_ShowLoginInfo ($extra = '')
   global $action, $control;
   global $PHP_SELF;
   global $SSO_action_taken;
+  global $FORM_STYLE;
+
+  // set up the style sheet for displaying forms like the login form
+  echo ($FORM_STYLE);
 
   $sso_name = htmlspecialchars ($control ['sso_name']);
 
@@ -725,31 +770,17 @@ function SSO_ShowLoginInfo ($extra = '')
 if (!$SSO_loginInfo ['show_sessions'] && !$SSO_loginInfo ['show_new_password'])
   {
 
-    //
-
-  echo <<< EOD
-<div style="margin-left:1em;
-    border-spacing:5px;
-    border-width:7px;
-    padding:3px;
-    background-color:AliceBlue;
-    opacity:0.7;
-    display: inline-block;
-    font-size:70%;
-    text-align:left;
-    float:right;
-    ">
-EOD;
+echo '<div class = "info_style">';
 
   // show that we are logged on
   if ($SSO_UserDetails)
     {
     echo ("You are logged on as: <b>" . htmlspecialchars ($SSO_UserDetails ['username']) . "</b> ");
     // putting up the form won't work if we already have arguments on the URI
-    if ((count ($_POST) == 0 && count ($_GET) == 0) || $SSO_action_taken)
-      echo ("<a href=\"$PHP_SELF?action=$SSO_SHOW_SESSIONS\" title=\"Log off or change password\">
+//    if ((count ($_POST) == 0 && count ($_GET) == 0) || $SSO_action_taken)
+    if (count ($_GET) == 0)
+      echo ("<a href=\"$PHP_SELF?action=$SSO_SHOW_SESSIONS\" title=\"Log off, change password, or change user name\">
               <img src=\"/images/gear.png\" style=\"vertical-align:bottom;\" ></a>\n");
-    echo ($extra);
     }
   // or show the logon link, unless we have already displayed the logon form or another form
   elseif (!$SSO_loginInfo ['show_login'] &&
@@ -758,7 +789,9 @@ EOD;
           !$SSO_loginInfo ['show_new_password'] )
     hLink ("Log on", $PHP_SELF, "action=sso_logon_form");  //  to $sso_name
 
-  echo "</div>\n";
+  echo ($extra);
+
+  echo "</div><br>\n";
   } // end of not showing the sessions
 
   return $SSO_UserDetails;    // will be false if login failed
@@ -788,7 +821,7 @@ function SSO_Handle_Authenticator ()
                               "WHERE sso_id = ? ".
                               "AND   Token = ? " .
                               "AND   NOW() < DATE_ADD(Date_Token_Sent, INTERVAL 5 MINUTE) ",
-                              array ('ss', &$sso_id, &$token));
+                              array ('is', &$sso_id, &$token));
 
   if ($authRow ['counter'] == 0)
    {
@@ -804,7 +837,7 @@ function SSO_Handle_Authenticator ()
    {
    // find email address for the failure log
    $row = dbQueryOneParam ("SELECT email_address from $SSO_USER_TABLE WHERE sso_id = ?",
-                           array ('s', &$sso_id));
+                           array ('i', &$sso_id));
    $SSO_loginInfo ['errors'] [] = $log_on_error;
    $SSO_loginInfo ['show_authenticator'] = true;  // show the form again
    $SSO_UserDetails = false;
@@ -844,7 +877,7 @@ function SSO_See_If_Logged_On ()
 
   // grab user details
   $SSO_UserDetails = dbQueryOneParam ("SELECT * from $SSO_USER_TABLE WHERE sso_id = ?",
-                                      array ('s', &$sso_id));
+                                      array ('i', &$sso_id));
 
   // see if they have been blocked since they logged in
   if ($SSO_UserDetails ['blocked'])
@@ -896,7 +929,7 @@ function SSO_Handle_Logoff ()
   if ($action == $SSO_LOGOFF_ALL)
     {
     dbUpdateParam ("DELETE FROM $SSO_TOKENS_TABLE WHERE sso_id = ?",
-                  array ('s', &$sso_id));
+                  array ('i', &$sso_id));
 
     $SSO_loginInfo ['info'] [] = "Logged off from all devices.";
     // audit that they logged off
@@ -907,7 +940,7 @@ function SSO_Handle_Logoff ()
   else if ($action == $SSO_LOGOFF_OTHERS)
     {
     dbUpdateParam ("DELETE FROM $SSO_TOKENS_TABLE WHERE sso_id = ? AND token <> ?",
-                  array ('ss', &$sso_id, &$token));
+                  array ('is', &$sso_id, &$token));
 
     $SSO_loginInfo ['info'] [] = "Logged off from all other devices (except this one).";
     // audit that they logged off
@@ -916,7 +949,7 @@ function SSO_Handle_Logoff ()
   else
     {
     dbUpdateParam ("DELETE FROM $SSO_TOKENS_TABLE WHERE sso_id = ? AND token = ?",
-                  array ('ss', &$sso_id, &$token));
+                  array ('is', &$sso_id, &$token));
     $SSO_loginInfo ['info'] [] = "Logged off from this device.";
     // audit that they logged off
     SSO_Audit ($SSO_AUDIT_LOGOFF, $sso_id);
@@ -932,7 +965,6 @@ function SSO_Show_Forgot_Password_Form ()
          $SSO_AUTHENTICATOR, $SSO_SHOW_SESSIONS;
   global $PHP_SELF;
   global $SSO_UserDetails, $SSO_loginInfo;
-  global $FORM_STYLE;
   global $email_address, $control;
 
   $sso_name = htmlspecialchars ($control ['sso_name']);
@@ -946,8 +978,7 @@ function SSO_Show_Forgot_Password_Form ()
 // show the form in a nice blue box
 echo <<< EOD
 <form METHOD="post" ACTION="$PHP_SELF">
-$FORM_STYLE
-
+<div class="form_style">
 <h2>Password reset request for $sso_name</h2>
 <table>
 <tr>
@@ -975,7 +1006,6 @@ function SSO_Handle_Password_Reset_Request ()
          $SSO_PASSWORD_RESET, $SSO_AUTHENTICATOR, $SSO_SHOW_SESSIONS;
   global $PHP_SELF;
   global $SSO_UserDetails, $SSO_loginInfo;
-  global $FORM_STYLE;
   global $remote_ip;
   global $control;
   global $MAX_EMAIL_GUESSES;
@@ -1083,7 +1113,7 @@ function SSO_Handle_Password_Reset_Request ()
   // update the password on file
   $query = "UPDATE $SSO_USER_TABLE SET password_reset_hash = ? WHERE sso_id = ?";
 
-  dbUpdateParam ($query, array ('ss', &$md5_password, &$sso_id )) ;
+  dbUpdateParam ($query, array ('si', &$md5_password, &$sso_id )) ;
 
   $sso_name = $control ['sso_name'];
   $sso_url  = $control ['sso_url'];
@@ -1112,7 +1142,7 @@ function SSO_Handle_Password_Reset_Request ()
 
   // remember when we sent the password
   dbUpdateParam ("UPDATE $SSO_USER_TABLE SET password_sent_date = NOW() WHERE sso_id = ?",
-                  array ('s', &$sso_id));
+                  array ('i', &$sso_id));
 
   // remember we sent one for this IP
   if ($failureRow)
@@ -1155,7 +1185,7 @@ function SSO_Handle_Password_Reset ()
   $query = "SELECT * FROM $SSO_USER_TABLE WHERE sso_id = ?
             AND password_reset_hash = ? AND password_sent_date = DATE(NOW())";
 
-  $row = dbQueryOneParam ($query, array ('ss', &$id, &$hash)) ;
+  $row = dbQueryOneParam ($query, array ('is', &$id, &$hash)) ;
 
   if (!$row)
      {
@@ -1178,12 +1208,15 @@ function SSO_Handle_Change_Password ()
          $SSO_AUDIT_CHANGED_PASSWORD, $SSO_AUDIT_CHANGED_EMAIL;
 
   global $SSO_UserDetails, $SSO_loginInfo;
+  global $control;
 
   $hash             = getP ('hash', 32);
   $sso_id           = getP ('sso_id', 8);
   $oldpassword      = getP ('old_password', 50);
   $newpassword      = getP ('new_password', 50);
   $confirmpassword  = getP ('confirm_password', 50);
+
+  $sso_min_password_length = $control ['sso_min_password_length'];
 
   if ($SSO_UserDetails)
     {
@@ -1209,7 +1242,7 @@ function SSO_Handle_Change_Password ()
     $query = "SELECT * FROM $SSO_USER_TABLE WHERE sso_id = ?
               AND password_reset_hash = ? AND password_sent_date = DATE(NOW())";
 
-    $row = dbQueryOneParam ($query, array ('ss', &$sso_id, &$hash)) ;
+    $row = dbQueryOneParam ($query, array ('is', &$sso_id, &$hash)) ;
 
     if (!$row)
        {
@@ -1252,7 +1285,7 @@ function SSO_Handle_Change_Password ()
     }
 
   // check reasonable password given, such as: foobar12AB.,
-  $validation = passwordCheck ($newpassword, $email_address);
+  $validation = passwordCheck ($newpassword, $email_address, 'email address', $sso_min_password_length);
   if ($validation)
     {
     $SSO_loginInfo ['errors'] [] = $validation;
@@ -1268,7 +1301,7 @@ function SSO_Handle_Change_Password ()
 
   $query = "UPDATE $SSO_USER_TABLE SET password = ? WHERE sso_id = ?";
 
-  $count = dbUpdateParam ($query, array ('ss', &$md5_password, &$sso_id )) ;
+  $count = dbUpdateParam ($query, array ('si', &$md5_password, &$sso_id )) ;
 
   if ($count > 0)
     {
@@ -1281,7 +1314,7 @@ function SSO_Handle_Change_Password ()
   // that old reset hash is no longer valid
   dbUpdateParam ("UPDATE $SSO_USER_TABLE SET password_reset_hash = NULL,
                   password_sent_date = NULL WHERE sso_id = ?",
-                    array ('s', &$sso_id ));
+                    array ('i', &$sso_id ));
 
   // may as well log them on once they have reset their password
   if (!$SSO_UserDetails)
@@ -1289,32 +1322,21 @@ function SSO_Handle_Change_Password ()
 
   } // end of SSO_Handle_Change_Password
 
-function SSO_Handle_Change_Name ()
+// new username validation - made into a separate function so forum user creation (etc.) can call it
+function SSO_Validate_UserName (&$new_name, $sso_id)
   {
   global $SSO_USER_TABLE, $SSO_FAILED_LOGINS_TABLE, $SSO_TOKENS_TABLE, $SSO_AUTHENTICATORS_TABLE,
          $SSO_BANNED_IPS_TABLE, $SSO_SUSPECT_IPS_TABLE, $SSO_AUDIT_TABLE, $SSO_EMAIL_GUESS_TABLE;
+  global $control;
 
-  global $SSO_AUDIT_LOGON, $SSO_AUDIT_LOGOFF, $SSO_AUDIT_LOGOFF_ALL, $SSO_AUDIT_REQUEST_PASSWORD_RESET,
-         $SSO_AUDIT_CHANGED_PASSWORD, $SSO_AUDIT_CHANGED_EMAIL, $SSO_AUDIT_CHANGED_NAME;
-
-  global $SSO_UserDetails, $SSO_loginInfo;
-
-  $new_name      = getP ('new_name', 60);
-  $sso_id = $SSO_UserDetails ['sso_id'];
-
-  if (!$SSO_UserDetails)
-    {
-    $SSO_loginInfo ['errors'] [] = "You are not logged on.";
-    return; // give up
-    }
+  $sso_max_username_length = $control ['sso_max_username_length'];
 
   $new_name = preg_replace ('/\s+/', ' ', $new_name);  // get rid of weird multiple spaces
   if (strlen ($new_name) < 4)
-    {
-    $SSO_loginInfo ['errors'] [] = "New name is too short (must be 4 or more characters).";
-    $SSO_loginInfo ['show_name_change'] = true;
-    return; // give up
-    }
+    return "New name is too short (must be 4 or more characters).";
+
+  if (strlen ($new_name) > $sso_max_username_length)
+    return "New name is too long (maximum of $sso_max_username_length characters).";
 
   // count actual letters
   preg_match_all('`[A-Za-z]`', $new_name, $letters);
@@ -1322,11 +1344,7 @@ function SSO_Handle_Change_Name ()
 
   // we don't want them making a name like "&&--.."
   if ($letter_counts < 4)
-    {
-    $SSO_loginInfo ['errors'] [] = "Name must contain at least 4 letters (A-Z).";
-    $SSO_loginInfo ['show_name_change'] = true;
-    return; // give up
-    }
+    return "Name must contain at least 4 letters (A-Z).";
 
   // count non letters
   preg_match_all('`[^A-Za-z ]`', $new_name, $letters);
@@ -1334,19 +1352,11 @@ function SSO_Handle_Change_Name ()
 
   // we don't want them making a name like "Fred Smith&&&&&&"
   if ($letter_counts > 4)
-    {
-    $SSO_loginInfo ['errors'] [] = "Name contains too much punctuation.";
-    $SSO_loginInfo ['show_name_change'] = true;
-    return; // give up
-    }
+    return "Name contains too much punctuation.";
 
   // name should be letters, single quote (O'Brien), ampersand (Nick & Helen) or dash (Gibly-Smith)
   if (!preg_match ("`^[A-Za-z '&\.\-]+$`", $new_name))
-    {
-    $SSO_loginInfo ['errors'] [] = "New name contains symbols that are not permitted. Use letters, single quotes, spaces, ampersand or dash";
-    $SSO_loginInfo ['show_name_change'] = true;
-    return; // give up
-    }
+    return "New name contains symbols that are not permitted. Use letters, single quotes, spaces, ampersand or dash";
 
   // capitalize words - break new name into individual words
   preg_match_all('`[^ ]+`', $new_name, $words);
@@ -1387,20 +1397,50 @@ function SSO_Handle_Change_Name ()
 
   // now that we have got our nice new name, check it isn't already on file by someone else
 
-  $row = dbQueryOneParam ("SELECT * FROM sso_users WHERE username = ? AND sso_id <> ?",
-                          array ('ss', &$new_name, &$sso_id ));
+  $row = dbQueryOneParam ("SELECT * FROM $SSO_USER_TABLE WHERE username = ? AND sso_id <> ?",
+                          array ('si', &$new_name, &$sso_id ));
 
   // we don't want them making a name like "&&--.."
   if ($row)
+    return "The name \"$new_name\" is in use by someone else. Names are required to be unique.";
+
+  return false;
+  } // end of SSO_Validate_UserName
+
+function SSO_Handle_Change_Name ()
+  {
+  global $SSO_USER_TABLE, $SSO_FAILED_LOGINS_TABLE, $SSO_TOKENS_TABLE, $SSO_AUTHENTICATORS_TABLE,
+         $SSO_BANNED_IPS_TABLE, $SSO_SUSPECT_IPS_TABLE, $SSO_AUDIT_TABLE, $SSO_EMAIL_GUESS_TABLE;
+
+  global $SSO_AUDIT_LOGON, $SSO_AUDIT_LOGOFF, $SSO_AUDIT_LOGOFF_ALL, $SSO_AUDIT_REQUEST_PASSWORD_RESET,
+         $SSO_AUDIT_CHANGED_PASSWORD, $SSO_AUDIT_CHANGED_EMAIL, $SSO_AUDIT_CHANGED_NAME;
+
+  global $SSO_UserDetails, $SSO_loginInfo;
+  global $control;
+
+  $new_name      = getP ('new_name', 60);
+  $sso_id = $SSO_UserDetails ['sso_id'];
+  $sso_max_username_length = $control ['sso_max_username_length'];
+
+  if (!$SSO_UserDetails)
     {
-    $SSO_loginInfo ['errors'] [] = "The name \"$new_name\" is in use by someone else. Names are required to be unique.";
+    $SSO_loginInfo ['errors'] [] = "You are not logged on.";
+    return; // give up
+    }
+
+  // validate name, capitalize it, get rid of multiple spaces, etc.
+  $error = SSO_Validate_UserName ($new_name, $sso_id);
+
+  if ($error)
+    {
+    $SSO_loginInfo ['errors'] [] = $error;
     $SSO_loginInfo ['show_name_change'] = true;
     return; // give up
     }
 
   $query = "UPDATE $SSO_USER_TABLE SET username = ? WHERE sso_id = ?";
 
-  $count = dbUpdateParam ($query, array ('ss', &$new_name, &$sso_id )) ;
+  $count = dbUpdateParam ($query, array ('si', &$new_name, &$sso_id )) ;
 
   $SSO_UserDetails ['username'] = $new_name;
 
@@ -1425,7 +1465,6 @@ function SSO_Handle_Show_Sessions ()
          $SSO_SHOW_CHANGE_NAME, $SSO_CHANGE_NAME;
   global $PHP_SELF;
   global $SSO_UserDetails, $SSO_loginInfo;
-  global $FORM_STYLE;
   global $control;
 
   if (!$SSO_UserDetails)
@@ -1435,6 +1474,8 @@ function SSO_Handle_Show_Sessions ()
     }
   $sso_id = $SSO_UserDetails ['sso_id'];
   $token = $SSO_UserDetails ['token'];
+  $count_logins = $SSO_UserDetails ['count_logins'];
+  $count_failed_logins = $SSO_UserDetails ['count_failed_logins'];
 
 
   $sso_name = htmlspecialchars ($control ['sso_name']);
@@ -1442,31 +1483,55 @@ function SSO_Handle_Show_Sessions ()
   $email_address = htmlspecialchars ($SSO_UserDetails ['email_address']);
 
   $row = dbQueryOneParam ("SELECT COUNT(*) AS counter FROM $SSO_TOKENS_TABLE WHERE sso_id = ?",
-                      array ('s', &$sso_id ));
+                      array ('i', &$sso_id ));
   $counter = $row ['counter'];
 
   // find when this token logged on
-  $row = dbQueryOneParam ("SELECT DATE_FORMAT(date_logged_on, '%a %D %M %Y at %l:%i %p') AS Date_formatted
+  $row = dbQueryOneParam ("SELECT DATE_FORMAT(date_logged_on, '%a %D %M %Y at %l:%i %p') AS date_logged_on_formatted
                           FROM $SSO_TOKENS_TABLE WHERE token = ?",
                           array ('s', &$token ));
 
-  $date_logged_on = htmlspecialchars ($row ['Date_formatted']);
+  $date_logged_on_formatted = htmlspecialchars ($row ['date_logged_on_formatted']);
+
+  // get a formatted date when we failed to logon
+  $row = dbQueryOneParam ("SELECT DATE_FORMAT(date_last_failed_login, '%a %D %M %Y at %l:%i %p')
+                          AS date_last_failed_login_formatted FROM $SSO_USER_TABLE WHERE sso_id = ?",
+                          array ('i', &$sso_id ));
+
+  $date_last_failed_login_formatted = htmlspecialchars ($row ['date_last_failed_login_formatted']);
 
   if ($counter == 1)
-    $s = '';
+    $s1 = '';
   else
-    $s = 's';
+    $s1 = 's';
+
+  if ($count_logins == 1)
+    $s2 = '';
+  else
+    $s2 = 's';
+
+  if ($count_failed_logins == 1)
+    $s3 = '';
+  else
+    $s3 = 's';
+
+  if ($count_failed_logins > 0)
+    $failedInfo = "<li>You have <b>$count_failed_logins</b> failed login$s3, the most recent at <b>$date_last_failed_login_formatted</b>";
+  else
+    $failedInfo = "";
 
 // show in a nice blue box
 echo <<< EOD
-$FORM_STYLE
+<div class="form_style">
 <h2>User management for $sso_name</h2>
 <h3>Information</h3>
 <ul>
 <li>You are logged on as: <b>$username</b>
+<li>You are logged on at <b>$counter</b> device$s1. (A device being a computer, laptop, tablet, phone etc.)
 <li>Your email address is: <b>$email_address</b>
-<li>You have been logged on since: <b>$date_logged_on</b>
-<li>You are logged on at $counter device$s. (A device being a computer, laptop, tablet, phone etc.)
+<li>You have been logged on since: <b>$date_logged_on_formatted</b>
+<li>You have logged on <b>$count_logins</b> time$s2
+$failedInfo
 </ul>
 <h3>Actions</h3>
 <ul>
@@ -1485,7 +1550,7 @@ EOD;
 
 echo <<< EOD
 <li><a href="$PHP_SELF?action=$SSO_SHOW_CHANGE_PASSWORD">Change your password</a>
-<li><a href="$PHP_SELF?action=$SSO_SHOW_CHANGE_NAME">Change your screen name from <b>$username</b> to something else.</a>
+<li><a href="$PHP_SELF?action=$SSO_SHOW_CHANGE_NAME">Change your user name from <b>$username</b> to something else.</a>
 </ul>
 <a href="$PHP_SELF">Close</a>
 </div>
@@ -1493,6 +1558,22 @@ EOD;
 
 
   } // end of SSO_Handle_Show_Sessions
+
+// for things like the forum where we want to get rid of someone
+function SSO_Delete_User ($sso_id)
+  {
+  global $SSO_USER_TABLE, $SSO_FAILED_LOGINS_TABLE, $SSO_TOKENS_TABLE, $SSO_AUTHENTICATORS_TABLE,
+         $SSO_BANNED_IPS_TABLE, $SSO_SUSPECT_IPS_TABLE, $SSO_AUDIT_TABLE;
+
+  // get rid of their tokens first
+  dbUpdateParam ("DELETE FROM $SSO_TOKENS_TABLE WHERE sso_id = ?",
+                    array ('i', &$sso_id ));
+
+  // get rid of the user
+  dbUpdateParam ("DELETE FROM $SSO_USER_TABLE WHERE sso_id = ?",
+                    array ('i', &$sso_id ));
+
+  } // SSO_Delete_User
 
 // *****************************************************************
 //      SSO_Authenticate - call for all authentication actions

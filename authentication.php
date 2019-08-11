@@ -580,15 +580,13 @@ echo <<< EOD
 <tr>
 <th align=right>Password:</th>
 <td><input type="password"  name="password" size=50 maxlength=60 required style="width:95%;"></td>
-</tr>
-<tr><td></td>
-<td><a href="$PHP_SELF?action=$SSO_FORGOT_PASSWORD">Forgot password</a></td>
-</tr>
+
 <tr><td></td>
 <td><input type="submit"    value="Log on"></td>
 </tr>
 </table>
 <a href="$PHP_SELF">Cancel log on</a>
+<a href="$PHP_SELF?action=$SSO_FORGOT_PASSWORD" style="float:right;">Forgot password</a>
 </div>
 <input type="hidden"    name="action" value="$SSO_LOGON">
 </form>

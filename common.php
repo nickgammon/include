@@ -444,6 +444,8 @@ function GetControlItems ()
     'sso_hhs_active'            => 0,   // 1 -> look for hhs_member users
     'sso_max_username_length'   => 50,  // Maximum user name they can use
     'sso_min_password_length'   => 10,  // Minimum password length
+    'sso_motd_logged_on'        => 'NONE',  // Some message IN HTML or "NONE"
+    'sso_motd_logged_off'       => 'NONE',  // Some message IN HTML or "NONE"
     'sso_motd'                  => 'NONE',  // Some message IN HTML or "NONE"
     'sso_name'                  => 'NAME OF THIS SYSTEM',  // eg. Gammon Software forum
     'sso_url'                   => 'https://URL_OF_THIS_SYSTEM',  // eg. https://gammon.com.au

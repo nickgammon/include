@@ -351,8 +351,12 @@ function SSO_Complete_Logon ($sso_id)
   $SSO_UserDetails = dbQueryOneParam ("SELECT * from $SSO_USER_TABLE WHERE sso_id = ?",
                                       array ('i', &$sso_id));
 
-  // delete out-of-date tokens
-  dbUpdate ("DELETE FROM $SSO_TOKENS_TABLE WHERE date_expires <= NOW()");
+  // Delete out-of-date tokens for this user.
+  // Don't delete for all users on the off-chance that a randomly-generated token
+  // might give you access to a different user.
+  // The unique key on the tokens table will then stop that from happening.
+  $query = "DELETE FROM $SSO_TOKENS_TABLE WHERE sso_id = ? AND date_expires <= NOW()";
+  dbUpdateParam ($query, array ('i', &$sso_id));
 
   // generate token
   $token = MakeToken ();
@@ -375,6 +379,7 @@ function SSO_Complete_Logon ($sso_id)
   SSO_Audit ($SSO_AUDIT_LOGON, $sso_id);
 
   // we will JSON-encode the token *and* the expiry date, so we can find the expiry date later
+  // See: https://stackoverflow.com/questions/4203225/how-to-get-cookies-expire-time
   $cookieData = (object) array( "token" => $token, "expiry" => $expiryTime );
   setcookie($SSO_COOKIE_NAME, json_encode($cookieData ), $expiryTime , "/");
 
@@ -754,17 +759,28 @@ function SSO_ShowLoginInfo ($extra = '')
   // set up the style sheet for displaying forms like the login form
   echo ($FORM_STYLE);
 
-  $sso_name = htmlspecialchars ($control ['sso_name']);
-  if (isset ($control ['sso_motd']))
-    $sso_motd = $control ['sso_motd'];
-  else
-    $sso_motd = false;
+  // name of our system
+  $sso_name             = htmlspecialchars ($control ['sso_name']);
 
+  // messages of the day
+  $sso_motd             = $control ['sso_motd'];
+  $sso_motd_logged_on   = $control ['sso_motd_logged_on'];
+  $sso_motd_logged_off  = $control ['sso_motd_logged_off'];
+
+  // MOTD - always shown
   if ($sso_motd && $sso_motd != "NONE")
+    echo "<div class = \"motd_style\">$sso_motd</div>\n";
+
+  // MOTD - conditional
+  if ($SSO_UserDetails) // logged on
     {
-    echo "<div class = \"motd_style\">";
-    echo ($sso_motd);
-    echo "</div>";
+    if ($sso_motd_logged_on && $sso_motd_logged_on != "NONE")
+      echo "<div class = \"motd_style\">$sso_motd_logged_on</div>\n";
+    }
+  else  // logged off
+    {
+    if ($sso_motd_logged_off && $sso_motd_logged_off != "NONE")
+      echo "<div class = \"motd_style\">$sso_motd_logged_off</div>\n";
     }
 
   // show errors

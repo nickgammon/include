@@ -439,6 +439,15 @@ function GetControlItems ()
     'shortdatetimeformat'   => '%e %b %r',  // default short date/time format
     'encoding'              => 'UTF-8',  // character encoding
 
+    // Single sign on (SSO) control items
+    'sso_forum_active'          => 0,   // 1 -> look for forum users
+    'sso_hhs_active'            => 0,   // 1 -> look for hhs_member users
+    'sso_max_username_length'   => 50,  // Maximum user name they can use
+    'sso_min_password_length'   => 10,  // Minimum password length
+    'sso_motd'                  => 'NONE',  // Some message IN HTML or "NONE"
+    'sso_name'                  => 'NAME OF THIS SYSTEM',  // eg. Gammon Software forum
+    'sso_url'                   => 'https://URL_OF_THIS_SYSTEM',  // eg. https://gammon.com.au
+
   );  // end of defaults
 
   // add in any defaults not provided
@@ -778,13 +787,6 @@ function Init ($title,
           $links [] = $link;
           shLink ($link, "Users", $FORUM_URL . "bbuserlist.php");
           $links [] = $link;
-          shLink ($link, "Search", $FORUM_URL . "bbsearch.php");
-          $links [] = $link;
-          if ($control ['faq_url'])
-            {
-            shLink ($link, "FAQ", $control ['faq_url']);
-            $links [] = $link;
-            }
           } // end of being logged in to forum
         else if ($control ['allow_registrations'])
           {
@@ -793,6 +795,14 @@ function Init ($title,
                              "", true);
           $links [] = $link;
           } // end of not being logged in to forum, but registrations permitted
+
+        shLink ($link, "Search", $FORUM_URL . "bbsearch.php");
+        $links [] = $link;
+        if ($control ['faq_url'])
+          {
+          shLink ($link, "FAQ", $control ['faq_url']);
+          $links [] = $link;
+          }
 
         // put together the extra links
         $extra .= '<br>' . implode (' ', $links);
@@ -1240,28 +1250,7 @@ function LI ()
 // returns an hlink in a string
 function shLink (&$result, $description, $destination, $params="", $newwindow=false, $nofollow=false)
   {
-  global $userinfo, $viewsource, $foruminfo;
-  $token = "";
-  $session = "";
-
-  if (!isset ($foruminfo ['have_cookie_ok']) && isset ($foruminfo ['token']))
-    $token = $foruminfo ['token'];
-  if (!isset ($userinfo ['have_cookie_ok']) && isset ($userinfo ['session']))
-    $session = $userinfo ['session'];
-
-  if ($session && $token)
-    $session = "?session=$session&amp;token=$token";
-  else if ($session)
-    $session = "?session=$session";
-  else if ($token)
-    $session = "?token=$token";
-  else
-    $session = "";
-
   $params = htmlspecialchars ($params, ENT_SUBSTITUTE | ENT_QUOTES | ENT_HTML5);   // should be &amp; inside URLs
-
-  if ($viewsource == "yes")
-    $session .= "&amp;viewsource=yes";
 
   if ($newwindow)
     $target = " target=\"_blank\"";
@@ -1271,17 +1260,10 @@ function shLink (&$result, $description, $destination, $params="", $newwindow=fa
   if ($nofollow)
     $target .= " rel=\"nofollow\"";
 
-  // only show session ID if we have one, and we are going to a dynamic page
-  if (!empty ($session) && stristr ($destination, ".php"))
-    if (empty ($params))
-      $result =  "<a href=\"$destination$session\"$target>$description</a>\n";
-    else
-      $result =  "<a href=\"$destination$session&$params\"$target>$description</a>\n";
+  if (empty ($params))
+    $result =   "<a href=\"$destination\"$target>$description</a>\n";
   else
-    if (empty ($params))
-      $result =   "<a href=\"$destination\"$target>$description</a>\n";
-    else
-      $result =   "<a href=\"$destination?$params\"$target>$description</a>\n";
+    $result =   "<a href=\"$destination?$params\"$target>$description</a>\n";
 
   } // end of shLink
 

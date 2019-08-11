@@ -161,7 +161,6 @@ $FORM_STYLE = <<< EOD
     padding:1em;
     display: inline-block;
     font-size:80%;
-    width:60%;
     }
 
   .info_style
@@ -175,6 +174,21 @@ $FORM_STYLE = <<< EOD
     font-size:70%;
     text-align:center;
     float:right;
+    }
+
+ .motd_style
+    {
+    margin-left:1em;
+    margin-bottom:2em;
+    border-spacing:10px 10px;
+    border-width:3px;
+    border-color:SandyBrown;
+    border-style:solid;
+    border-radius:10px;
+    background-color:SeaShell;
+    padding:1em;
+    display: inline-block;
+    box-shadow:3px 3px 5px black;
     }
 
 </style>
@@ -570,7 +584,7 @@ echo <<< EOD
 <td><input type="submit"    value="Log on"></td>
 </tr>
 </table>
-<a href="$PHP_SELF">Cancel log in</a>
+<a href="$PHP_SELF">Cancel log on</a>
 </div>
 <input type="hidden"    name="action" value="$SSO_LOGON">
 </form>
@@ -736,13 +750,23 @@ function SSO_ShowLoginInfo ($extra = '')
   global $SSO_UserDetails, $SSO_loginInfo;
   global $action, $control;
   global $PHP_SELF;
-  global $SSO_action_taken;
   global $FORM_STYLE;
 
   // set up the style sheet for displaying forms like the login form
   echo ($FORM_STYLE);
 
   $sso_name = htmlspecialchars ($control ['sso_name']);
+  if (isset ($control ['sso_motd']))
+    $sso_motd = $control ['sso_motd'];
+  else
+    $sso_motd = false;
+
+  if ($sso_motd && $sso_motd != "NONE")
+    {
+    echo "<div class = \"motd_style\">";
+    echo ($sso_motd);
+    echo "</div>";
+    }
 
   // show errors
   foreach ($SSO_loginInfo ['errors'] as $error)
@@ -777,7 +801,6 @@ echo '<div class = "info_style">';
     {
     echo ("You are logged on as: <b>" . htmlspecialchars ($SSO_UserDetails ['username']) . "</b> ");
     // putting up the form won't work if we already have arguments on the URI
-//    if ((count ($_POST) == 0 && count ($_GET) == 0) || $SSO_action_taken)
     if (count ($_GET) == 0)
       echo ("<a href=\"$PHP_SELF?action=$SSO_SHOW_SESSIONS\" title=\"Log off, change password, or change user name\">
               <img src=\"/images/gear.png\" style=\"vertical-align:bottom;\" ></a>\n");
@@ -1589,10 +1612,6 @@ function SSO_Authenticate ()
   global $action;
   global $PHP_SELF, $remote_ip;
   global $SSO_UserDetails, $SSO_loginInfo;
-  global $SSO_action_taken;
-
-
-  $SSO_action_taken = true;
 
   // Note: $action is already set by common.php
 
@@ -1615,7 +1634,7 @@ function SSO_Authenticate ()
   switch ($action)
     {
     case $SSO_LOGON                   : SSO_Handle_Logon ();                            break;
-    case $SSO_LOGON_FORM              : $SSO_loginInfo ['show_login'] = true;               break;
+    case $SSO_LOGON_FORM              : $SSO_loginInfo ['show_login'] = true;           break;
     case $SSO_LOGOFF                  : SSO_Handle_Logoff ();                           break;
     case $SSO_LOGOFF_ALL              : SSO_Handle_Logoff ();                           break;
     case $SSO_LOGOFF_OTHERS           : SSO_Handle_Logoff ();                           break;
@@ -1625,11 +1644,9 @@ function SSO_Authenticate ()
     case $SSO_CHANGE_NAME             : SSO_Handle_Change_Name ();                      break;
     case $SSO_PASSWORD_RESET          : SSO_Handle_Password_Reset ();                   break;
     case $SSO_AUTHENTICATOR           : SSO_Handle_Authenticator ();                    break;
-    case $SSO_SHOW_SESSIONS           : $SSO_loginInfo ['show_sessions'] = true;            break;
-    case $SSO_SHOW_CHANGE_PASSWORD    : $SSO_loginInfo ['show_new_password'] = true;        break;
-    case $SSO_SHOW_CHANGE_NAME        : $SSO_loginInfo ['show_name_change'] = true;         break;
-
-    default: $SSO_action_taken = false; break;
+    case $SSO_SHOW_SESSIONS           : $SSO_loginInfo ['show_sessions'] = true;        break;
+    case $SSO_SHOW_CHANGE_PASSWORD    : $SSO_loginInfo ['show_new_password'] = true;    break;
+    case $SSO_SHOW_CHANGE_NAME        : $SSO_loginInfo ['show_name_change'] = true;     break;
     } // end of switch on $action
   } // end of SSO_Authenticate
 ?>

@@ -45,6 +45,7 @@ Copyright © 2001 Nick Gammon.
 
 // for bcrypt stuff (password_hash / password_verify)
 require ($INCLUDE_DIRECTORY . "password.php");
+require ($INCLUDE_DIRECTORY . "authentication.php");
 
 // stop XSS injection  - get rid of stuff like <!'/*!"/*!\'/*\"/*--!><svg/onload=prompt(/OPENBUGBOUNTY/)>
 //     (added to the end of the URL, which we would then echo back as part of $PHP_SELF)
@@ -83,6 +84,11 @@ $VALID_REGISTRATION_NUMBER = '^[A-Z]+\-?[0-9]+((\.[0-9]+)|[A-Z]+)?$';   // HHS r
 
 $sql_evaluations = array ();
 
+$USER_TABLE = 'user';
+$USER_TOKEN_TABLE = 'usertoken';
+
+$dblink = false;
+
 /*
 global $VALID_NUMBER, $VALID_FLOAT, $VALID_DATE, $VALID_ACTION, $VALID_BOOLEAN, $VALID_SQL_ID,
        $VALID_COLOUR, $VALID_REGISTRATION_NUMBER;
@@ -90,6 +96,8 @@ global $VALID_NUMBER, $VALID_FLOAT, $VALID_DATE, $VALID_ACTION, $VALID_BOOLEAN, 
 
 // save doing this in every file
 $action      = getGPC ('action', 40, $VALID_ACTION);
+
+$shownHTMLheader = false;  // eg. <html><head> etc.
 
 DefaultColours ();
 
@@ -287,7 +295,7 @@ function ShowError ($theerror)
 
   echo "<table border=\"0\" cellpadding=\"5\"> <tr bgcolor=\"$COLOUR_ERROR_BGND\"> "
      . "<td><font color=\"$COLOUR_ERROR_TEXT\"><b>\n";
-  echo (htmlspecialchars ($theerror, ENT_SUBSTITUTE | ENT_QUOTES | ENT_HTML5) . "\n");
+  echo (nl2br_http (htmlspecialchars ($theerror, ENT_SUBSTITUTE | ENT_QUOTES | ENT_HTML5) . "\n"));
   echo "</b></font></td></tr></table>\n";
   } // end of ShowError
 
@@ -300,6 +308,16 @@ function ShowWarning ($theWarning)
   {
   ShowWarningH (nl2br_http (htmlspecialchars ($theWarning, ENT_SUBSTITUTE | ENT_QUOTES | ENT_HTML5)));
   } // end of ShowWarning
+
+function ShowInfoH ($theInfo)
+  {
+  echo ("<p style=\"color:darkgreen; font-weight:bold;\">" . $theInfo . "</p>\n");
+  } // end of ShowInfoH
+
+function ShowInfo ($theInfo)
+  {
+  ShowInfoH (nl2br_http (htmlspecialchars ($theInfo, ENT_SUBSTITUTE | ENT_QUOTES | ENT_HTML5)));
+  } // end of ShowInfo
 
 function ColourEchoH ($theMessage, $theColour, $bold = false, $italic = false)
   {
@@ -325,11 +343,33 @@ function ColourEcho ($theMessage, $theColour, $bold = false, $italic = false)
 function MajorProblem ($why)
   {
   global $WEBMASTER;
-  echo "<html><head><title>System error</title></head>\n";
-  echo "<h3>We apologise that there has been a problem with the web server ...</h3>\n";
+  global $shownHTMLheader;
+
+  if (!$shownHTMLheader)
+echo <<< EOD
+<!DOCTYPE html>
+<html lang="en">
+<head><title>System error</title></head>
+<div style="
+    margin-left:1em;
+    margin-bottom:2em;
+    border-spacing:10px 10px;
+    border-width:7px;
+    border-color:#CD5C5C;
+    border-style:dotted;
+    background-color:#EEE8AA;
+    padding:1em;
+    font-size:120%;
+    width:70%;
+    box-shadow:7px 7px 10px black;
+    " >
+<p>We apologise that there has been a problem with the web server ...</h3>
+EOD;
+
   ShowError ($why);
   echo "<p>Error occurred at " . strftime ("%Y-%m-%d %H:%M:%S", time()) . "</p>\n";
   echo "<p>Please notify <a href=\"mailto:$WEBMASTER\">$WEBMASTER</a> of the above message and time.</p>";
+  echo "</div>\n";
   echo "</body></html>\n";
   die ();
   } // end of MajorProblem
@@ -351,6 +391,10 @@ function OpenDatabase ($dbserver, $dbuser, $dbname, $dbpassword)
 
   // save database name in case needed later
   $current_database_name = $dbname;
+
+  // if database already open, don't open it again
+  if (gettype ($dblink) == 'object')
+    return;
 
   $dblink = mysqli_connect($dbserver, $dbuser, $dbpassword, $dbname);
 
@@ -377,19 +421,44 @@ function GetControlItems ()
   $result = mysqli_query ($dblink, "SELECT * FROM control")   // WTF?
     or MajorProblem ("Select of control table failed: " . mysqli_connect_error ());
 
+  // read entire control table into memory
   while ($row = dbFetch ($result))
     $control [$row ['item']] = $row ['contents'];
-
   dbFree ($result);
 
   $control ['forum_url'] = "//" . $_SERVER ["HTTP_HOST"] . "/forum";
-  $HEADING_COLOUR = '#72A2C9';
-  $BODY_COLOUR    = '#BBDEEA';
 
-  if (isset ($control ['colour_table_heading']))
-    $HEADING_COLOUR = $control ['colour_table_heading'];
-  if (isset ($control ['colour_table_body']))
-    $BODY_COLOUR = $control ['colour_table_body'];
+  // put any defaults you want here
+  $defaults = array (
+    'colour_table_heading'  => '#72A2C9',
+    'colour_table_body'     => '#BBDEEA',
+    'dateformat'            => '%e %b %Y',  // default date format
+    'shortdateformat'       => '%e %b',  // default short date format
+    'timeformat'            => '%r',  // default time format
+    'datetimeformat'        => '%e %b %Y %r',  // default date/time format
+    'shortdatetimeformat'   => '%e %b %r',  // default short date/time format
+    'encoding'              => 'UTF-8',  // character encoding
+
+    // Single sign on (SSO) control items
+    'sso_forum_active'          => 0,   // 1 -> look for forum users
+    'sso_hhs_active'            => 0,   // 1 -> look for hhs_member users
+    'sso_max_username_length'   => 50,  // Maximum user name they can use
+    'sso_min_password_length'   => 10,  // Minimum password length
+    'sso_motd_logged_on'        => 'NONE',  // Some message IN HTML or "NONE"
+    'sso_motd_logged_off'       => 'NONE',  // Some message IN HTML or "NONE"
+    'sso_motd'                  => 'NONE',  // Some message IN HTML or "NONE"
+    'sso_name'                  => 'NAME OF THIS SYSTEM',  // eg. Gammon Software forum
+    'sso_url'                   => 'https://URL_OF_THIS_SYSTEM',  // eg. https://gammon.com.au
+
+  );  // end of defaults
+
+  // add in any defaults not provided
+  foreach ($defaults as $key => $value)
+    if (!isset ($control [$key]) || !$control [$key])
+      $control [$key] = $value;
+
+  $HEADING_COLOUR = $control ['colour_table_heading'];
+  $BODY_COLOUR    = $control ['colour_table_body'];
 
   // Set the timezone in the current script
   date_default_timezone_set("Australia/Melbourne");
@@ -401,44 +470,6 @@ function GetControlItems ()
     dbUpdate ("SET time_zone = '" . $matches [1] . ":" . $matches [2] . "'");  // hopefully OK
 
   } // end of GetControlItems
-
-/*
-
-I am doing sessions my own way for a number of reasons. The main one is I want to know
-what is happening, and I only want session id tags to appear on pages if you have logged
-in, otherwise it isn't necessary.
-
-*/
-
-function CheckSessionID ($noHTML = false)
-  {
-  global $control, $userinfo, $adminaction, $ADMIN_DIRECTORY;
-
-  if (empty ($userinfo))
-    return;   // no session for this guy
-
-  if ($adminaction == "logoff")
-    {
-    LogOff ();
-    $userinfo = "";   // don't use unset, it doesn't change the global version
-    return;
-    }
-
-  $userinfo ["logged_on"] = true;
-
-  if ($noHTML)
-    return;
-
-  echo "<p style=\"font-size:x-small; text-align:right;\"> Logged on as <b>"
-     . $userinfo ["username"]
-     . "</b>&nbsp;&nbsp;";
-  hLink ("(Menu)", $ADMIN_DIRECTORY . "logon.php");
-  hLink ("(Log off)", $ADMIN_DIRECTORY . "logon.php", "adminaction=logoff");
-  echo $control ['admin_links'];    // extra useful links
-  echo "</p>\n";
-
-  } // end of CheckSessionID
-
 
 // for the Yubikey
 function crc16 ($data, $len)
@@ -484,7 +515,7 @@ function crc16 ($data, $len)
   return $decoded;
 } // end of modHexDecode
 
-function HandleAuthenticator ($userid, $authenticator_table)
+function HandleAuthenticator ($userid, $authenticator_table, $userField = 'User')
   {
   $authenticator  = trim ($_POST ['authenticator']);
 
@@ -541,29 +572,33 @@ Generation:
  //   return "Authenticator token wrong length, should be 44, is actually " . strlen ($authenticator);
 
 
-  $decodedToken = modHexDecode($authenticator);
+  $decodedToken = modHexDecode($authenticator);  // this halves the number of bytes to 22
 
   if (!$decodedToken)
     return "Authenticator token incorrect format";
 
-  $publicUID = substr ($decodedToken, 0, 6);
-  $encryptedToken = substr ($decodedToken, 6);
+  $publicUID = substr ($decodedToken, 0, 6);   // first 6 are not encrypted
+  $encryptedToken = substr ($decodedToken, 6, 16); // remaining 16 are encrypted
 
   // the public user ID is not encrypted
   $publicUID_converted = bin2hex ($publicUID);
 
   // see if this authenticator is on file (for the desired user id)
-  $authrow = dbQueryOneParam ("SELECT * FROM $authenticator_table WHERE User = ? AND Public_UID = ?",
+  $authrow = dbQueryOneParam ("SELECT * FROM $authenticator_table WHERE $userField = ? AND Public_UID = ?",
                               array ('ss', &$userid, &$publicUID_converted));
 
   if (!$authrow)
     return "That authenticator is not on file";
+
 
   $decrypted = mcrypt_decrypt (MCRYPT_RIJNDAEL_128 ,
                                 pack('H*',$authrow ['AES_key']),
                                 $encryptedToken,
                                 MCRYPT_MODE_CBC,
                                 str_repeat("\0", 16));
+
+// doesn't work for some reason at present: returns false
+//  $decrypted = openssl_decrypt ($encryptedToken, 'AES-256-CBC', pack('H*',$authrow ['AES_key']), OPENSSL_RAW_DATA, str_repeat("\0", 16));
 
    $crc = crc16 ($decrypted, 16);
 
@@ -614,153 +649,6 @@ Generation:
    return false;  // no problems
   } // end of HandleAuthenticator
 
-// this is for an *adminstrative* logon, eg. to edit SQL tables etc.
-
-function CheckAdminSession ()
-  {
-  global $userinfo, $userid, $adminaction, $username;
-  global $TABLE_AUDIT_LOGON;
-  global $log_on_error;
-
-  // do NOT get POST variable or we switch users when editing the user table
-  if (isset ($_GET ['session']))
-    $adminsession = $_GET ['session'];
-  if (empty ($adminsession) && isset ($_COOKIE ['session']))
-    $adminsession = $_COOKIE ['session'];
-
-  $userinfo = "";
-
-  // if they are logging on, let them
-
-  $adminaction = trim (getPG ('adminaction'));
-
-  if ($adminaction == "logon")
-    {
-    $username = getP ('username', 30);
-    $password = getP ('password', 50);
-    $userinfo = dbQueryOneParam ("SELECT * FROM user WHERE username = ? ",
-                                 array ('s', &$username) );
-
-    // if no password on the database, logging in MUST fail
-    if (!$userinfo ['password'])
-      {
-      $userinfo = "";  // no password
-      }
-    // longer password means bcrypt: method / cost / salt / password
-    else if (PasswordCompat\binary\check() &&
-        PasswordCompat\binary\_strlen ($userinfo ['password']) > 32)
-      {
-      if (!password_verify ($password, $userinfo ['password']))
-        $userinfo = "";  // wrong password
-      }
-    else
-      {
-      $md5_password = md5 ($password . $userinfo ['salt']);  // salt might be empty
-      if ($userinfo ['password'] != $md5_password)
-        $userinfo = "";  // wrong password
-      }
-
-    if ($userinfo)
-      {
-
-     // try and work out their IP address
-      $remote_ip = getIPaddress ();
-
-      if ($userinfo ['required_ip'])
-        if ($userinfo ['required_ip'] != $remote_ip)
-          {
-          $userinfo = "";
-          Problem ("You cannot log on from the IP address $remote_ip");
-          }
-      $userid = $userinfo ['userid'];
-
-      $authrow = dbQueryOne ("SELECT COUNT(*) AS counter FROM authenticator WHERE User = $userid"); // internally generated
-
-      if ($authrow ['counter'] > 0 )
-       {
-       $log_on_error = HandleAuthenticator ($userid, 'authenticator');
-       if ($log_on_error)
-         {
-         $userinfo = "";
-         return;  // failed authentication
-         }
-       }
-
-      // generate session
-      $session = MakeToken ();
-
-      $query = "UPDATE user SET session = '$session', "
-             . "date_logged_on = "
-             . "'" . strftime ("%Y-%m-%d %H:%M:%S", utctime()) . "' "
-             . "WHERE userid = $userid";
-
-      dbUpdate ($query);   // internally generated
-
-      // convert to bcrypt password if not done already
-      if (PasswordCompat\binary\check())
-        {
-        if (PasswordCompat\binary\_strlen ($userinfo ['password']) <= 32)
-          {
-          $md5_password = password_hash($password, PASSWORD_BCRYPT, array("cost" => 13));
-          $query = "UPDATE user SET salt = NULL, password = '$md5_password' "
-                 . "WHERE userid = $userid";
-          dbUpdate ($query);   // internally generated
-          } // end of generating better password hash and saving it
-        } // end of bcrypt available
-      else
-        {   // bcrypt not available
-        if (!$userinfo ['salt'])
-          {
-          $salt = MakeToken ();
-          $md5_password = md5 ($password . $salt);  // now have salted password hash
-          $query = "UPDATE user SET salt = '$salt', password = '$md5_password' "
-                 . "WHERE userid = $userid";
-          dbUpdate ($query);   // internally generated
-          }
-
-        }  // end of bcrypt not available
-
-      $userinfo ['session'] = $session;
-      $expiry = $userinfo ['cookie_expiry'];
-      if (!$expiry)
-        $expiry = 60 * 60 * 24 * 7;    // expire in 7 days as default
-      if ($userinfo ['use_cookies'])   // only if wanted
-        setcookie ('session', $userinfo ['session'], utctime() + $expiry, "/");
-
-      // audit logons
-      edittableAudit ($TABLE_AUDIT_LOGON, 'user', $userid);
-
-      } // end of user on file
-
-      return;   // end of logon process
-
-    } // end of logon wanted
-
-  if (empty ($adminsession))    // not logged on yet
-    return;   // no session, and not logging in
-
-  $userinfo = dbQueryOneParam ("SELECT * FROM user WHERE session = ?",
-                               array ('s', &$adminsession));
-
-  if ($userinfo) // will be empty if no match
-    {
-
-      /*
-  echo '<p>Here is some debugging info:';
-  echo '<pre>';
-  print_r($userinfo);
-  echo '</pre>';
-      */
-
-    // if the user is found, and their session was the same one found in the cookie
-    // we don't need to pass sessions on URLs, which makes them look better
-
-    if ($userinfo ['session'] == $_COOKIE ['session'])
-      $userinfo ['have_cookie_ok'] = true;   // don't need to pass sessions on links
-    } // end of reading that user OK
-
-  } // end of CheckAdminSession
-
 function GetUserColours ()
   {
   global $foruminfo;
@@ -781,95 +669,6 @@ function GetUserColours ()
 
   } // end of GetUserColours
 
-function ForumUserLoginFailure ($username, $password, $remote_ip)
-  {
-  global $foruminfo, $blocked, $banned_ip, $MAX_LOGIN_FAILURES, $MAX_UNKNOWN_USER_FAILURES;
-
-  $username = strtolower ($username);
-  $password = strtolower ($password);
-
-  // generate login failure tracking record
-  $query = "INSERT INTO bbuser_login_failure "
-       . "(username, password, date_failed, failure_ip) "
-       . "VALUES (?, ?, NOW(), ?);";
-
-  dbUpdateParam ($query, array ('sss', &$username, &$password, &$remote_ip));
-
-  $query = "UPDATE bbuser SET "
-         . "count_failed_logins = count_failed_logins + 1 "
-         . "WHERE username = ? ";
-
-  dbUpdateParam ($query, array ('s', &$username));
-
-  // clear old login failure tracking records (so they can reset by waiting a day)
-  $query = "DELETE FROM bbuser_login_failure "
-         . "WHERE username = ? AND failure_ip = ? "
-         . "AND date_failed < DATE_ADD(NOW(), INTERVAL -1 DAY) ";
-
-  dbUpdateParam ($query, array ('ss', &$username, &$remote_ip));
-
-  // see how many times they failed from this IP address
-  $query = "SELECT count(*) AS counter "
-          . "FROM bbuser_login_failure "
-          . "WHERE failure_ip  = ? "
-          . "AND username = ?";
-
-  $failure_row = dbQueryOneParam ($query, array ('ss', &$remote_ip, &$username));
-
-  if ($failure_row ['counter'] > $MAX_LOGIN_FAILURES)
-    {
-    // now block that IP address
-    $query = "INSERT INTO bbbanned_ip (ip_address, date_banned, reason) "
-           . "VALUES ( ?, NOW(), CONCAT('Too many forum login failures for: ', ?) )";
-    // don't check query, maybe already on file
-    dbUpdateParam ($query, array ('ss', &$remote_ip, &$username), false);
-    }
-
-  // Extra code to allow for bots trying non-existent usernames:
-
-  // see if user exists
-  $row = dbQueryOneParam ("SELECT username FROM bbuser WHERE username = ? ",
-                          array ('s', &$username));
-
-  if ($row)
-    return;  // username exists, all is OK
-
-  $row = dbQueryOneParam ("SELECT * FROM bbsuspect_ip WHERE ip_address = ? ",
-                          array ('s', &$remote_ip));
-
-  if ($row)
-    {
-    if ($row ['count'] >=  $MAX_UNKNOWN_USER_FAILURES)
-      {
-      // right! that does it!
-      // now block that IP address
-      $query = "INSERT INTO bbbanned_ip (ip_address, date_banned, reason) "
-             . "VALUES ( ?, NOW(), 'Too many attempts to login to forum with unknown username' )";
-      dbUpdateParam ($query, array ('s', &$remote_ip));
-      // get rid of from bbuser_login_failure
-      dbUpdateParam ("DELETE FROM bbuser_login_failure WHERE failure_ip = ? ",
-                     array ('s', &$remote_ip));
-      // get rid of from bbsuspect_ip
-      dbUpdateParam ("DELETE FROM bbsuspect_ip WHERE ip_address = ?",
-                     array ('s', &$remote_ip));
-      }
-    else
-      {
-      // increment counter - haven't hit limit yet
-      dbUpdateParam ("UPDATE bbsuspect_ip SET count = count + 1 WHERE ip_address = ?",
-                     array ('s', &$remote_ip));
-      }
-
-    } // if already on file
-  else
-    {
-    dbUpdateParam ("INSERT INTO bbsuspect_ip (ip_address, count) VALUES (?, 1)",
-                   array ('s', &$remote_ip));
-    }
-
-
-  }  // end of ForumUserLoginFailure
-
 function getForumInfo ($where, $params)
   {
   global $foruminfo;
@@ -887,382 +686,6 @@ function getForumInfo ($where, $params)
 
   } // end of getForumInfo
 
-function completeForumLogon ($bbuser_id)
-{
-  global $foruminfo, $blocked, $banned_ip, $control;
-  global $AUDIT_LOGGED_ON, $AUDIT_LOGGED_OFF;
-
-  // try and work out their IP address
-  $remote_ip = getIPaddress ();
-
-  $server_name = $_SERVER["HTTP_HOST"];
-
-  getForumInfo ("bbuser_id = ?", array ('i', &$bbuser_id));
-
-  $username = $foruminfo ['username'];
-  // generate token
-  $token = MakeToken ();
-
-  $query = "UPDATE bbuser SET "
-         . "  token = NULL, "
-         . "  date_logged_on = "
-         . "  '" . strftime ("%Y-%m-%d %H:%M:%S", utctime()) . "', "
-         . "  last_remote_ip = ? "
-         . "WHERE bbuser_id = ?";
-
-  dbUpdateParam ($query, array ('ss', &$remote_ip, &$bbuser_id));
-
-  $query = "DELETE FROM bbusertoken WHERE bbuser_id = ? AND date_expires <= NOW()";
-
-  dbUpdateParam ($query, array ('s', &$bbuser_id));
-
-  $expiry = $foruminfo ['cookie_expiry'];
-  if (!$expiry)
-    $expiry = 60 * 60 * 24 * 7;    // expire in 7 days as default
-
-  $days = ceil ($expiry / (60 * 60 * 24));
-
-  $query = "INSERT INTO bbusertoken "
-         .        "(bbuser_id, token, date_logged_on, last_remote_ip, server_name, date_expires) "
-         . "VALUES ( ?,           ?,     NOW(),             ?,           ?, "      // see below
-         . "DATE_ADD(NOW(), INTERVAL '$days' DAY))";
-
-  dbUpdateParam ($query, array ('ssss', &$bbuser_id, &$token, &$remote_ip, &$server_name ));
-
-  audit ($AUDIT_LOGGED_ON, $bbuser_id);
-
-  $foruminfo ['token'] = $token;
-  if ($foruminfo ['use_cookies'])   // only if wanted
-    setcookie ('token', $foruminfo ['token'], utctime() + $expiry, "/");
-
-  // clear login failure tracking records (so they don't accumulate)
-  $query = "DELETE FROM bbuser_login_failure "
-         . "WHERE username = ? AND failure_ip = ?";
-  dbUpdateParam ($query, array ('ss', &$username, &$remote_ip));
-
-  // get rid of from bbsuspect_ip - this IP seems OK now
-  dbUpdateParam ("DELETE FROM bbsuspect_ip WHERE ip_address = ?", array ('s', &$remote_ip));
-
-  GetUserColours ();
-
-} // end of completeForumLogon
-
-
-function doForumLogon()
-  {
-  global $foruminfo, $blocked, $banned_ip, $control;
-  global $PHP_SELF;
-
-  // get rid of quotes so they can paste from the email like this: "Nick Gammon"
-  $username = getP ('username', 30);
-  $username = str_replace ("\"", " ", $username);
-
-  $password = getP ('password', 50);
-
-  $remote_ip = getIPaddress ();
-
-  $server_name = $_SERVER["HTTP_HOST"];
-
-  getForumInfo ("username = ?", array ('s', &$username));
-
-  // if no password on the database, logging in MUST fail
-  if (!$foruminfo ['password'])
-    {
-    $foruminfo = "";  // no password
-    }
-
-  // longer password means bcrypt: method / cost / salt / password
-  else if (PasswordCompat\binary\check() &&
-      PasswordCompat\binary\_strlen ($foruminfo ['password']) > 32)
-    {
-    if (!password_verify ($password, $foruminfo ['password']))
-      $foruminfo = "";  // wrong password
-    }
-  else
-    {
-    $md5_password = md5 ($password . $foruminfo ['salt']);  // salt might be empty
-    if ($foruminfo ['password'] != $md5_password)
-      $foruminfo = "";  // wrong password
-    }
-
-  if (!$foruminfo)
-    {
-    ForumUserLoginFailure ($username, $password, $remote_ip);
-    return;
-    }   // end of not on file
-
-  if ($foruminfo ['blocked'])
-    {
-    $blocked = true;    // can't do it
-    $foruminfo = "";
-    return; // give up
-    }
-
-  if ($foruminfo ['required_ip'])
-    if ($foruminfo ['required_ip'] != $remote_ip)
-      {
-      $foruminfo = "";
-      return;  // don't generate a cookie
-      }
-
-  $banned_row = dbQueryOneParam ("SELECT * FROM bbbanned_ip WHERE ip_address  = ?",
-                                array ('s', &$remote_ip));
-  if ($banned_row)
-    {
-    $banned_ip = true;    // can't do it
-    $foruminfo = "";
-    return; // give up
-    } // end of a match
-
-  $bbuser_id = $foruminfo ['bbuser_id'];
-
-  // convert to bcrypt password if not done already
-
-  if (PasswordCompat\binary\check())
-    {
-    if (PasswordCompat\binary\_strlen ($foruminfo ['password']) <= 32)
-      {
-      $md5_password = password_hash($password, PASSWORD_BCRYPT, array("cost" => 13));
-      $query = "UPDATE bbuser SET salt = NULL, password = ? "
-             . "WHERE bbuser_id = ?";
-      dbUpdateParam ($query, array ('ss', &$md5_password, &$bbuser_id) );
-      } // end of generating better password hash and saving it
-    } // end of bcrypt available
-  else
-    {   // bcrypt not available
-    if (!$foruminfo ['salt'])
-      {
-      $salt = MakeToken ();
-      $md5_password = md5 ($password . $salt);  // now have salted password hash
-      $query = "UPDATE bbuser SET salt = ?, password = ? WHERE bbuser_id = ?";
-      dbUpdateParam ($query, array ('ssi', &$salt, &$md5_password, &$bbuser_id));
-      }  // end of generating better password hash and saving it
-    }  // end of bcrypt not available
-
-  // generate token
-  $token = MakeToken ();
-
-  // see if this guy needs authentication
-  $authrow = dbQueryOneParam ("SELECT COUNT(*) AS counter FROM authenticator_forum WHERE User = ?",
-                              array ('i', &$bbuser_id));
-
-  // no, so log them in
-  if ($authrow ['counter'] == 0 )
-    {
-    completeForumLogon ($bbuser_id);
-    return;
-    }
-
-  // security check for when they respond
-  dbUpdateParam ("UPDATE authenticator_forum SET Token = ?, Date_Token_Sent = NOW() WHERE User = ?",
-                 array ('si', &$token, &$bbuser_id));
-
-  // HTML control items
-  GetControlItems ();
-
-  $encoding = $control ['encoding'];
-
-  header("Content-type: text/html; charset=$encoding");
-  MessageHead ("Forum authentication", "", "");
-
-  ?>
-  <form METHOD="post" ACTION="<?php echo $PHP_SELF;?>">
-  <table>
-  <tr>
-  <th align=right>Authenticator required:</th>
-  <td><input type=text name=authenticator size=64 maxlength=64 autofocus></td>
-  </tr>
-  <tr>
-  <td>
-  <input type=hidden name=action value="authenticator">
-  <?php
-  echo "<input type=hidden name=bbuser_id value=$bbuser_id>\n";
-  echo "<input type=hidden name=token value=\"$token\">\n";
-  ?>
-  <p><input Type=submit Value="Confirm"></p>
-  </td>
-  </tr>
-  </table>
-  </form>
-  </html>
-  <?php
-
-  MessageTail ();
-  die ();
-
-  } // end of doForumLogon
-
-function checkForumAuthenticator ()
-  {
-  global $foruminfo, $blocked, $banned_ip, $control;
-
-  $bbuser_id  = getP ('bbuser_id');
-  $token  =     getP ('token');
-
-  CheckField ("forum user", $bbuser_id);
-
-  // check user ID and token are OK
-  $authrow = dbQueryOneParam ("SELECT COUNT(*) AS counter FROM authenticator_forum " .
-                             "WHERE User = ? ".
-                             "AND   Token = ? " .
-                             "AND   NOW() < DATE_ADD(Date_Token_Sent, INTERVAL 5 MINUTE) ",
-                             array ('ss', &$bbuser_id, &$token));
-
-  if ($authrow ['counter'] == 0)
-   {
-   $foruminfo = "";
-   return "Authenticator request out of date or invalid";  // that user id / token is not on file
-   }
-
-  $log_on_error = HandleAuthenticator ($bbuser_id, 'authenticator_forum');
-  if ($log_on_error)
-   {
-   $foruminfo = "";
-   return $log_on_error;  // failed authentication
-   }
-
-  // cancel that token string on the authenticator table
-  dbUpdateParam ("UPDATE authenticator_forum SET Token = '' WHERE User = ?", array ('i', &$bbuser_id));
-  completeForumLogon ($bbuser_id);
-
-  return false;
-  } // end of checkForumAuthenticator
-
-function CheckForumToken ()
-  {
-  global $foruminfo, $blocked, $banned_ip;
-  global $log_on_error;
-
-
-  $forumtoken = getPGC ('token');
-
-  $foruminfo = "";
-
-  // try and work out their IP address
-  $remote_ip = getIPaddress ();
-
-  // if they are logging on, let them
-
-  $action = getP ('action');
-
-  // clear old login IP ban records (so they can reset by waiting a day)
-  $query = "DELETE FROM bbbanned_ip "
-         . "WHERE ip_address = ? AND "
-         . "date_banned < DATE_ADD(NOW(), INTERVAL -1 DAY) AND "
-         . "reason LIKE 'Too many forum login failures for%' ";
-
-  dbUpdateParam ($query, array ('s', &$remote_ip));
-
-  $banned_row = dbQueryOneParam ("SELECT * FROM bbbanned_ip WHERE ip_address  = ?",
-                                 array ('s', &$remote_ip)) ;
-
-  if ($banned_row)
-    {
-    $banned_ip = true;    // can't do it
-    $foruminfo = "";
-    return; // give up
-    } // end of a match
-
-  if ($action == "logon")
-    {
-    doForumLogon ();
-    return;   // end of logon process
-    } // end of logon wanted
-  else if ($action == "authenticator")
-    {
-    $log_on_error = checkForumAuthenticator ();
-    return;   // end of logon process
-    } // end of authenticator response
-
-  if (empty ($forumtoken))    // not logged on yet
-    return;   // no token, and not logging in
-
-  // first look up token in bbusertoken (this allows for multiple logins)
-
-  $tokeninfo = dbQueryOneParam ("SELECT * FROM bbusertoken WHERE token = ? "  .
-                                "AND date_expires >= NOW()",
-                                array ('s', &$forumtoken) );
-
-  // if found, use user id in the bbusertoken table to find the forum user id
-
-  if ($tokeninfo) // will be empty if no match
-    {
-    $id = $tokeninfo ['bbuser_id'];
-
-    getForumInfo ("bbuser_id = ?", array ('i', &$id));
-
-    if ($foruminfo) // will be empty if no match
-      {
-      // if the user is found, and their token was the same one found in the cookie
-      // we don't need to pass tokens on URLs, which makes them look better
-
-      if (isset ($tokeninfo ['token']) && ($tokeninfo ['token'] == $_COOKIE ['token']))
-        $foruminfo ['have_cookie_ok'] = true;   // don't need to pass tokens on links
-      }
-
-    } // end of reading that user OK
-
-  // check if they carried a good token to a bad IP
-  if (isset ($foruminfo ['required_ip']))
-    if ($foruminfo ['required_ip'] != $remote_ip)
-      $foruminfo = "";
-
-  // check for a problem user logging in
-  if (isset ($foruminfo ['blocked']) && $foruminfo ['blocked'])
-    {
-    $blocked = true;    // can't do it
-    $foruminfo = "";
-    }
-  else
-    GetUserColours ();
-
-  } // end of CheckForumToken
-
-// log off by changing the session id
-function LogOff ()
-  {
-  global $userinfo;
-  global $TABLE_AUDIT_LOGOFF;
-
-  // generate another random token - they won't know that one!
-  $session = MakeToken ();
-
-  $query = "UPDATE user SET session = ? WHERE userid = ?";
-  dbUpdateParam ($query, array ('ss', &$session, &$userinfo ['userid']));
-
-  // audit log offs
-  edittableAudit ($TABLE_AUDIT_LOGOFF, 'user',  $userinfo ['userid']);
-
-  $userinfo = "";    // user info is no good
-
-  } // end of LogOff
-
-function ShowSource ($filename)
-  {
-
-  Permission ('viewsource');
-
-// see: highlight_file ($source_name);
-
-  $fd = @fopen ($filename, "r")
-    or Problem ("Cannot open file '$filename'");
-  $sourcedata = fread ($fd, filesize ($filename))
-    or Problem ("Cannot read file '$filename'");
-  fclose ($fd);
-  bTable ();
-  bRow ("lightblue");
-  tHead ("Source of: $filename");
-  eRow ();
-  bRow ("azure");
-  echo "<td><pre><font size=\"3\"><code>\n";
-  echo htmlspecialchars ($sourcedata, ENT_SUBSTITUTE | ENT_QUOTES | ENT_HTML5);
-  echo "</code></font></pre></td>";
-  eRow ();
-  eTable ();
-  $sourcedata = "";
-
-  } // end of  ShowSource
-
 function Init ($title,
                $keywords = "",
                $mail=false,
@@ -1273,26 +696,22 @@ function Init ($title,
                $otherheaderhtml = "",
                $noContentType = false)
   {
-  global $userinfo, $logoff, $control, $PHP_SELF,
+  global $logoff, $control, $PHP_SELF,
          $viewsource, $PATH_TRANSLATED, $pagestarttime, $doingMail;
+  global $USER_TABLE;
+  global $SSO_UserDetails;
+  global $ADMIN_DIRECTORY;
+  global $FORUM_URL;
 
-  // default databases
-  global $DATABASE_SERVER, $GENERAL_DATABASE_USER,
-         $GENERAL_DATABASE_NAME, $GENERAL_DATABASE_PASSWORD;
+  global $userinfo;         // administrative user
+  global $hhs_member_info;  // HHS user
+  global $foruminfo;        // forum user
 
-  $PHP_SELF = $_SERVER['PHP_SELF'];
+  $hhs_member_info = false;
+  $userinfo = false;
+  $foruminfo = false;
 
   date_default_timezone_set('Australia/ACT');
-
-  // take defaults if necessary
-   if ($dbserver == "")
-     $dbserver = $DATABASE_SERVER;
-   if ($dbuser == "")
-     $dbuser = $GENERAL_DATABASE_USER;
-   if ($dbname == "")
-     $dbname = $GENERAL_DATABASE_NAME;
-   if ($dbpassword == "")
-     $dbpassword = $GENERAL_DATABASE_PASSWORD;
 
   // note when we started, for timing purposes
   $pagestarttime = getmicrotime ();
@@ -1300,52 +719,101 @@ function Init ($title,
   header("Cache-Control: no-cache, must-revalidate"); // HTTP/1.1
   header("Expires: Mon, 26 Jul 1997 05:00:00 GMT"); // Date in the past
 
-  if ($doingMail = $mail)  // this assignment is intentional
-    OpenMailDatabase ();
-  else
+//  if ($doingMail = $mail)  // this assignment is intentional
+//    OpenMailDatabase ();
+
+  $sso_forum_active = $control ['sso_forum_active'];
+  $sso_hhs_active   = $control ['sso_hhs_active'];
+
+  if ($SSO_UserDetails)
     {
-    OpenDatabase ($dbserver, $dbuser, $dbname, $dbpassword);
-    // I am going to use cookies here, so I must do it before I do the header :)
-    CheckAdminSession ();
-    CheckForumToken ();
-    }
+    $sso_id = $SSO_UserDetails ['sso_id'];
 
-  $control ['dateformat'] = "%e %b %Y";  // default date format
-  $control ['shortdateformat'] = "%e %b";  // default short date format
-  $control ['timeformat'] = "%r";  // default time format
-  $control ['datetimeformat'] = "%e %b %Y %r";  // default date/time format
-  $control ['shortdatetimeformat'] = "%e %b %r";  // default short date/time format
-  $control ['encoding'] = "UTF-8";  // character encoding
+    // see if this is an administrative user
+    $userinfo = dbQueryOneParam ("SELECT * FROM $USER_TABLE WHERE sso_id = ?",
+                                  array ('i', &$sso_id));
+    if ($userinfo)
+        $userinfo ['logged_on'] = true;
 
-  // HTML control items
-  GetControlItems ();
+    if ($sso_hhs_active)
+      {
+      // see if this is an HHS user
+      $hhs_member_info = dbQueryOneParam ("SELECT * FROM hhs_member LEFT JOIN hhs_member_sso USING (Member_ID) WHERE sso_id = ?",
+                                    array ('i', &$sso_id));
+      }
 
-  $encoding = $control ['encoding'];
+    if ($sso_forum_active)
+      {
+      // see if this is a forum user
+      getForumInfo ("sso_id = ?", array ('i', &$sso_id));
+      if ($foruminfo)
+        GetUserColours ();
+      }
+     }  // end of being logged in
 
   // for CSV files etc.
   if ($noContentType)
-    {
-    CheckSessionID (true);
     return;
-    }
 
-  header("Content-type: text/html; charset=$encoding");
+  header("Content-type: text/html; charset=" . $control ['encoding']);
+
+  $extra = '';
+
+  $FORUM_URL = $control ['forum_url'] . '/';
 
   // empty title means we are doing a "printable" page
   if ($title)
     {
     MessageHead ($title, $keywords, $otherheaderhtml);
+    if (!$noContentType)
+      {
+      if ($userinfo ['logged_on'])
+        {
+        $extra = $control ['admin_links'];    // extra useful links
+        if ($userinfo ['executesql'])
+          {
+          shLink ($adminLink, "(Menu)", $ADMIN_DIRECTORY . "logon.php");
+          $extra = $adminLink . ' ' . $extra;
+          } // end of can execute SQL
+        } // end of administrative logon
 
-    // we check the session ID here because it outputs HTML which has to come
-    // after the header (eg. the fact that you are logged on)
+       if ($sso_forum_active)
+        {
+        $links = array ();
+        if ($foruminfo)
+          {
+          $bbuser_id = $foruminfo ['bbuser_id'];
+          shLink ($link, "Log off", $PHP_SELF, "action=sso_logoff");
+          $links [] = $link;
+          shLink ($link, "View profile", $FORUM_URL . "bbshowbio.php", "bbuser_id=$bbuser_id");
+          $links [] = $link;
+          shLink ($link, "Users", $FORUM_URL . "bbuserlist.php");
+          $links [] = $link;
+          } // end of being logged in to forum
+        else if ($control ['allow_registrations'])
+          {
+          shLink ($link, "Register forum user name",
+                             $FORUM_URL . "bbuseredit.php",
+                             "", true);
+          $links [] = $link;
+          } // end of not being logged in to forum, but registrations permitted
 
-    CheckSessionID ();
+        shLink ($link, "Search", $FORUM_URL . "bbsearch.php");
+        $links [] = $link;
+        if ($control ['faq_url'])
+          {
+          shLink ($link, "FAQ", $control ['faq_url']);
+          $links [] = $link;
+          }
 
-    if ($viewsource == "yes")
-      ShowSource ($PATH_TRANSLATED);
-    }
-  else
-    CheckSessionID (true);
+        // put together the extra links
+        $extra .= '<br>' . implode (' ', $links);
+
+        } // end of forum active
+
+       } // end of not a CSV file or similar
+    SSO_ShowLoginInfo ($extra);
+    } // end of having some sort of title
 
   } // end of Init
 
@@ -1364,81 +832,85 @@ function MessageHead ($title, $keywords, $otherheaderhtml)
   {
 global $control, $foruminfo;
 global $bbsubject_id, $bbtopic_id, $bbsection_id;
+global $shownHTMLheader;
 
-if ($title == "%FORUM_NAME%")
-  {
+  if ($title == "%FORUM_NAME%")
+    {
 
-  // let them use just "id=x" on the URL
+    // let them use just "id=x" on the URL
 
-  $bbsubject_id = getGP ('id');
-  if (!$bbsubject_id || ValidateInt ($bbsubject_id))
-    $bbsubject_id = getGP ('bbsubject_id');
+    $bbsubject_id = getGP ('id');
+    if (!$bbsubject_id || ValidateInt ($bbsubject_id))
+      $bbsubject_id = getGP ('bbsubject_id');
 
-  $bbtopic_id = getGP ('bbtopic_id');
-  $bbsection_id = getGP ('bbsection_id');
+    $bbtopic_id = getGP ('bbtopic_id');
+    $bbsection_id = getGP ('bbsection_id');
 
-  // get better title (put section/topic/subject into it)
+    // get better title (put section/topic/subject into it)
 
-  $title = $control ['forum_name'];
-  if ($bbsubject_id && !ValidateInt ($bbsubject_id))
-    $title .= " : " .  LookupSubject (true);
-  else if ($bbtopic_id && !ValidateInt ($bbtopic_id))
-    $title .= " : " . LookupTopic (true);
-  else if ($bbsection_id && !ValidateInt ($bbsection_id))
-    $title .= " : " . LookupSection (true);
+    $title = $control ['forum_name'];
+    if ($bbsubject_id && !ValidateInt ($bbsubject_id))
+      $title .= " : " .  LookupSubject (true);
+    else if ($bbtopic_id && !ValidateInt ($bbtopic_id))
+      $title .= " : " . LookupTopic (true);
+    else if ($bbsection_id && !ValidateInt ($bbsection_id))
+      $title .= " : " . LookupSection (true);
 
-  } // end of forum title
+    } // end of forum title
 
-$head = str_replace ("<%TITLE%>", htmlspecialchars ($title, ENT_SUBSTITUTE | ENT_QUOTES | ENT_HTML5), $control ['head']);
-$head = str_replace ("<%KEYWORDS%>", htmlspecialchars ($keywords, ENT_SUBSTITUTE | ENT_QUOTES | ENT_HTML5), $head);
-
-
-if (isset ($foruminfo ['font']))
-  $control ['font'] = '<font face="' . $foruminfo ['font'] . '" size="-1">';
-
-// build up CSS styles for user-supplied text and background colours
-
-$font_string = "\n" .
-              '<style type="text/css">' . "\n" .
-              '  body {color:' ;
-
-// if they specified a colour for their body, don't use the default
-
-if (isset ($foruminfo ['colour_text']))
-   $font_string .= $foruminfo ['colour_text'];
-else
-   $font_string .= $control ['colour_text'];
-
-$font_string .= '; }' . "\n" .
-                '  body {background-color: ';
-
-// ditto for background
-
-if (isset ($foruminfo ['colour_body']))
-  {
-  $font_string .=  $foruminfo ['colour_body'] .  ";\n" ;
-  $font_string .= "background-image: none; }\n";
-  }
-else
-  $font_string .=  $control ['colour_body'] . "; }\n" ;
-
-// and take custom font
-
-if (isset ($foruminfo ['font']) && $foruminfo ['font'])
-  {
-  $font_string .=  '  body { font-family: ';
-  $font_string .=  $foruminfo ['font'] .  "; }\n" ;
-  }
-
-$font_string .= "</style>\n";
-
-$head = str_replace ("<%BODY%>", $control ['body'], $head);
-
-$head = str_replace ("<%FONT%>", $font_string, $head);
+  $head = str_replace ("<%TITLE%>", htmlspecialchars ($title, ENT_SUBSTITUTE | ENT_QUOTES | ENT_HTML5), $control ['head']);
+  $head = str_replace ("<%KEYWORDS%>", htmlspecialchars ($keywords, ENT_SUBSTITUTE | ENT_QUOTES | ENT_HTML5), $head);
 
 
-echo $head;
-echo $otherheaderhtml;    // eg. refresh
+  if (isset ($foruminfo ['font']))
+    $control ['font'] = '<font face="' . $foruminfo ['font'] . '" size="-1">';
+
+  // build up CSS styles for user-supplied text and background colours
+
+  $font_string = "\n" .
+                '<style type="text/css">' . "\n" .
+                '  body {color:' ;
+
+  // if they specified a colour for their body, don't use the default
+
+  if (isset ($foruminfo ['colour_text']))
+     $font_string .= $foruminfo ['colour_text'];
+  else
+     $font_string .= $control ['colour_text'];
+
+  $font_string .= '; }' . "\n" .
+                  '  body {background-color: ';
+
+  // ditto for background
+
+  if (isset ($foruminfo ['colour_body']))
+    {
+    $font_string .=  $foruminfo ['colour_body'] .  ";\n" ;
+    $font_string .= "background-image: none; }\n";
+    }
+  else
+    $font_string .=  $control ['colour_body'] . "; }\n" ;
+
+  // and take custom font
+
+  if (isset ($foruminfo ['font']) && $foruminfo ['font'])
+    {
+    $font_string .=  '  body { font-family: ';
+    $font_string .=  $foruminfo ['font'] .  "; }\n" ;
+    }
+
+  $font_string .= "</style>\n";
+
+  $head = str_replace ("<%BODY%>", $control ['body'], $head);
+
+  $head = str_replace ("<%FONT%>", $font_string, $head);
+
+
+  echo $head;
+  echo $otherheaderhtml;    // eg. refresh
+
+  $shownHTMLheader = true;
+
   }   // end of MessageHead
 
 /*
@@ -1581,9 +1053,23 @@ function GetStatusName ($statusid, &$statusname)
 
 function Problem ($why)
   {
+  global $shownHTMLheader;
+  global $control;
+
+  if (!$shownHTMLheader)
+    echo <<< EOD
+<!DOCTYPE html>
+<html lang="en">
+<head><title>System error</title></head>
+EOD;
+
   echo "<h3>There is a problem ...</h3><p>\n";
   ShowError ($why);
-  MessageTail (false);
+  if (isset ($control ['tail']))
+    MessageTail (false);
+  else
+    echo "</body></html>\n";
+
   die ();
   } // end of Problem
 
@@ -1766,28 +1252,7 @@ function LI ()
 // returns an hlink in a string
 function shLink (&$result, $description, $destination, $params="", $newwindow=false, $nofollow=false)
   {
-  global $userinfo, $viewsource, $foruminfo;
-  $token = "";
-  $session = "";
-
-  if (!isset ($foruminfo ['have_cookie_ok']) && isset ($foruminfo ['token']))
-    $token = $foruminfo ['token'];
-  if (!isset ($userinfo ['have_cookie_ok']) && isset ($userinfo ['session']))
-    $session = $userinfo ['session'];
-
-  if ($session && $token)
-    $session = "?session=$session&amp;token=$token";
-  else if ($session)
-    $session = "?session=$session";
-  else if ($token)
-    $session = "?token=$token";
-  else
-    $session = "";
-
   $params = htmlspecialchars ($params, ENT_SUBSTITUTE | ENT_QUOTES | ENT_HTML5);   // should be &amp; inside URLs
-
-  if ($viewsource == "yes")
-    $session .= "&amp;viewsource=yes";
 
   if ($newwindow)
     $target = " target=\"_blank\"";
@@ -1797,17 +1262,10 @@ function shLink (&$result, $description, $destination, $params="", $newwindow=fa
   if ($nofollow)
     $target .= " rel=\"nofollow\"";
 
-  // only show session ID if we have one, and we are going to a dynamic page
-  if (!empty ($session) && stristr ($destination, ".php"))
-    if (empty ($params))
-      $result =  "<a href=\"$destination$session\"$target>$description</a>\n";
-    else
-      $result =  "<a href=\"$destination$session&$params\"$target>$description</a>\n";
+  if (empty ($params))
+    $result =   "<a href=\"$destination\"$target>$description</a>\n";
   else
-    if (empty ($params))
-      $result =   "<a href=\"$destination\"$target>$description</a>\n";
-    else
-      $result =   "<a href=\"$destination?$params\"$target>$description</a>\n";
+    $result =   "<a href=\"$destination?$params\"$target>$description</a>\n";
 
   } // end of shLink
 
@@ -1817,35 +1275,6 @@ function hLink ($description, $destination, $params="", $newwindow=false, $nofol
   shLink ($result, $description, $destination, $params, $newwindow, $nofollow);
   echo $result;
   }   // end of hLink
-
-// use this to send a form, preserving forum session id
-function ForumSession ()
-  {
-  global $foruminfo;
-  if (!isset ($foruminfo ['have_cookie_ok']))
-    if (!empty ($foruminfo))
-      {
-      $token = $foruminfo ['token'];
-      echo "<input type=\"hidden\" name=\"token\" value=\"$token\"/>\n";
-      }
-  } // end of ForumSession
-
-// use this to send a form, preserving session id
-function FormSession ()
-  {
-  global $userinfo, $viewsource;
-
-  if (!isset ($userinfo ['have_cookie_ok']))
-    if (!empty ($userinfo))
-    {
-    $session = $userinfo ['session'];
-    echo "<input type=\"hidden\" name=\"session\" value=\"$session\"/>\n";
-    }
-  if ($viewsource == "yes")
-    echo "<input type=\"hidden\" name=\"viewsource\" value=\"yes\"/>\n";
-  ForumSession ();
-  } // end of FormSession
-
 
 // check we can do something
 function Permission ($todo)
@@ -2652,7 +2081,7 @@ function ShowTablesToEdit ()
 
   $userid = $userinfo ["userid"];
   $row = dbQueryOneParam ("SELECT * FROM access WHERE userid = ? AND tablename = '%'",
-                          array ('s', &$userid));
+                          array ('i', &$userid));
 
   if ($row)
     {
@@ -2673,7 +2102,7 @@ function ShowTablesToEdit ()
   else
     {
     // find the tables he can edit
-    $results = dbQueryParam ("SELECT * FROM access WHERE userid = ? AND can_select = 1", array ('s', &$userid));
+    $results = dbQueryParam ("SELECT * FROM access WHERE userid = ? AND can_select = 1", array ('i', &$userid));
     foreach ($results as $row)
       {
       $table = $row ['tablename'];
@@ -2684,7 +2113,6 @@ function ShowTablesToEdit ()
 
   echo "</select>\n";
 
-  FormSession ();
   echo "&nbsp; &nbsp; <input Type=submit name=dump Value=\"Edit\"> </p>\n";
   echo "</form>\n";
   } // end of ShowTablesToEdit
@@ -3276,7 +2704,7 @@ function audit ($bbaudit_type_id,   // what action it is (eg. add, change, delet
           . "   NOW(),            ?,            ?,        ?,          ?,            ?,       ?,   ? )";
 
   $count = dbUpdateParam ($query,
-    array ('sssssss', &$bbaudit_type_id, &$bbuser_id, &$bbpost_id, &$bbsubject_id, &$bbtopic_id,
+    array ('iiiiiss', &$bbaudit_type_id, &$bbuser_id, &$bbpost_id, &$bbsubject_id, &$bbtopic_id,
                       &$extra, &$ip));
   if ($count == 0)
     Problem ("Could not insert audit record");
@@ -3322,7 +2750,7 @@ function edittableAudit ($audit_type_id, $table, $primary_key, $comment="")
           . "    NOW(),        ?,            ?,          ?,     ?,     ?,          ?  )";
 
   $count = dbUpdateParam ($query,
-    array ('ssssss', &$audit_type_id, &$table, &$userid, &$ip, &$primary_key, &$comment));
+    array ('isisss', &$audit_type_id, &$table, &$userid, &$ip, &$primary_key, &$comment));
   if ($count == 0)
     Problem ("Could not insert audit record");
   } // end of edittableAudit
@@ -3375,7 +2803,7 @@ function edittableWriteUndo ($audit_type_id, $table, $primary_key, $sql )
 
 
   $count = dbUpdateParam ($query,
-      array ('ssssss', &$audit_type_id, &$table, &$userid, &$ip, &$primary_key, &$sql ));
+      array ('isisss', &$audit_type_id, &$table, &$userid, &$ip, &$primary_key, &$sql ));
   if ($count == 0)
     Problem ("Could not insert undo record");
   } // end of edittableWriteUndo
@@ -5144,19 +4572,18 @@ function getInterval ($days)
 
   } // end of getInterval
 
-function passwordCheck ($pass, $username = "")
+function passwordCheck ($pass, $username = "", $username_description = 'username', $sso_min_password_length = 10)
   {
-  $MINIMUM_LENGTH = 10;
-  $MINIMUM_NUMBERS = 2;
-  $MINIMUM_UC_LETTERS = 2;
-  $MINIMUM_LC_LETTERS = 2;
-  $MINIMUM_PUNCTUATION = 2;
+  $MINIMUM_NUMBERS = 1;
+  $MINIMUM_UC_LETTERS = 1;
+  $MINIMUM_LC_LETTERS = 1;
+  $MINIMUM_PUNCTUATION = 1;
   $MAXIMUM_REPEATED_CHARACTER = 4;
   $MAXIMUM_SEQUENCE = 3;
   $PUNCTUATION = "~!@#$%^&*()_+`-={}|[]\:\";'<>?,./";
 
-  if (strlen ($pass) < $MINIMUM_LENGTH)
-    return "Password must be at least $MINIMUM_LENGTH characters";
+  if (strlen ($pass) < $sso_min_password_length)
+    return "Password must be at least $sso_min_password_length characters";
 
   // array of counts of occurrences of first 256 characters
   $counts = array ();
@@ -5311,10 +4738,10 @@ function passwordCheck ($pass, $username = "")
       {
       $word = substr ($username, $i, 4);  // get 4 characters of name
       if (stristr ($pass, $word) !== FALSE)
-        return "Part of your username ($word) is inside the password";
+        return "Part of your $username_description ($word) is inside the password";
       $revword = strrev ($word);
       if (stristr ($pass, $revword) !== FALSE)
-        return "Part of your username ($word) is inside the password (reversed)";
+        return "Part of your $username_description ($word) is inside the password (reversed)";
       } // end of checking each 4 characters
     } // end if have a username
 
@@ -5454,5 +4881,18 @@ SET NAMES 'latin1';
   echo ("COMMIT;\n");
 
   } // end of DumpSQL
+
+function CheckLoggedOn ()
+  {
+  if (!isLoggedOn ())
+    {
+    ShowWarning ("Not logged on.");
+    MessageTail ();
+    die ();
+    }
+  } // end of CheckLoggedOn
+
+// I think every script needs authentication
+SSO_Authenticate ();
 
 ?>

@@ -816,7 +816,7 @@ echo '<div class = "info_style">';
     // putting up the form won't work if we already have arguments on the URI
     if (count ($_GET) == 0)
       echo ("<a href=\"$PHP_SELF?action=$SSO_SHOW_SESSIONS\" title=\"Log off, change password, or change user name\">
-              <img src=\"/images/gear.png\" style=\"vertical-align:bottom;\" ></a>\n");
+              <img src=\"/images/gear.svg\" style=\"vertical-align:bottom;\" ></a>\n");
     }
   // or show the logon link, unless we have already displayed the logon form or another form
   elseif (!$SSO_loginInfo ['show_login'] &&

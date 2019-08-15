@@ -4578,7 +4578,7 @@ function passwordCheck ($pass, $username = "", $username_description = 'username
   $MINIMUM_UC_LETTERS = 1;
   $MINIMUM_LC_LETTERS = 1;
   $MINIMUM_PUNCTUATION = 1;
-  $MAXIMUM_REPEATED_CHARACTER = 4;
+  $MAXIMUM_REPEATED_CHARACTER = 6;
   $MAXIMUM_SEQUENCE = 3;
   $PUNCTUATION = "~!@#$%^&*()_+`-={}|[]\:\";'<>?,./";
 

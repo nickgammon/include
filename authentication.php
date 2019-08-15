@@ -731,7 +731,7 @@ echo <<< EOD
 <li>Must be at least <b>$sso_min_password_length characters</b> long.
 <li>Must contain <b>at least</b> one number, one upper-case letter, one lower-case letter, and one punctuation character.
 <li>Must <b>not be in a dictionary</b> of the most common 100 passwords (eg. "password" or "letmein")
-<li>May not consist of more than 4 of the <b>same character</b> in any position (eg. "a1a2a3a4" would not be allowed).
+<li>May not consist of more than 6 of the <b>same character</b> in any position (eg. "a1a2a3a4a5a6" would not be allowed).
 <li>May not contain <b>sequences</b> of 3 or more characters going up or down (eg. "abc", "456", "ZYX", "765").
 <li>May not contain <b>repeats</b> of 3 or more characters in a row (eg. "aaa" or "666" would not be allowed).
 <li>May <b>not end with a number</b> (so you can't just add numbers to a word, like "gorilla489")

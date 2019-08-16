@@ -439,6 +439,8 @@ function GetControlItems ()
     'shortdatetimeformat'   => '%e %b %r',  // default short date/time format
     'encoding'              => 'UTF-8',  // character encoding
 
+    'public_server_warning' => 'NONE',
+
     // Single sign on (SSO) control items
     'sso_forum_active'          => 0,   // 1 -> look for forum users
     'sso_hhs_active'            => 0,   // 1 -> look for hhs_member users
@@ -4891,6 +4893,13 @@ function CheckLoggedOn ()
     die ();
     }
   } // end of CheckLoggedOn
+
+function WarnOnPublicServer ()
+  {
+  global $control;
+  if ($control ['public_server_warning'] != 'NONE' && ServerPublic ())
+    echo $control ['public_server_warning'];
+  } // end of WarnOnPublicServer
 
 // I think every script needs authentication
 SSO_Authenticate ();

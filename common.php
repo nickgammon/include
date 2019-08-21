@@ -1278,6 +1278,39 @@ function hLink ($description, $destination, $params="", $newwindow=false, $nofol
   echo $result;
   }   // end of hLink
 
+// Nick's link function
+// $description - what to show in HTML (set $plain to true to convert it)
+// $destination - what URL to call (leave empty for $PHP_SELF)
+// $params - table of parameters -  will be URL encoded with &amp; between each one
+// $plain - make true if the description is plain text, not deliberately HTML with bold and stuff in it
+// $extras - other stuff inside the <a> tag, eg. ' target="_blank" rel="nofollow" title="Some title" '
+
+// Returns the link, you can echo it to display it, eg.
+//    echo nLink ('Search for cattle', '', array ('action' => 'search', 'searchfor' => 'cattle'));
+
+// In other words, make $plain true if you want htmlspecialchars done on the description.
+
+function nLink ($description, $destination = false, $params = false, $plain = false, $extras = '')
+  {
+  // fix up HTML if necessary
+  if ($plain)
+    $description = htmlspecialchars ($description, ENT_SUBSTITUTE | ENT_QUOTES | ENT_HTML5);
+
+  if (!$destination)
+    $destination = $_SERVER['PHP_SELF'];
+
+  $args = '';
+  if ($params)
+    {
+    $fixedParams = array ();
+    foreach ($params as $k => $v)
+      $fixedParams [] = urlencode ($k) . '=' . urlencode ($v);
+    $args = '?' . implode ('&amp;', $fixedParams);
+    } // end of having some parameters
+
+  return "<a href=\"$destination$args\" $extras>$description</a>";
+  } // end of nLink
+
 // check we can do something
 function Permission ($todo)
   {

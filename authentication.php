@@ -1199,6 +1199,8 @@ function SSO_Handle_Password_Reset_Request ()
   // audit password reset requests
   SSO_Audit ($SSO_AUDIT_REQUEST_PASSWORD_RESET, $sso_id);
 
+  $SSO_UserDetails = false;
+
   } // end of SSO_Handle_Password_Reset_Request
 
 function SSO_Handle_Password_Reset ()

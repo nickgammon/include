@@ -4919,9 +4919,18 @@ SET NAMES 'latin1';
 
 function CheckLoggedOn ()
   {
+  global $SSO_UserDetails;
+
+  if (!$SSO_UserDetails)
+    {
+    ShowWarning ("You are not logged on.");
+    MessageTail ();
+    die ();
+    }
+
   if (!isLoggedOn ())
     {
-    ShowWarning ("Not logged on.");
+    ShowWarning ("You are logged onto the system, but do not have access to database updating.");
     MessageTail ();
     die ();
     }

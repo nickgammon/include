@@ -195,7 +195,9 @@ function Plain(s)
 end
 
 function Para(s)
-  return '<flowPara>' .. s .. "</flowPara>\n"
+  -- replace indent amount with Unicode m-dash size space
+  local indent_amount = PANDOC_DOCUMENT.meta.indent or 0
+  return '<flowPara>' .. string.rep ('&#x2000;', indent_amount) .. s .. "</flowPara>\n"
 end
 
 -- lev is an integer, the header level.

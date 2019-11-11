@@ -1,16 +1,55 @@
--- This is a sample custom writer for pandoc.  It produces output
--- that is very similar to that of pandoc's HTML writer.
--- There is one new feature: code blocks marked with class 'dot'
--- are piped through graphviz and images are included in the HTML
--- output using 'data:' URLs.
---
--- Invoke with: pandoc -t sample.lua
---
--- Note:  you need not have lua installed on your system to use this
--- custom writer.  However, if you do have lua installed, you can
--- use it to test changes to the script.  'lua sample.lua' will
--- produce informative error messages if your code contains
--- syntax errors.
+-- Custom writer for Nick's DTP system
+
+-- Written by Nick Gammon
+-- Date: July 2019
+
+
+
+--[[
+
+PURPOSE
+
+This is the pandoc output formatting Lua script, designed to be called by pandoc like this:
+
+  pandoc (stdin) --from=markdown+smart -t /var/www/include/svg_pandoc_outputter.lua --metadata=indent:3 (stdout)
+
+This is done when text fields are added/changed by the "validation" field in the standard database editor
+for the column "Text_Contents". The results (SVG text) is stored in the "Text_Contents_SVG" column.
+
+Therefore changes to the indenting will only apply if that text box is resubmitted (edited).
+
+INDENTS
+
+Note regarding indents:
+
+The simpler method of indenting would be to use styles, like left-margin:3px; however Inkscape
+does not seem to be honouring the rendering of such.
+
+I have been forced to literally insert spaces at the start of paragraphs (except the first, and
+except after line breaks, horizontal lines, and headings).
+
+The number of spaces is passed in as metadata: PANDOC_DOCUMENT.meta.indent
+This is done when invoking pandoc: --metadata=indent:$indent
+
+It was hard to find the right space character. Most worked fine for non-justified text but failed
+with justified text because additional spaces were inserted at the start of lines (ie. in the indent)
+depending on the number of spaces being used to justify the text. This made paragraph starts not line
+up.
+
+I finally (after much research) found U+2800 which prints as a space but does not interfere with
+justification (as it is "not a space").
+
+----
+
+https://en.wikipedia.org/wiki/Whitespace_character
+
+The Braille Patterns Unicode block contains U+2800 ⠀ BRAILLE PATTERN BLANK (HTML &#10240;),
+a Braille pattern with no dots raised. Some fonts display the character as a fixed-width blank,
+however the Unicode standard explicitly states that it does not act as a space.
+
+--]]
+
+local INDENT_SPACE = '&#x2800;'  -- U+2800 ⠀ BRAILLE PATTERN BLANK (HTML &#10240;),
 
 -- Character escaping
 local function escape(s, in_attribute)
@@ -60,6 +99,11 @@ end
 -- Table to store footnotes, so they can be included at the end.
 local notes = {}
 
+-- First paragraph is not indented
+local firstPara = true
+local lineBreak = false
+local firstHeading = true
+
 -- Blocksep is used to separate block elements.
 function Blocksep()
   return "\n\n"
@@ -105,6 +149,7 @@ function SoftBreak()
 end
 
 function LineBreak()
+  lineBreak = true
   return "<flowPara></flowPara>\n"
 end
 
@@ -195,21 +240,48 @@ function Plain(s)
 end
 
 function Para(s)
-  -- replace indent amount with Unicode m-dash size space
+  -- replace indent amount with Unicode en-dash size spaces (of indent_amount number)
   local indent_amount = PANDOC_DOCUMENT.meta.indent or 0
-  return '<flowPara>' .. string.rep ('&#x2000;', indent_amount) .. s .. "</flowPara>\n"
+  if firstPara then
+    indent_amount = 0
+    firstPara = false
+  end -- if
+  if lineBreak then
+    firstPara = true
+    lineBreak = false
+  end -- if
+  firstPara = false
+  firstHeading = false
+  return '<flowPara>' .. string.rep (INDENT_SPACE, indent_amount) .. s .. "</flowPara>\n"
 end
 
 -- lev is an integer, the header level.
 function Header(lev, s, attr)
   attr.id = nil  -- don't want that (the name)
 
-  return '<flowPara><flowSpan style="font-size:' ..
-         (6 - lev) * 2 + 10 ..
-         '; font-weight:bold;  ' ..
-         attributes(attr) ..   -- convert attributes into a list, eg. fill:blue;
-         ' " >' .. s .. "</flowSpan></flowPara>\n"
+  firstPara = true -- start unindented after a heading
 
+  if #s == 0 then
+    heading = LineBreak ()
+  else
+    if firstHeading then
+      heading = ''
+    else
+      heading = LineBreak ()
+    end -- if
+    heading =  heading ..  -- blank line before unless first paragraph
+               '<flowPara><flowSpan style="font-size:' ..
+               (6 - lev) * 2 + 10 ..
+               '; font-weight:bold;' ..
+               attributes(attr) ..   -- convert attributes into a list, eg. fill:blue;
+               ' " >' .. s .. "</flowSpan></flowPara>" ..
+               LineBreak () .. "\n"  -- blank line after
+
+  end -- if
+
+  lineBreak = false
+  firstHeading = false
+  return heading
 end
 
 function BlockQuote(s)
@@ -217,7 +289,12 @@ function BlockQuote(s)
 end
 
 function HorizontalRule()
-  return "<flowPara>" .. string.rep ('―', 10) .. "</flowPara>"
+  firstPara = true -- start unindented after a heading
+  local rule =  LineBreak () ..  -- blank line before
+                 "<flowPara>" .. string.rep ('―', 10) .. "</flowPara>" ..
+                 LineBreak () .. "\n"  -- blank line after
+  lineBreak = false
+  return rule
 end
 
 function LineBlock(ls)
@@ -229,10 +306,16 @@ function CodeBlock(s, attr)
   return '<flowSpan style="font-family:monospace;" >' .. s .. "</flowSpan>"
 end
 
+-- Note that if you have a blank line between bullet points (making a paragraph) and indenting is on
+-- then the indent will occur *after* the bullet point because "item" is already indented.
+
+-- FIX: I have removed INDENT_SPACE from items so that this doesn't happen, it looks weird.
+
 function BulletList(items)
   local buffer = {}
   for _, item in pairs(items) do
-    table.insert(buffer, '<flowPara >• ' .. item .. "</flowPara>")  -- xml:space="preserve"
+    item = string.gsub (item, INDENT_SPACE, '')  -- get rid of indentations
+    table.insert(buffer, '<flowPara >•' .. INDENT_SPACE .. item .. "</flowPara>")  -- xml:space="preserve"
   end
   return table.concat(buffer, "\n")
 end

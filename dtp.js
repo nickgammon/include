@@ -330,7 +330,7 @@ function onMouseMove(event)
     if (elements [activeElement] [STARTX] != orig_elements [activeElement] [STARTX] ||
         elements [activeElement] [ENDX]   != orig_elements [activeElement] [ENDX] ||
         elements [activeElement] [STARTY] != orig_elements [activeElement] [STARTY] ||
-        elements [activeElement] [STARTY] != orig_elements [activeElement] [STARTY])
+        elements [activeElement] [ENDY]   != orig_elements [activeElement] [ENDY])
       {
       submit_edits_button.disabled = false;
       reset_edits_button.disabled = false;
@@ -351,15 +351,15 @@ function onMouseMove(event)
 } // end of onMouseMove
 
 // test if the mouse is inside one of the dragging boxes
-function mouseInBox (mousex, mousey, x, y, size)
+function mouseInBox (mousex, mousey, x, y, hsize, vsize)
   {
-  if (mousex < (x * width_multiple) - size / 2)
+  if (mousex < (x * width_multiple) - hsize / 2)
     return false;  // too far left
-  if (mousex > (x * width_multiple) + size / 2)
+  if (mousex > (x * width_multiple) + hsize / 2)
     return false;  // too far right
-  if (mousey < (y * height_multiple) - size / 2)
+  if (mousey < (y * height_multiple) - vsize / 2)
     return false;  // too far up
-  if (mousey > (y * height_multiple) + size / 2)
+  if (mousey > (y * height_multiple) + vsize / 2)
     return false;  // too far down
   return true;
   } // end of mouseInBox
@@ -379,35 +379,35 @@ function onMouseDown(event)
     // get *this* element
     getElementDetails (elements [i]);
     // top left?
-    if (mouseInBox (mousex, mousey, startX, startY, BOX_SIZE))
+    if (mouseInBox (mousex, mousey, startX, startY, BOX_SIZE, BOX_SIZE))
       {
       activeCorner = 'topleft';
       found = true;
       break;
       }
     // top right?
-    else if (mouseInBox (mousex, mousey, endX, startY, BOX_SIZE) && element_type != ELEMENT_LINE)
+    else if (mouseInBox (mousex, mousey, endX, startY, BOX_SIZE, BOX_SIZE) && element_type != ELEMENT_LINE)
       {
       activeCorner = 'topright';
       found = true;
       break;
       }
     // bottom left?
-    else if (mouseInBox (mousex, mousey, startX, endY, BOX_SIZE) && element_type != ELEMENT_LINE)
+    else if (mouseInBox (mousex, mousey, startX, endY, BOX_SIZE, BOX_SIZE) && element_type != ELEMENT_LINE)
       {
       activeCorner = 'bottomleft';
       found = true;
       break;
       }
     // bottom right?
-    else if (mouseInBox (mousex, mousey, endX, endY, BOX_SIZE))
+    else if (mouseInBox (mousex, mousey, endX, endY, BOX_SIZE, BOX_SIZE))
       {
       activeCorner = 'bottomright';
       found = true;
       break;
       }
     // and now check the dragging box
-    else if (mouseInBox (mousex, mousey, startX + (endX - startX) / 2, startY, DRAGGING_BOX_SIZE))
+    else if (mouseInBox (mousex, mousey, startX + (endX - startX) / 2, startY, DRAGGING_BOX_SIZE, BOX_SIZE))
       {
       activeCorner = 'drag';
       // remember where we clicked so we can get a delta location
@@ -453,7 +453,8 @@ function onDoubleClick(event)
     return;
     }
 
-  for (i = 0; i < num_elements; i++)
+  // go backwards so that the higher (on top) one gets selected before the one underneath
+  for (i = num_elements - 1; i >= 0; i--)
     {
     activeElement = i;
     // get *this* element
@@ -464,7 +465,7 @@ function onDoubleClick(event)
       return;   // can't find button
 
     // let them double-click in the title box in case it is hard to find the element (eg. a line)
-    if (mouseInBox (mousex, mousey, startX + (endX - startX) / 2, startY, DRAGGING_BOX_SIZE))
+    if (mouseInBox (mousex, mousey, startX + (endX - startX) / 2, startY, DRAGGING_BOX_SIZE, BOX_SIZE))
       {
       button_to_click.click();    // activate it
       return;

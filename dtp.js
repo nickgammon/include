@@ -38,6 +38,8 @@ Copyright © 2019 Nick Gammon.
   var num_elements = 6;
   var page_width = 210;
   var page_height = 297;
+  var grid_size_x = 8;
+  var grid_size_y = 8;
   var elements = [
   [ 36, 3, 108, 48, 108, 280 ],
   [ 50, 6, 16, 96, 96, 152 ],
@@ -71,6 +73,7 @@ const ELEMENT_TEXT              = 5;
 const ELEMENT_IMAGE             = 6;
 const ELEMENT_TEXT_CONTINUATION = 7;
 
+// Initialization: called on load of script
 function init()
   {
   canvas = document.getElementById("mycanvas");  // our canvas
@@ -91,6 +94,7 @@ function init()
   // they haven't clicked the "Edit" button yet
   edit_clicked = false;
   edits_done = false;
+  dragging = false;
 
   } // end of init
 
@@ -104,6 +108,7 @@ function drawCornerBox (x, y)
            BOX_SIZE
            );
   ctx.fillStyle = "green";
+  ctx.globalAlpha = 1;
   ctx.fill ();
   } // end of drawCornerBox
 
@@ -132,7 +137,18 @@ for (i = 0; i < num_elements; i++)
   // stroke the entire element (box around it)
   ctx.beginPath();
   ctx.rect(startX * width_multiple, startY * height_multiple, (endX - startX) * width_multiple, (endY - startY) * height_multiple);
+
+  // fill box if moved from original position
+  if (ElementChanged (i))
+    {
+    ctx.fillStyle = "green";
+    ctx.globalAlpha = 0.05;  // low opacity fill
+    ctx.fill();
+    }
+
+  // now draw box around it
   ctx.strokeStyle = "green";
+  ctx.globalAlpha = 1;
   ctx.stroke();
 
   // corner boxes (small boxes at corners)
@@ -155,12 +171,42 @@ for (i = 0; i < num_elements; i++)
            DRAGGING_BOX_SIZE,
            BOX_SIZE
            );
+  ctx.globalAlpha = 1;
   ctx.fillStyle = "green";
   ctx.fill ();
 
   } // end of for each element
 
 } // end of drawborders
+
+// helper function to reset one element back to its original position
+function ResetOneElement (which)
+  {
+
+  // copy values back
+  for (j = 0; j <= LAST_ITEM; j++)
+    elements [which] [j] = orig_elements [which] [j];
+
+  // put the HTML values back
+  element_id = elements [which] [ELEMENT_ID];
+
+  // fix up startX
+  startXonPage = document.getElementsByName("element_".concat (element_id.toString (10), "_startX"));
+  startXonPage [0].value = elements [which] [STARTX];
+
+  // fix up startY
+  startYonPage = document.getElementsByName("element_".concat (element_id.toString (10), "_startY"));
+  startYonPage [0].value = elements [which] [STARTY];
+
+  // fix up endX
+  endXonPage = document.getElementsByName("element_".concat (element_id.toString (10), "_endX"));
+  endXonPage [0].value = elements [which] [ENDX];
+
+  // fix up endY
+  endYonPage = document.getElementsByName("element_".concat (element_id.toString (10), "_endY"));
+  endYonPage [0].value = elements [which] [ENDY];
+
+  } // end of ResetOneElement
 
 // here when the "Reset" button clicked - put everything back to how it was
 function ResetClicked (event)
@@ -171,32 +217,9 @@ function ResetClicked (event)
   reset_edits_button = document.getElementById("reset_edits_button");
   reset_edits_button.disabled = true;
 
+  // reset all elements
   for (i = 0; i < num_elements; i++)
-    {
-    // copy values back
-    for (j = 0; j <= LAST_ITEM; j++)
-      elements [i] [j] = orig_elements [i] [j];
-
-    // put the HTML values back
-    element_id = elements [i] [ELEMENT_ID];
-
-    // fix up startX
-    startXonPage = document.getElementsByName("element_".concat (element_id.toString (10), "_startX"));
-    startXonPage [0].value = elements [i] [STARTX];
-
-    // fix up startY
-    startYonPage = document.getElementsByName("element_".concat (element_id.toString (10), "_startY"));
-    startYonPage [0].value = elements [i] [STARTY];
-
-    // fix up endX
-    endXonPage = document.getElementsByName("element_".concat (element_id.toString (10), "_endX"));
-    endXonPage [0].value = elements [i] [ENDX];
-
-    // fix up endY
-    endYonPage = document.getElementsByName("element_".concat (element_id.toString (10), "_endY"));
-    endYonPage [0].value = elements [i] [ENDY];
-
-    } // end of for each element
+    ResetOneElement (i);
 
   drawborders ();   // redraw original positions
   edits_done = false;
@@ -210,7 +233,7 @@ function SubmitEditsClicked (event)
     {
     edit_clicked = true;
     submit_edits_button = document.getElementById("submit_edits_button");
-    submit_edits_button.value = "Submit Edits";
+    submit_edits_button.value = "Submit edits";
     submit_edits_button.disabled = true;  // nothing edited yet
     drawborders ();
     return false;   // don't submit yet
@@ -218,14 +241,138 @@ function SubmitEditsClicked (event)
   return true;  // submit form now
 } // end of SubmitEditsClicked
 
+// returns true if this element has changed from its original position
+function ElementChanged (which)
+  {
+  return elements [which] [STARTX] != orig_elements [which] [STARTX] ||
+         elements [which] [ENDX]   != orig_elements [which] [ENDX] ||
+         elements [which] [STARTY] != orig_elements [which] [STARTY] ||
+         elements [which] [ENDY]   != orig_elements [which] [ENDY];
+  } // end of ElementChanged
+
+// see if the page has changed by checking all elements
+function CheckIfPageChanged ()
+  {
+  changed = false;  // no changes yet
+
+  // check each element
+  for (i = 0; i < num_elements; i++)
+    if (ElementChanged (i))
+      changed = true;
+
+  if (changed)
+    {
+    submit_edits_button.disabled = false;
+    reset_edits_button.disabled = false;
+    reset_edits_button.onclick = ResetClicked;
+    edits_done = true;
+    }
+  else
+    {
+    // no changes? make sure submit and reset buttons are disabled
+    // - this is for the situation where you make a change and then change it back
+    submit_edits_button.disabled = true;
+    reset_edits_button.disabled = true;
+    reset_edits_button.onclick = null;
+    edits_done = false;
+    }
+  } // end of CheckIfPageChanged
+
+// set the appropriate mouse cursor shape depending on what it is hovering over, if anything
+function SetMouseCursor (event)
+  {
+  mousex = event.offsetX;
+  mousey = event.offsetY;
+
+  // find active element, assuming we can see them (edit button has been clicked)
+  if (edit_clicked)
+    {
+    for (i = 0; i < num_elements; i++)
+      {
+      activeElement = i;
+      // get *this* element
+      getElementDetails (elements [i]);
+      // top left?
+      if (mouseInBox (mousex, mousey, startX, startY, BOX_SIZE, BOX_SIZE))
+        {
+        canvas.style.cursor = 'nwse-resize';
+        return;
+        }
+      // top right?
+      else if (mouseInBox (mousex, mousey, endX, startY, BOX_SIZE, BOX_SIZE) && element_type != ELEMENT_LINE)
+        {
+        canvas.style.cursor = 'nwse-resize';
+        return;
+        }
+      // bottom left?
+      else if (mouseInBox (mousex, mousey, startX, endY, BOX_SIZE, BOX_SIZE) && element_type != ELEMENT_LINE)
+        {
+        canvas.style.cursor = 'nwse-resize';
+        return;
+        }
+      // bottom right?
+      else if (mouseInBox (mousex, mousey, endX, endY, BOX_SIZE, BOX_SIZE))
+        {
+        canvas.style.cursor = 'nwse-resize';
+        return;
+        }
+      // and now check the dragging box
+      else if (mouseInBox (mousex, mousey, startX + (endX - startX) / 2, startY, DRAGGING_BOX_SIZE, BOX_SIZE))
+        {
+        canvas.style.cursor = 'move';
+        return;
+        }
+      } // end of for each element
+    }   // of edit button active
+
+  // edit button or not, we can double-click elements
+
+  // check the entire element rectangle
+  // go backwards so that the higher (on top) one gets selected before the one underneath
+  for (i = num_elements - 1; i >= 0; i--)
+    {
+    activeElement = i;
+    // get *this* element
+    getElementDetails (elements [i]);
+
+    if (mousex < (startX * width_multiple))
+      continue;  // too far left
+    if (mousex > (endX * width_multiple))
+      continue;  // too far right
+    if (mousey < (startY * height_multiple))
+      continue;  // too far up
+    if (mousey > (endY * height_multiple))
+      continue;  // too far down
+
+    // found the element!
+    canvas.style.cursor = 'pointer';
+    return;
+    } // end of for each element
+
+  // mouse isn't anywhere interesting
+  canvas.style.cursor = 'default';
+
+  } // end of SetMouseCursor
+
 // mouse move handler - resize the element box (or move it) assuming we had a previous mouse down
 function onMouseMove(event)
 {
-  if (dragok)
+  mousex = event.offsetX;
+  mousey = event.offsetY;
+
+  // if dragging (mouse down previously) update the element's position depending on where we move to
+  if (dragging)
    {
     // find new position in mm
-    x = Math.round(event.offsetX / width_multiple);
-    y = Math.round(event.offsetY  / height_multiple);
+    x = Math.round(mousex / width_multiple);
+    y = Math.round(mousey / height_multiple);
+
+    // shift key snaps to the grid
+    if (event.shiftKey)
+      {
+      x = Math.round(x / grid_size_x) * grid_size_x;
+      y = Math.round(y / grid_size_y) * grid_size_y;
+      }
 
     element_type = elements [activeElement] [ELEMENT_TYPE];
 
@@ -294,10 +441,23 @@ function onMouseMove(event)
       {
       deltaX = Math.round((dragMouseX - event.offsetX) / width_multiple);
       deltaY = Math.round((dragMouseY - event.offsetY) / height_multiple);
-      elements [activeElement] [STARTX] = dragStartX - deltaX;
-      elements [activeElement] [STARTY] = dragStartY - deltaY;
-      elements [activeElement] [ENDX]   = dragEndX   - deltaX;
-      elements [activeElement] [ENDY]   = dragEndY   - deltaY;
+
+      new_x = dragStartX - deltaX;
+      new_y = dragStartY - deltaY;
+      width = elements [activeElement]  [ENDX] - elements [activeElement] [STARTX];
+      height = elements [activeElement] [ENDY] - elements [activeElement] [STARTY];
+
+      // shift key snaps to the grid
+      if (event.shiftKey)
+        {
+        new_x = Math.round(new_x / grid_size_x) * grid_size_x;
+        new_y = Math.round(new_y / grid_size_y) * grid_size_y;
+        }
+
+      elements [activeElement] [STARTX] = new_x;
+      elements [activeElement] [STARTY] = new_y;
+      elements [activeElement] [ENDX]   = new_x + width;
+      elements [activeElement] [ENDY]   = new_y + height;
       }
 
     drawborders ();
@@ -327,27 +487,15 @@ function onMouseMove(event)
     reset_edits_button = document.getElementById("reset_edits_button");
 
     // check a change has actually been made before activating the submit and reset buttons
-    if (elements [activeElement] [STARTX] != orig_elements [activeElement] [STARTX] ||
-        elements [activeElement] [ENDX]   != orig_elements [activeElement] [ENDX] ||
-        elements [activeElement] [STARTY] != orig_elements [activeElement] [STARTY] ||
-        elements [activeElement] [ENDY]   != orig_elements [activeElement] [ENDY])
-      {
-      submit_edits_button.disabled = false;
-      reset_edits_button.disabled = false;
-      reset_edits_button.onclick = ResetClicked;
-      edits_done = true;
-      }
-    else
-      {
-      // no changes? make sure submit and reset buttons are disabled
-      // - this is for the situation where you make a change and then change it back
-      submit_edits_button.disabled = true;
-      reset_edits_button.disabled = true;
-      reset_edits_button.onclick = null;
-      edits_done = false;
-      }
+    CheckIfPageChanged ();
+    return;
+   }  // if dragging
 
-   }  // if dragok
+  // MOUSE CURSOR CHANGES
+
+  // if not dragging, change the mouse to indicate what we *can* do if we click
+  SetMouseCursor (event);
+
 } // end of onMouseMove
 
 // test if the mouse is inside one of the dragging boxes
@@ -370,7 +518,10 @@ function onMouseDown(event)
   found = false;
   mousex = event.offsetX;
   mousey = event.offsetY;
-//  console.log ("event".concat (' x= ', event.offsetX, ' y= ', event.offsetY));
+
+  // mouse down isn't active until we can see the handler boxes
+  if (!edit_clicked)
+    return;
 
   // find active element
   for (i = 0; i < num_elements; i++)
@@ -425,20 +576,35 @@ function onMouseDown(event)
     } // end of for each element
 
   if (!found)
-    {
-//    console.log ("no element found");
     return;
-    }
 
-  dragok = true;
-  canvas.onmousemove = onMouseMove;  // activate mouse move handler
+  if (activeCorner == 'drag')
+    canvas.style.cursor = 'move';
+  else
+    canvas.style.cursor = 'nwse-resize';
+
+  dragging = true;
+
+  document.getElementById('editing_notes').innerHTML = 'SHIFT to snap to grid, CTRL to reset position.';
+
 } // end of onMouseDown
 
 // mouse up handler - cancel ability to drag
-function onMouseUp()
+function onMouseUp(event)
   {
-  dragok = false;
-  canvas.onmousemove = null;   // deactivate mouse move handler
+
+  // ctrl key means discard moves and reset to defaults
+  if (dragging && event.ctrlKey && activeCorner)
+    {
+    ResetOneElement (activeElement);  // put the current element back to its default position
+    CheckIfPageChanged ();
+    drawborders ();     // redraw page
+    }
+
+  activeCorner = '';
+  dragging = false;
+  document.getElementById('editing_notes').innerHTML = '';
+  SetMouseCursor (event);
   } // end of onMouseUp
 
 // double-click in an element box edits that element (eg. to change the text)
@@ -453,6 +619,7 @@ function onDoubleClick(event)
     return;
     }
 
+  // check the dragging boxes first in case a small element is inside a larger one
   // go backwards so that the higher (on top) one gets selected before the one underneath
   for (i = num_elements - 1; i >= 0; i--)
     {
@@ -460,16 +627,24 @@ function onDoubleClick(event)
     // get *this* element
     getElementDetails (elements [i]);
 
-    button_to_click = document.getElementById("link_to_edit_element_".concat (element_id));
-    if (!button_to_click)
-      return;   // can't find button
-
     // let them double-click in the title box in case it is hard to find the element (eg. a line)
     if (mouseInBox (mousex, mousey, startX + (endX - startX) / 2, startY, DRAGGING_BOX_SIZE, BOX_SIZE))
       {
+      button_to_click = document.getElementById("link_to_edit_element_".concat (element_id));
+      if (!button_to_click)
+        return;   // can't find button
       button_to_click.click();    // activate it
       return;
       }
+    } // end of for each element
+
+  // now check the entire element rectangle
+  // go backwards so that the higher (on top) one gets selected before the one underneath
+  for (i = num_elements - 1; i >= 0; i--)
+    {
+    activeElement = i;
+    // get *this* element
+    getElementDetails (elements [i]);
 
     if (mousex < (startX * width_multiple))
       continue;  // too far left
@@ -481,11 +656,16 @@ function onDoubleClick(event)
       continue;  // too far down
 
     // found the element!
+    button_to_click = document.getElementById("link_to_edit_element_".concat (element_id));
+    if (!button_to_click)
+      return;   // can't find button
+
     button_to_click.click();    // activate it
     return;
     } // end of for each element
 
   } // end of onDoubleClick
+
 
 // START HERE
 
@@ -495,7 +675,7 @@ init ();  // get our canvas and context
 canvas.onmousedown = onMouseDown;
 canvas.onmouseup   = onMouseUp;
 canvas.ondblclick  = onDoubleClick;
-
+canvas.onmousemove = onMouseMove;
 
 /*
 

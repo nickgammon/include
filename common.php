@@ -4226,7 +4226,7 @@ c) <use> the file, taking layer 1
     // if document is given in pixels convert back to mm to match rest of units
     if ($multiplier == 1)
       {
-      if (! isset ($matches [3]))
+      if (! isset ($matches [3]) || ! $matches [3])
         $multiplier = $SCALE_CONVERSION ['mm'];
       }
 

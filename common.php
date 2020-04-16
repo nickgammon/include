@@ -3608,7 +3608,11 @@ function ShowBackupDays ()
   $when = duration ($days_since_backup);
 
   if ($days_since_backup > 6)
-    echo "<p style=\"color:red; \"><b>Last off-site backup $when.</b></p>";
+    {
+    // make message larger and larger until someone does something about it
+    $font_size = 100 + ($days_since_backup * 10);
+    echo "<p style=\"color:red; font-size: $font_size%\"><b>Last off-site backup $when.</b></p>";
+    }
   else
     echo "<p style=\"color:darkgreen; font-size:x-small;\">Last off-site backup $when.</p>";
 

@@ -322,10 +322,11 @@ end
 
 function OrderedList(items)
   local buffer = {}
-  for _, item in pairs(items) do
-    table.insert(buffer, "<li>" .. item .. "</li>")
+  for i, item in pairs(items) do
+    item = string.gsub (item, INDENT_SPACE, '')  -- get rid of indentations
+    table.insert(buffer, i .. ". " .. item )
   end
-  return "<ol>\n" .. table.concat(buffer, "\n") .. "\n</ol>"
+  return "\n" .. table.concat(buffer, "\n") .. "\n"
 end
 
 -- Revisit association list STackValue instance.

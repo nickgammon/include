@@ -3594,6 +3594,9 @@ function ShowBackupDays ()
     find when last backup
   */
 
+  if (!isset ($control ['last_backup']))
+    return;
+
   $last_backup_time = $control ['last_backup'];
 
   /*

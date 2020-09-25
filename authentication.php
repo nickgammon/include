@@ -1638,6 +1638,8 @@ function SSO_Authenticate ()
   global $action;
   global $PHP_SELF, $remote_ip;
   global $SSO_UserDetails, $SSO_loginInfo;
+  global $SSO_COOKIE_NAME;
+  global $control;
 
   // Note: $action is already set by common.php
 
@@ -1652,6 +1654,10 @@ function SSO_Authenticate ()
   OpenDatabase ($DATABASE_SERVER, $GENERAL_DATABASE_USER, $GENERAL_DATABASE_NAME, $GENERAL_DATABASE_PASSWORD);
 
   GetControlItems ();
+
+  // change cookie name if required
+  if (isset ($control ['sso_cookie_name']) && $control ['sso_cookie_name'])
+    $SSO_COOKIE_NAME = $control ['sso_cookie_name'];
 
   // first see if our cookie gives us logged-on status
   SSO_See_If_Logged_On ();

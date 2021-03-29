@@ -75,23 +75,31 @@ const ELEMENT_TEXT              = 5;
 const ELEMENT_IMAGE             = 6;
 const ELEMENT_TEXT_CONTINUATION = 7;
 
+// for the page grid
+const GRID_SIZE_X = 8;
+const GRID_SIZE_Y = 8;
+
 // Initialization: called on load of script
 function init()
   {
   canvas = document.getElementById("mycanvas");  // our canvas
-  ctx = canvas.getContext("2d");                 // our drawing context
-  // convert width from mm into pixels as displayed on the page
-  width_multiple = canvas.width / page_width;
-  height_multiple = canvas.height / page_height;
 
-  // make a copy of element positions so we can reset to the beginning state
-  orig_elements = [];
-  for (i = 0; i < num_elements; i++)
+  if (canvas)
     {
-    orig_elements [i] = [];
-    for (j = 0; j <= LAST_ITEM; j++)
-      orig_elements [i] [j] = elements [i] [j];
-    }
+    ctx = canvas.getContext("2d");                 // our drawing context
+    // convert width from mm into pixels as displayed on the page
+    width_multiple = canvas.width / page_width;
+    height_multiple = canvas.height / page_height;
+
+    // make a copy of element positions so we can reset to the beginning state
+    orig_elements = [];
+    for (i = 0; i < num_elements; i++)
+      {
+      orig_elements [i] = [];
+      for (j = 0; j <= LAST_ITEM; j++)
+        orig_elements [i] [j] = elements [i] [j];
+      }
+    } // end of if canvas exists
 
   // they haven't clicked the "Edit" button yet
   edit_clicked = false;
@@ -669,15 +677,114 @@ function onDoubleClick(event)
   } // end of onDoubleClick
 
 
+function ConvertCoordinate (coord)
+  {
+
+  var x = coord.x.toUpperCase();
+  var y = coord.y;
+
+  // if we have two characters the same, eg. 'AA', 'BB' etc. then assume 26 positions along
+  if (x.length == 2 && x[0].match(/^[a-z]$/i) && x [0] == x [1])
+    {
+    x = ((x.charCodeAt (0) - "A".charCodeAt (0) + 1 ) + 26) * GRID_SIZE_X;
+    y = y * GRID_SIZE_Y;
+    }
+  else if (x.length == 1 && x >= 'A' && x <= 'Z') // grid reference
+    {
+    x = (x.charCodeAt (0) - "A".charCodeAt (0) + 1 ) * GRID_SIZE_X;
+    y = y * GRID_SIZE_Y;
+    }
+
+  coord.x = Number (x);
+  coord.y = Number (y);
+  } // end of ConvertCoordinate
+
+
+
+function positionInfo()
+  {
+  var Start_X = document.getElementById('Start_X').value;
+  var Start_Y = document.getElementById('Start_Y').value;
+  var End_X = document.getElementById('End_X').value;
+  var End_Y = document.getElementById('End_Y').value;
+  var top_coord = { x: Start_X, y: Start_Y };
+  var bottom_coord = { x: End_X, y: End_Y };
+  ConvertCoordinate (top_coord);
+  ConvertCoordinate (bottom_coord);
+
+  if (isNaN (top_coord.x) || isNaN (top_coord.y) ||
+     isNaN (bottom_coord.x) || isNaN (bottom_coord.y))
+  {
+  document.getElementById('position_info').innerHTML = 'invalid';
+  return;
+  }
+
+  document.getElementById('position_info').innerHTML =
+    '<b>Top</b> X = ' + top_coord.x.toString () +
+    " mm, Y = " + top_coord.y.toString () +
+    ' mm, <b>Bottom</b> X = ' + bottom_coord.x.toString () +
+    " mm, Y = " + bottom_coord.y.toString () +
+    " mm, <b>Width</b> = "  + Math.round(bottom_coord.x - top_coord.x).toString () +
+    " mm, <b>Height</b> = " + Math.round(bottom_coord.y - top_coord.y).toString () + " mm";
+
+  } // end of positionInfo
+
+function elementTypeChanged ()
+  {
+  var Element_ID = document.getElementById('Element_Type_ID').value;
+
+  // styles only apply to text and image captions
+  if (Element_ID == ELEMENT_TEXT || Element_ID == ELEMENT_IMAGE)
+    {
+    document.getElementById('style_row').style.display = 'table-row';
+    document.getElementById('text_row').style.display = 'table-row';
+    }
+  else
+    {
+    document.getElementById('style_row').style.display = 'none';
+    document.getElementById('text_row').style.display = 'none';
+    }
+
+  // only images have asset files
+  if (Element_ID == ELEMENT_IMAGE)
+    {
+    document.getElementById('asset_file_row').style.display = 'table-row';
+    document.getElementById('caption_height_row').style.display = 'table-row';
+    }
+  else
+    {
+    document.getElementById('asset_file_row').style.display = 'none';
+    document.getElementById('caption_height_row').style.display = 'none';
+    }
+
+  // only text wraps around things
+  if (Element_ID == ELEMENT_TEXT || Element_ID == ELEMENT_TEXT_CONTINUATION)
+    {
+    document.getElementById('Ignore_Wrap_row').style.display = 'table-row';
+    document.getElementById('wrap_row').style.display = 'none';
+    }
+  else
+    {
+    document.getElementById('Ignore_Wrap_row').style.display = 'none';
+    document.getElementById('wrap_row').style.display = 'table-row';
+    }
+
+
+
+  } // end of elementTypeChanged
+
 // START HERE
 
 init ();  // get our canvas and context
 
-// mouse handlers
-canvas.onmousedown = onMouseDown;
-canvas.onmouseup   = onMouseUp;
-canvas.ondblclick  = onDoubleClick;
-canvas.onmousemove = onMouseMove;
+if (canvas)
+  {
+  // mouse handlers
+  canvas.onmousedown = onMouseDown;
+  canvas.onmouseup   = onMouseUp;
+  canvas.ondblclick  = onDoubleClick;
+  canvas.onmousemove = onMouseMove;
+  }
 
 /*
 

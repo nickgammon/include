@@ -1375,6 +1375,7 @@ Currently specials are:
   comment - explanatory material to be shown in small type in the RH column
   htmlcomment - explanatory material in the RH column - HTML
   readonly - field is read only
+  On_Change_Script - Javascript to run when this field changes (and initially)
 
 */
 
@@ -1487,6 +1488,7 @@ function ShowTable ($table, $params, $specials)
     $cols = false;
     $readonly = false;
     $values = "";
+    $On_Change_Script = '';
 
 //    $bold = false;
 
@@ -1542,6 +1544,9 @@ function ShowTable ($table, $params, $specials)
       if (isset ($special ['description']))
         $description = $special ['description'];  // description of this row
 
+      if (isset ($special ['On_Change_Script']))
+        $On_Change_Script = $special ['On_Change_Script'];  // script for when this row changes
+
       if (empty ($type))
         $type = 'text';
 
@@ -1563,13 +1568,27 @@ function ShowTable ($table, $params, $specials)
     else if (!$html)
       $contents = htmlspecialchars ($contents, ENT_SUBSTITUTE | ENT_QUOTES | ENT_HTML5);
 
+    $On_Change = '';
+
+    // output script function if there is one
+    if ($On_Change_Script && !$readonly)
+      {
+      echo "<script type=\"text/javascript\">\n";
+      echo "function {$label}_row_id_changed ()\n";
+      echo "{\n";
+      echo ($On_Change_Script);
+      echo "\n}\n";
+      echo "</script>\n";
+      $On_Change = "onchange=\"{$label}_row_id_changed ()\"";
+      }
+
     // this is a heading?
     if ($heading)
       $td = "th";
     else
       $td = "td";
 
-    echo "  <tr $rowparam>\n";
+    echo "  <tr $rowparam id=\"{$label}_row_id\">\n";
     echo "    <$td $LHcolparam>$bfont<b>" . htmlspecialchars ($description, ENT_SUBSTITUTE | ENT_QUOTES | ENT_HTML5) . "</b>$efont</$td>\n";
     echo "    <$td $RHcolparam>$bfont";
 
@@ -1579,7 +1598,7 @@ function ShowTable ($table, $params, $specials)
       switch ($type)
         {
         case 'combo':
-          echo "<select name=\"$inputname\" size=\"1\">\n";
+          echo "<select name=\"$inputname\" size=\"1\" $On_Change id=\"{$label}_value\" >\n";
           if (!$required)
             {
             echo "<option value=\"\" ";
@@ -1602,7 +1621,7 @@ function ShowTable ($table, $params, $specials)
           break;    // end of combo box
 
         case 'list':
-          echo "<select name=\"$inputname\" size=\"$rows\">\n";
+          echo "<select name=\"$inputname\" size=\"$rows\" $On_Change id=\"{$label}_value\" >\n";
           if (!$required)
             {
             echo "<option value=\"\" ";
@@ -1636,13 +1655,13 @@ function ShowTable ($table, $params, $specials)
             echo "autofocus ";
             $first_input = false;
             } // end of first one
-          echo ">";
+          echo " $On_Change id=\"{$label}_value\">";
           echo $contents;
           echo "</textarea>\n";
           break;    // end of multiline input area
 
         case 'bool':
-          echo "<input type=\"checkbox\" name=\"$inputname\" value=\"1\" ";
+          echo "<input type=\"checkbox\" name=\"$inputname\" value=\"1\" $On_Change id=\"{$label}_value\" ";
           if ($contents)
             echo "checked ";
           echo "/>\n";
@@ -1655,7 +1674,7 @@ function ShowTable ($table, $params, $specials)
           $deg = floor (abs ($contents));
           $min = round ((abs ($contents) - $deg) * 60 * 10) / 10;;
 
-          echo "\n<select name=\"$name1\" size=\"1\">\n";
+          echo "\n<select name=\"$name1\" size=\"1\" $On_Change id=\"{$label}_value\" >\n";
           echo "<option value=\"1\"";
           if ($contents >= 0)
             echo " selected";
@@ -1678,7 +1697,7 @@ function ShowTable ($table, $params, $specials)
           $deg = floor (abs ($contents));
           $min = round ((abs ($contents) - $deg) * 60 * 10) / 10;;
 
-          echo "\n<select name=\"$name1\" size=\"1\">\n";
+          echo "\n<select name=\"$name1\" size=\"1\" $On_Change id=\"{$label}_value\" >\n";
           echo "<option value=\"1\"";
           if ($contents >= 0)
             echo " selected";
@@ -1695,7 +1714,7 @@ function ShowTable ($table, $params, $specials)
           break;    // end of longitude
 
         case 'filename':
-          echo "<input type=\"hidden\" name=\"MAX_FILE_SIZE\" value=\"$MAX_FILE_SIZE\" >\n";
+          echo "<input type=\"hidden\" name=\"MAX_FILE_SIZE\" value=\"$MAX_FILE_SIZE\" $On_Change id=\"{$label}_value\" >\n";
           echo "Current file name: ";
           if ($contents)
              {
@@ -1713,7 +1732,7 @@ function ShowTable ($table, $params, $specials)
 
         default:
 //          echo "<input type=\"$type\" name=\"$inputname\" value=\"" . str_replace ('"', '&quot;', $contents) . "\" ";
-          echo "<input type=\"$type\" name=\"$inputname\" value=\"$contents\" ";
+          echo "<input type=\"$type\" name=\"$inputname\" value=\"$contents\" $On_Change id=\"{$label}_value\" ";
           if (isset ($size))
             echo "size=\"$size\" ";
           if (isset ($maxlength))
@@ -1747,24 +1766,54 @@ function ShowTable ($table, $params, $specials)
 
     if (!empty ($comment))
       {
-      echo "<br><font size=\"-2\">";
+      echo "<br><div class=\"ExtraSmallFont\" id=\"{$label}_row_comment\" >";
       echo (nl2br_http (htmlentities($comment)));
-      echo ("\n</font>\n");
+      echo "</div>\n";
       }
 
     // HTML comment
 
     if (!empty ($htmlcomment))
       {
-      echo "<br><font size=\"-2\">";
+      echo "<br><div class=\"ExtraSmallFont\" >";
       echo ($htmlcomment);
-      echo ("\n</font>\n");
+      echo "</div>\n";
       }
 
     echo "$efont</$td>\n";
     echo "  </tr>\n";
     } // end of looping through each item
   echo "</table>\n";
+
+  echo "<script type=\"text/javascript\">\n";
+
+
+  // call any functions required to set up the initial state (in Javascript)
+  reset ($table);
+  foreach ($table as $label => $contents)
+    {
+    // any special processing for this item?
+    if (isset ($specials [$label]))
+      $special = $specials [$label];
+    else
+      $special = "";
+    $readonly = false;
+    $On_Change_Script = '';
+    if (isset ($special ['readonly']))
+      $readonly = $special ['readonly'];          // is field read-only?
+    if (isset ($special ['On_Change_Script']))
+      $On_Change_Script = $special ['On_Change_Script'];  // script for when this row changes
+    // don't display NULL rows, provided we are not getting input from it
+    if (!isset ($contents) && $readonly)
+      continue;
+
+    if ($On_Change_Script && !$readonly)
+      {
+      echo "{$label}_row_id_changed ();\n";
+      }
+    } // end of for each element
+
+  echo "</script>\n";
 
   } // end of ShowTable
 

@@ -1766,7 +1766,7 @@ function ShowTable ($table, $params, $specials)
 
     if (!empty ($comment))
       {
-      echo "<br><div class=\"ExtraSmallFont\" id=\"{$label}_row_comment\" >";
+      echo "<div class=\"ExtraSmallFont\" id=\"{$label}_row_comment\" >";
       echo (nl2br_http (htmlentities($comment)));
       echo "</div>\n";
       }
@@ -1775,7 +1775,7 @@ function ShowTable ($table, $params, $specials)
 
     if (!empty ($htmlcomment))
       {
-      echo "<br><div class=\"ExtraSmallFont\" >";
+      echo "<div class=\"ExtraSmallFont\" >";
       echo ($htmlcomment);
       echo "</div>\n";
       }

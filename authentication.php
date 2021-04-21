@@ -144,56 +144,6 @@ $SSO_loginInfo = array (
         'sso_id'            => false, // for password changing
         );
 
-// styles for our forms boxes, and also the information box on the right
-$FORM_STYLE = <<< EOD
-
-<style type="text/css">
- .form_style
-    {
-    margin-left:1em;
-    margin-bottom:2em;
-    border-spacing:10px 10px;
-    border-width:7px;
-    border-color:DeepSkyBlue;
-    border-style:solid;
-    border-radius:10px;
-    background-color:AliceBlue;
-    padding:1em;
-    display: inline-block;
-    font-size:80%;
-    }
-
-  .info_style
-    {
-    margin-left:1em;
-    margin-bottom:1em;
-    padding:5px;
-    background-color:AliceBlue;
-    opacity:0.7;
-    display: inline-block;
-    font-size:70%;
-    text-align:center;
-    float:right;
-    }
-
- .motd_style
-    {
-    margin-left:1em;
-    margin-bottom:2em;
-    border-spacing:10px 10px;
-    border-width:3px;
-    border-color:SandyBrown;
-    border-style:solid;
-    border-radius:10px;
-    background-color:SeaShell;
-    padding:1em;
-    display: inline-block;
-    box-shadow:3px 3px 5px black;
-    }
-
-</style>
-EOD;
-
 function showVariables ($which)
   {
   echo '<p>Here is some debugging info:';
@@ -752,10 +702,6 @@ function SSO_ShowLoginInfo ($extra = '')
   global $SSO_UserDetails, $SSO_loginInfo;
   global $action, $control;
   global $PHP_SELF;
-  global $FORM_STYLE;
-
-  // set up the style sheet for displaying forms like the login form
-  echo ($FORM_STYLE);
 
   // name of our system
   $sso_name             = htmlspecialchars ($control ['sso_name']);
@@ -807,7 +753,7 @@ function SSO_ShowLoginInfo ($extra = '')
 if (!$SSO_loginInfo ['show_sessions'] && !$SSO_loginInfo ['show_new_password'])
   {
 
-echo '<div class = "info_style">';
+echo '<div class = "info_style" id="info_style" >';
 
   // show that we are logged on
   if ($SSO_UserDetails)
@@ -816,7 +762,7 @@ echo '<div class = "info_style">';
     // putting up the form won't work if we already have arguments on the URI
     if (count ($_GET) == 0)
       echo ("<a href=\"$PHP_SELF?action=$SSO_SHOW_SESSIONS\" title=\"Log off, change password, or change user name\">
-              <img src=\"/images/gear.svg\" style=\"vertical-align:bottom;\" ></a>\n");
+              <img src=\"/images/gear.svg\" style=\"vertical-align:bottom;\" alt=\"Configuration\" ></a>\n");
     }
   // or show the logon link, unless we have already displayed the logon form or another form
   elseif (!$SSO_loginInfo ['show_login'] &&

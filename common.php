@@ -275,8 +275,8 @@ function DefaultColours ()
     );  // end of colour table
 
   // set up current values
-  reset ($colours);
-  while (list ($colourname, $value) = each ($colours))
+
+  foreach ($colours as $colourname => $value)
     $colours [$colourname] ['current'] = $value ['default'];
 
    } // end of DefaultColours
@@ -933,7 +933,7 @@ $diff = $endtime - $pagestarttime;
 if (!empty ($userinfo) || $doingMail ||
     isAdminOrModerator ())
   {
-  echo "<p>";
+  echo "<div id='page_execution_info'><p>";
   bTable (0);
   echo "<tr style=\"vertical-align:middle; background-color:$COLOUR_TIMING_BGND; color:$COLOUR_TIMING_TEXT; \">\n";
   echo "<td>\n";
@@ -941,7 +941,7 @@ if (!empty ($userinfo) || $doingMail ||
   echo "</td>";
   eRow ();
   eTable ();
-  echo "<p></p>\n";
+  echo "<p></p></div>\n";
   }
 
 if (isSQLdebugger () && !empty ($sql_evaluations))
@@ -2172,7 +2172,7 @@ function ShowTablesToEdit ()
     // we can edit all tables, so get a list of them
     GetDatabaseName ($databasename);
 
-    $result = dbQuery ("SHOW TABLES FROM " . $databasename) ;  // generated internally
+    $result = dbQuery ("SHOW TABLES FROM `" . $databasename . "`") ;  // generated internally
 
     while ($row = mysqli_fetch_row ($result))
       {

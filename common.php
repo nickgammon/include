@@ -870,7 +870,7 @@ global $shownHTMLheader;
   // build up CSS styles for user-supplied text and background colours
 
   $font_string = "\n" .
-                '<style type="text/css">' . "\n" .
+                '<style>' . "\n" .
                 '  body {color:' ;
 
   // if they specified a colour for their body, don't use the default

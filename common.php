@@ -708,6 +708,10 @@ function Init ($title,
   global $userinfo;         // administrative user
   global $hhs_member_info;  // HHS user
   global $foruminfo;        // forum user
+  global $noCSSrequired;
+
+  // so we don't read CSS files etc.
+  $noCSSrequired = $noContentType;
 
   $hhs_member_info = false;
   $userinfo = false;
@@ -903,8 +907,23 @@ global $shownHTMLheader;
 
   $font_string .= "</style>\n";
 
-  $head = str_replace ("<%BODY%>", $control ['body'], $head);
+  // our main stylesheet
 
+  $style_string = '';
+
+  $time = filemtime ($_SERVER['DOCUMENT_ROOT'] . '/style.css');
+  $font_string .=  "<link rel='stylesheet' href='/style.css?v=$time'>\n";
+
+  // our stylesheet for showing tables etc.
+  $time = filemtime ($_SERVER['DOCUMENT_ROOT'] . '/admin/showtable.css');
+  $font_string .=  "<link rel='stylesheet' href='/admin/showtable.css?v=$time'>\n";
+
+  // our stylesheet for the Historical Society - may be empty if not applicable
+  $time = filemtime ($_SERVER['DOCUMENT_ROOT'] . '/hhs/hhs.css');
+  $font_string .=  "<link rel='stylesheet' href='/hhs/hhs.css?v=$time'>\n";
+
+  $head = str_replace ("<%BODY%>", $control ['body'], $head);
+  $head = str_replace ("<%STYLE%>", $style_string, $head);
   $head = str_replace ("<%FONT%>", $font_string, $head);
 
 
@@ -912,6 +931,7 @@ global $shownHTMLheader;
   echo $otherheaderhtml;    // eg. refresh
 
   $shownHTMLheader = true;
+
 
   }   // end of MessageHead
 
@@ -1456,7 +1476,7 @@ function ShowTable ($table, $params, $specials)
       echo "<p>Please notify the above message(s) to: <a href=\"mailto:$WEBMASTER\">$WEBMASTER</a></p>";
     } // end of specials being an array
 
-  echo "<table $tableparam>\n";
+  echo "<table class='showtable'>\n";
 
   $contents = ""; // in case no items
 
@@ -1573,7 +1593,7 @@ function ShowTable ($table, $params, $specials)
     // output script function if there is one
     if ($On_Change_Script && !$readonly)
       {
-      echo "<script type=\"text/javascript\">\n";
+      echo "<script>\n";
       echo "function {$label}_row_id_changed ()\n";
       echo "{\n";
       echo ($On_Change_Script);
@@ -1588,9 +1608,9 @@ function ShowTable ($table, $params, $specials)
     else
       $td = "td";
 
-    echo "  <tr $rowparam id=\"{$label}_row_id\">\n";
-    echo "    <$td $LHcolparam>$bfont<b>" . htmlspecialchars ($description, ENT_SUBSTITUTE | ENT_QUOTES | ENT_HTML5) . "</b>$efont</$td>\n";
-    echo "    <$td $RHcolparam>$bfont";
+    echo "  <tr id=\"{$label}_row_id\">\n";
+    echo "    <th>$bfont<b>" . htmlspecialchars ($description, ENT_SUBSTITUTE | ENT_QUOTES | ENT_HTML5) . "</b>$efont</$td>\n";
+    echo "    <td>$bfont";
 
     // do forms processing
     if (!$readonly && !empty ($inputname))
@@ -1604,7 +1624,7 @@ function ShowTable ($table, $params, $specials)
             echo "<option value=\"\" ";
             if (!$contents)
               echo "selected ";
-            echo "/>(none)\n";
+            echo ">(none)\n";
             } // end if no entry required
           if (gettype ($values) == 'array')   // allow for no foreign key items
             {
@@ -1614,7 +1634,7 @@ function ShowTable ($table, $params, $specials)
               echo "<option value=\"$selectvalue\" ";
               if ($contents == $selectvalue)
                 echo "selected ";
-              echo "/>$selectdescription\n";
+              echo ">$selectdescription\n";
               } // end of each item
             }
           echo "</select>\n";
@@ -1627,7 +1647,7 @@ function ShowTable ($table, $params, $specials)
             echo "<option value=\"\" ";
             if (!$contents)
               echo "selected ";
-            echo "/>(none)\n";
+            echo ">(none)\n";
             } // end if no entry required
           if (gettype ($values) == 'array')   // allow for no foreign key items
             {
@@ -1638,7 +1658,7 @@ function ShowTable ($table, $params, $specials)
               echo "<option value=\"$selectvalue\" ";
               if ($contents == $selectvalue)
                 echo "selected ";
-              echo "/>$selectdescription\n";
+              echo ">$selectdescription\n";
               } // end of each item
             }
           echo "</select>\n";
@@ -1785,7 +1805,7 @@ function ShowTable ($table, $params, $specials)
     } // end of looping through each item
   echo "</table>\n";
 
-  echo "<script type=\"text/javascript\">\n";
+  echo "<script>\n";
 
 
   // call any functions required to set up the initial state (in Javascript)

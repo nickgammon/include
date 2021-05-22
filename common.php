@@ -921,18 +921,14 @@ global $shownHTMLheader;
   // our stylesheet for the Historical Society - may be empty if not applicable
   $time = filemtime ($_SERVER['DOCUMENT_ROOT'] . '/hhs/hhs.css');
   $font_string .=  "<link rel='stylesheet' href='/hhs/hhs.css?v=$time'>\n";
+  $font_string .= $otherheaderhtml;   // eg. refresh
 
   $head = str_replace ("<%BODY%>", $control ['body'], $head);
   $head = str_replace ("<%STYLE%>", $style_string, $head);
   $head = str_replace ("<%FONT%>", $font_string, $head);
 
-
   echo $head;
-  echo $otherheaderhtml;    // eg. refresh
-
   $shownHTMLheader = true;
-
-
   }   // end of MessageHead
 
 /*

@@ -51,8 +51,10 @@ Copyright © 2019 Nick Gammon.
 
 */
 
+"use strict"
+
 const BOX_SIZE = 10;   // size of corner boxes
-const DRAGGING_BOX_SIZE = 30;  // width of dragging box (height is BOX_SIZE)
+const DRAGGING_BOX_SIZE = 30;  // width of globals.dragging box (height is BOX_SIZE)
 const BOX_OPACITY = 1;
 const BACKGROUND_OPACITY = 0.15;
 const BACKGROUND_COLOUR = 'black';
@@ -80,47 +82,52 @@ const ELEMENT_TEXT_CONTINUATION = 7;
 const GRID_SIZE_X = 8;
 const GRID_SIZE_Y = 8;
 
+// put our global variables here to make it clear they are global
+var globals = [];
+
 // Initialization: called on load of script
 function init()
   {
-  canvas = document.getElementById("mycanvas");  // our canvas
+  globals.canvas = document.getElementById("mycanvas");  // our globals.canvas
 
-  if (canvas)
+  if (globals.canvas)
     {
-    ctx = canvas.getContext("2d");                 // our drawing context
+    globals.ctx = globals.canvas.getContext("2d");                 // our drawing context
     // convert width from mm into pixels as displayed on the page
-    width_multiple = canvas.width / page_width;
-    height_multiple = canvas.height / page_height;
+    globals.width_multiple  = globals.canvas.width / page_width;
+    globals.height_multiple = globals.canvas.height / page_height;
 
     // make a copy of element positions so we can reset to the beginning state
-    orig_elements = [];
-    for (i = 0; i < num_elements; i++)
+    globals.orig_elements = [];
+    for (var i = 0; i < num_elements; i++)
       {
-      orig_elements [i] = [];
-      for (j = 0; j <= LAST_ITEM; j++)
-        orig_elements [i] [j] = elements [i] [j];
+      globals.orig_elements [i] = [];
+      for (var j = 0; j <= LAST_ITEM; j++)
+        globals.orig_elements [i] [j] = elements [i] [j];
       }
-    } // end of if canvas exists
+    } // end of if globals.canvas exists
 
   // they haven't clicked the "Edit" button yet
-  edit_clicked = false;
-  edits_done = false;
-  dragging = false;
+  globals.edit_clicked = false;
+  globals.edits_done   = false;
+  globals.dragging     = false;
 
+  submit_edits_button = document.getElementById("submit_edits_button");
+  submit_edits_button.onclick = SubmitEditsClicked;
   } // end of init
 
 // draw one of the four corner boxes
 function drawCornerBox (x, y)
   {
-  ctx.beginPath();
-  ctx.rect((x * width_multiple)   - BOX_SIZE / 2,
-           (y * height_multiple)  - BOX_SIZE / 2,
+  globals.ctx.beginPath();
+  globals.ctx.rect((x * globals.width_multiple)   - BOX_SIZE / 2,
+           (y * globals.height_multiple)  - BOX_SIZE / 2,
            BOX_SIZE,
            BOX_SIZE
            );
-  ctx.fillStyle = "green";
-  ctx.globalAlpha = BOX_OPACITY;
-  ctx.fill ();
+  globals.ctx.fillStyle = "green";
+  globals.ctx.globalAlpha = BOX_OPACITY;
+  globals.ctx.fill ();
   } // end of drawCornerBox
 
 // fill with different colours to make the different elements stand out from each other
@@ -138,66 +145,67 @@ var movedFillColours = [
 function getElementDetails (element)
   {
   // extract out fields from database
-  element_id    = element [ELEMENT_ID];
-  element_type  = element [ELEMENT_TYPE];
-  startX        = element [STARTX];
-  startY        = element [STARTY];
-  endX          = element [ENDX];
-  endY          = element [ENDY];
+  globals.element_id    = element [ELEMENT_ID];
+  globals.element_type  = element [ELEMENT_TYPE];
+  globals.startX        = element [STARTX];
+  globals.startY        = element [STARTY];
+  globals.endX          = element [ENDX];
+  globals.endY          = element [ENDY];
 
   } // end of getElementDetails
 
 // draw element borders, plus resizing and moving handles
 function drawborders ()
 {
-ctx.clearRect(0, 0, canvas.width, canvas.height);  // clear canvas
-for (i = 0; i < num_elements; i++)
+globals.ctx.clearRect(0, 0, globals.canvas.width, globals.canvas.height);  // clear globals.canvas
+for (var i = 0; i < num_elements; i++)
   {
   // get *this* element
   getElementDetails (elements [i]);
 
   // stroke the entire element (box around it)
-  ctx.beginPath();
-  ctx.rect(startX * width_multiple, startY * height_multiple, (endX - startX) * width_multiple, (endY - startY) * height_multiple);
+  globals.ctx.beginPath();
+  globals.ctx.rect(globals.startX * globals.width_multiple, globals.startY * globals.height_multiple,
+                  (globals.endX - globals.startX) * globals.width_multiple, (globals.endY - globals.startY) * globals.height_multiple);
 
   // fill box if moved from original position
   if (ElementChanged (i))
     {
-//    ctx.fillStyle = BACKGROUND_COLOUR;
-    ctx.fillStyle = movedFillColours [i % movedFillColours.length];
-    ctx.globalAlpha = BACKGROUND_OPACITY;  // low opacity fill
-    ctx.globalAlpha = BACKGROUND_OPACITY * (Math.floor (i / movedFillColours.length) + 1);
-    ctx.fill();
+//    globals.ctx.fillStyle = BACKGROUND_COLOUR;
+    globals.ctx.fillStyle = movedFillColours [i % movedFillColours.length];
+    globals.ctx.globalAlpha = BACKGROUND_OPACITY;  // low opacity fill
+    globals.ctx.globalAlpha = BACKGROUND_OPACITY * (Math.floor (i / movedFillColours.length) + 1);
+    globals.ctx.fill();
     }
 
   // now draw box around it
-  ctx.strokeStyle = "green";
-  ctx.globalAlpha = BOX_OPACITY;
-  ctx.stroke();
+  globals.ctx.strokeStyle = "green";
+  globals.ctx.globalAlpha = BOX_OPACITY;
+  globals.ctx.stroke();
 
   // corner boxes (small boxes at corners)
-  drawCornerBox (startX, startY);
+  drawCornerBox (globals.startX, globals.startY);
 
   // lines only have two corners
-  if (element_type != ELEMENT_LINE)
+  if (globals.element_type != ELEMENT_LINE)
     {
-    drawCornerBox (endX, startY);
-    drawCornerBox (startX, endY);
+    drawCornerBox (globals.endX, globals.startY);
+    drawCornerBox (globals.startX, globals.endY);
     }
 
-  drawCornerBox (endX, endY);
+  drawCornerBox (globals.endX, globals.endY);
 
-  // draw dragging box
-  ctx.beginPath();
-  x = startX + ((endX - startX) / 2);  // half way along
-  ctx.rect((x * width_multiple) - (DRAGGING_BOX_SIZE / 2),
-           (startY * height_multiple)  - BOX_SIZE / 2,
+  // draw globals.dragging box
+  globals.ctx.beginPath();
+  var x = globals.startX + ((globals.endX - globals.startX) / 2);  // half way along
+  globals.ctx.rect((x * globals.width_multiple) - (DRAGGING_BOX_SIZE / 2),
+           (globals.startY * globals.height_multiple)  - BOX_SIZE / 2,
            DRAGGING_BOX_SIZE,
            BOX_SIZE
            );
-  ctx.globalAlpha = BOX_OPACITY;
-  ctx.fillStyle = "green";
-  ctx.fill ();
+  globals.ctx.globalAlpha = BOX_OPACITY;
+  globals.ctx.fillStyle = "green";
+  globals.ctx.fill ();
 
   } // end of for each element
 
@@ -208,27 +216,27 @@ function ResetOneElement (which)
   {
 
   // copy values back
-  for (j = 0; j <= LAST_ITEM; j++)
-    elements [which] [j] = orig_elements [which] [j];
+  for (var j = 0; j <= LAST_ITEM; j++)
+    elements [which] [j] = globals.orig_elements [which] [j];
 
   // put the HTML values back
-  element_id = elements [which] [ELEMENT_ID];
+  globals.element_id = elements [which] [ELEMENT_ID];
 
-  // fix up startX
-  startXonPage = document.getElementsByName("element_".concat (element_id.toString (10), "_startX"));
-  startXonPage [0].value = elements [which] [STARTX];
+  // fix up globals.startX
+  globals.startXonPage = document.getElementsByName("element_".concat (globals.element_id.toString (10), "_startX"));
+  globals.startXonPage [0].value = elements [which] [STARTX];
 
-  // fix up startY
-  startYonPage = document.getElementsByName("element_".concat (element_id.toString (10), "_startY"));
-  startYonPage [0].value = elements [which] [STARTY];
+  // fix up globals.startY
+  globals.startYonPage = document.getElementsByName("element_".concat (globals.element_id.toString (10), "_startY"));
+  globals.startYonPage [0].value = elements [which] [STARTY];
 
-  // fix up endX
-  endXonPage = document.getElementsByName("element_".concat (element_id.toString (10), "_endX"));
-  endXonPage [0].value = elements [which] [ENDX];
+  // fix up globals.endX
+  globals.endXonPage = document.getElementsByName("element_".concat (globals.element_id.toString (10), "_endX"));
+  globals.endXonPage [0].value = elements [which] [ENDX];
 
-  // fix up endY
-  endYonPage = document.getElementsByName("element_".concat (element_id.toString (10), "_endY"));
-  endYonPage [0].value = elements [which] [ENDY];
+  // fix up globals.endY
+  globals.endYonPage = document.getElementsByName("element_".concat (globals.element_id.toString (10), "_endY"));
+  globals.endYonPage [0].value = elements [which] [ENDY];
 
   } // end of ResetOneElement
 
@@ -242,108 +250,108 @@ function ResetClicked (event)
   reset_edits_button.disabled = true;
 
   // reset all elements
-  for (i = 0; i < num_elements; i++)
+  for (var i = 0; i < num_elements; i++)
     ResetOneElement (i);
 
   drawborders ();   // redraw original positions
-  edits_done = false;
+  globals.edits_done = false;
   return false;     // don't submit form
 } // end of ResetClicked
 
 // here when the "Edit" / "Submit edits" button is clicked
 function SubmitEditsClicked (event)
 {
-  if (!edit_clicked)
+  if (!globals.edit_clicked)
     {
-    edit_clicked = true;
-    submit_edits_button = document.getElementById("submit_edits_button");
-    submit_edits_button.value = "Submit edits";
-    submit_edits_button.disabled = true;  // nothing edited yet
+    globals.edit_clicked          = true;
+    submit_edits_button           = document.getElementById("submit_edits_button");
+    submit_edits_button.value     = "Submit edits";
+    submit_edits_button.disabled  = true;  // nothing edited yet
     drawborders ();
     return false;   // don't submit yet
     }
   return true;  // submit form now
 } // end of SubmitEditsClicked
 
-// returns true if this element has changed from its original position
+// returns true if this element has globals.changed from its original position
 function ElementChanged (which)
   {
-  return elements [which] [STARTX] != orig_elements [which] [STARTX] ||
-         elements [which] [ENDX]   != orig_elements [which] [ENDX] ||
-         elements [which] [STARTY] != orig_elements [which] [STARTY] ||
-         elements [which] [ENDY]   != orig_elements [which] [ENDY];
+  return elements [which] [STARTX] != globals.orig_elements [which] [STARTX] ||
+         elements [which] [ENDX]   != globals.orig_elements [which] [ENDX] ||
+         elements [which] [STARTY] != globals.orig_elements [which] [STARTY] ||
+         elements [which] [ENDY]   != globals.orig_elements [which] [ENDY];
   } // end of ElementChanged
 
-// see if the page has changed by checking all elements
+// see if the page has globals.changed by checking all elements
 function CheckIfPageChanged ()
   {
-  changed = false;  // no changes yet
+  globals.changed = false;  // no changes yet
 
   // check each element
-  for (i = 0; i < num_elements; i++)
+  for (var i = 0; i < num_elements; i++)
     if (ElementChanged (i))
-      changed = true;
+      globals.changed = true;
 
-  if (changed)
+  if (globals.changed)
     {
-    submit_edits_button.disabled = false;
-    reset_edits_button.disabled = false;
-    reset_edits_button.onclick = ResetClicked;
-    edits_done = true;
+    submit_edits_button.disabled  = false;
+    reset_edits_button.disabled   = false;
+    reset_edits_button.onclick    = ResetClicked;
+    globals.edits_done            = true;
     }
   else
     {
     // no changes? make sure submit and reset buttons are disabled
     // - this is for the situation where you make a change and then change it back
-    submit_edits_button.disabled = true;
-    reset_edits_button.disabled = true;
-    reset_edits_button.onclick = null;
-    edits_done = false;
+    submit_edits_button.disabled  = true;
+    reset_edits_button.disabled   = true;
+    reset_edits_button.onclick    = null;
+    globals.edits_done            = false;
     }
   } // end of CheckIfPageChanged
 
 // set the appropriate mouse cursor shape depending on what it is hovering over, if anything
 function SetMouseCursor (event)
   {
-  mousex = event.offsetX;
-  mousey = event.offsetY;
+  var mousex = event.offsetX;
+  var mousey = event.offsetY;
 
   // find active element, assuming we can see them (edit button has been clicked)
-  if (edit_clicked)
+  if (globals.edit_clicked)
     {
-    for (i = 0; i < num_elements; i++)
+    for (var i = 0; i < num_elements; i++)
       {
-      activeElement = i;
+      globals.activeElement = i;
       // get *this* element
       getElementDetails (elements [i]);
       // top left?
-      if (mouseInBox (mousex, mousey, startX, startY, BOX_SIZE, BOX_SIZE))
+      if (mouseInBox (mousex, mousey, globals.startX, globals.startY, BOX_SIZE, BOX_SIZE))
         {
-        canvas.style.cursor = 'nwse-resize';
+        globals.canvas.style.cursor = 'nwse-resize';
         return;
         }
       // top right?
-      else if (mouseInBox (mousex, mousey, endX, startY, BOX_SIZE, BOX_SIZE) && element_type != ELEMENT_LINE)
+      else if (mouseInBox (mousex, mousey, globals.endX, globals.startY, BOX_SIZE, BOX_SIZE) && globals.element_type != ELEMENT_LINE)
         {
-        canvas.style.cursor = 'nwse-resize';
+        globals.canvas.style.cursor = 'nwse-resize';
         return;
         }
       // bottom left?
-      else if (mouseInBox (mousex, mousey, startX, endY, BOX_SIZE, BOX_SIZE) && element_type != ELEMENT_LINE)
+      else if (mouseInBox (mousex, mousey, globals.startX, globals.endY, BOX_SIZE, BOX_SIZE) && globals.element_type != ELEMENT_LINE)
         {
-        canvas.style.cursor = 'nwse-resize';
+        globals.canvas.style.cursor = 'nwse-resize';
         return;
         }
       // bottom right?
-      else if (mouseInBox (mousex, mousey, endX, endY, BOX_SIZE, BOX_SIZE))
+      else if (mouseInBox (mousex, mousey, globals.endX, globals.endY, BOX_SIZE, BOX_SIZE))
         {
-        canvas.style.cursor = 'nwse-resize';
+        globals.canvas.style.cursor = 'nwse-resize';
         return;
         }
-      // and now check the dragging box
-      else if (mouseInBox (mousex, mousey, startX + (endX - startX) / 2, startY, DRAGGING_BOX_SIZE, BOX_SIZE))
+      // and now check the globals.dragging box
+      else if (mouseInBox (mousex, mousey, globals.startX + (globals.endX - globals.startX) / 2, globals.startY, DRAGGING_BOX_SIZE, BOX_SIZE))
         {
-        canvas.style.cursor = 'move';
+        globals.canvas.style.cursor = 'move';
         return;
         }
       } // end of for each element
@@ -353,43 +361,43 @@ function SetMouseCursor (event)
 
   // check the entire element rectangle
   // go backwards so that the higher (on top) one gets selected before the one underneath
-  for (i = num_elements - 1; i >= 0; i--)
+  for (var i = num_elements - 1; i >= 0; i--)
     {
-    activeElement = i;
+    globals.activeElement = i;
     // get *this* element
     getElementDetails (elements [i]);
 
-    if (mousex < (startX * width_multiple))
+    if (mousex < (globals.startX * globals.width_multiple))
       continue;  // too far left
-    if (mousex > (endX * width_multiple))
+    if (mousex > (globals.endX * globals.width_multiple))
       continue;  // too far right
-    if (mousey < (startY * height_multiple))
+    if (mousey < (globals.startY * globals.height_multiple))
       continue;  // too far up
-    if (mousey > (endY * height_multiple))
+    if (mousey > (globals.endY * globals.height_multiple))
       continue;  // too far down
 
-    // found the element!
-    canvas.style.cursor = 'pointer';
+    // globals.found the element!
+    globals.canvas.style.cursor = 'pointer';
     return;
     } // end of for each element
 
   // mouse isn't anywhere interesting
-  canvas.style.cursor = 'default';
+  globals.canvas.style.cursor = 'default';
 
   } // end of SetMouseCursor
 
 // mouse move handler - resize the element box (or move it) assuming we had a previous mouse down
 function onMouseMove(event)
 {
-  mousex = event.offsetX;
-  mousey = event.offsetY;
+  globals.mousex = event.offsetX;
+  globals.mousey = event.offsetY;
 
-  // if dragging (mouse down previously) update the element's position depending on where we move to
-  if (dragging)
+  // if globals.dragging (mouse down previously) update the element's position depending on where we move to
+  if (globals.dragging)
    {
     // find new position in mm
-    x = Math.round(mousex / width_multiple);
-    y = Math.round(mousey / height_multiple);
+    var x = Math.round(globals.mousex / globals.width_multiple);
+    var y = Math.round(globals.mousey / globals.height_multiple);
 
     // shift key snaps to the grid
     if (event.shiftKey)
@@ -398,78 +406,78 @@ function onMouseMove(event)
       y = Math.round(y / grid_size_y) * grid_size_y;
       }
 
-    element_type = elements [activeElement] [ELEMENT_TYPE];
+    globals.element_type = elements [globals.activeElement] [ELEMENT_TYPE];
 
     // update element - depending on which corner was being moved
 
     // top left
-    if (activeCorner == 'topleft' && element_type == ELEMENT_LINE)
+    if (globals.activeCorner == 'topleft' && globals.element_type == ELEMENT_LINE)
       {
       // lines can line up vertically and horizontally
-      if (x <= elements [activeElement] [ENDX] && y <= elements [activeElement] [ENDY])
+      if (x <= elements [globals.activeElement] [ENDX] && y <= elements [globals.activeElement] [ENDY])
         {
-        elements [activeElement] [STARTX] = x;
-        elements [activeElement] [STARTY] = y;
+        elements [globals.activeElement] [STARTX] = x;
+        elements [globals.activeElement] [STARTY] = y;
         }
       }
-    else if (activeCorner == 'topleft' && element_type != ELEMENT_LINE)
+    else if (globals.activeCorner == 'topleft' && globals.element_type != ELEMENT_LINE)
       {
-      if (x < elements [activeElement] [ENDX] && y < elements [activeElement] [ENDY])
+      if (x < elements [globals.activeElement] [ENDX] && y < elements [globals.activeElement] [ENDY])
         {
-        elements [activeElement] [STARTX] = x;
-        elements [activeElement] [STARTY] = y;
+        elements [globals.activeElement] [STARTX] = x;
+        elements [globals.activeElement] [STARTY] = y;
         }
       }
 
     // top right
-    else if (activeCorner == 'topright')
+    else if (globals.activeCorner == 'topright')
       {
-      if (x > elements [activeElement] [STARTX] && y < elements [activeElement] [ENDY])
+      if (x > elements [globals.activeElement] [STARTX] && y < elements [globals.activeElement] [ENDY])
         {
-        elements [activeElement] [ENDX] = x;
-        elements [activeElement] [STARTY] = y;
+        elements [globals.activeElement] [ENDX] = x;
+        elements [globals.activeElement] [STARTY] = y;
         }
       }
 
     // bottom left
-    else if (activeCorner == 'bottomleft')
+    else if (globals.activeCorner == 'bottomleft')
       {
-      if (x < elements [activeElement] [ENDX] && y > elements [activeElement] [STARTY])
+      if (x < elements [globals.activeElement] [ENDX] && y > elements [globals.activeElement] [STARTY])
         {
-        elements [activeElement] [STARTX] = x;
-        elements [activeElement] [ENDY] = y;
+        elements [globals.activeElement] [STARTX] = x;
+        elements [globals.activeElement] [ENDY] = y;
         }
       }
 
    // bottom right
-   else if (activeCorner == 'bottomright' && element_type == ELEMENT_LINE)
+   else if (globals.activeCorner == 'bottomright' && globals.element_type == ELEMENT_LINE)
       {
       // lines can line up vertically and horizontally
-      if (x >= elements [activeElement] [STARTX] && y >= elements [activeElement] [STARTY])
+      if (x >= elements [globals.activeElement] [STARTX] && y >= elements [globals.activeElement] [STARTY])
         {
-        elements [activeElement] [ENDX] = x;
-        elements [activeElement] [ENDY] = y;
+        elements [globals.activeElement] [ENDX] = x;
+        elements [globals.activeElement] [ENDY] = y;
         }
       }
-   else if (activeCorner == 'bottomright' && element_type != ELEMENT_LINE)
+   else if (globals.activeCorner == 'bottomright' && globals.element_type != ELEMENT_LINE)
       {
-      if (x > elements [activeElement] [STARTX] && y > elements [activeElement] [STARTY])
+      if (x > elements [globals.activeElement] [STARTX] && y > elements [globals.activeElement] [STARTY])
         {
-        elements [activeElement] [ENDX] = x;
-        elements [activeElement] [ENDY] = y;
+        elements [globals.activeElement] [ENDX] = x;
+        elements [globals.activeElement] [ENDY] = y;
         }
       }
 
     // drag box (reposition)
-    else if (activeCorner == 'drag')
+    else if (globals.activeCorner == 'drag')
       {
-      deltaX = Math.round((dragMouseX - event.offsetX) / width_multiple);
-      deltaY = Math.round((dragMouseY - event.offsetY) / height_multiple);
+      var deltaX = Math.round((globals.dragMouseX - event.offsetX) / globals.width_multiple);
+      var deltaY = Math.round((globals.dragMouseY - event.offsetY) / globals.height_multiple);
 
-      new_x = dragStartX - deltaX;
-      new_y = dragStartY - deltaY;
-      width = elements [activeElement]  [ENDX] - elements [activeElement] [STARTX];
-      height = elements [activeElement] [ENDY] - elements [activeElement] [STARTY];
+      var new_x = globals.dragStartX - deltaX;
+      var new_y = globals.dragStartY - deltaY;
+      var width = elements [globals.activeElement]  [ENDX] - elements [globals.activeElement] [STARTX];
+      var height = elements [globals.activeElement] [ENDY] - elements [globals.activeElement] [STARTY];
 
       // shift key snaps to the grid
       if (event.shiftKey)
@@ -478,10 +486,10 @@ function onMouseMove(event)
         new_y = Math.round(new_y / grid_size_y) * grid_size_y;
         }
 
-      elements [activeElement] [STARTX] = new_x;
-      elements [activeElement] [STARTY] = new_y;
-      elements [activeElement] [ENDX]   = new_x + width;
-      elements [activeElement] [ENDY]   = new_y + height;
+      elements [globals.activeElement] [STARTX] = new_x;
+      elements [globals.activeElement] [STARTY] = new_y;
+      elements [globals.activeElement] [ENDX]   = new_x + width;
+      elements [globals.activeElement] [ENDY]   = new_y + height;
       }
 
     drawborders ();
@@ -489,23 +497,23 @@ function onMouseMove(event)
     // update form ready for them to post it
 
     // turn element array number into an element ID
-    element_id = elements [activeElement] [ELEMENT_ID];
+    globals.element_id = elements [globals.activeElement] [ELEMENT_ID];
 
-    // fix up startX
-    startXonPage = document.getElementsByName("element_".concat (element_id.toString (10), "_startX"));
-    startXonPage [0].value = elements [activeElement] [STARTX];
+    // fix up globals.startX
+    globals.startXonPage = document.getElementsByName("element_".concat (globals.element_id.toString (10), "_startX"));
+    globals.startXonPage [0].value = elements [globals.activeElement] [STARTX];
 
-    // fix up startY
-    startYonPage = document.getElementsByName("element_".concat (element_id.toString (10), "_startY"));
-    startYonPage [0].value = elements [activeElement] [STARTY];
+    // fix up globals.startY
+    globals.startYonPage = document.getElementsByName("element_".concat (globals.element_id.toString (10), "_startY"));
+    globals.startYonPage [0].value = elements [globals.activeElement] [STARTY];
 
-    // fix up endX
-    endXonPage = document.getElementsByName("element_".concat (element_id.toString (10), "_endX"));
-    endXonPage [0].value = elements [activeElement] [ENDX];
+    // fix up globals.endX
+    globals.endXonPage = document.getElementsByName("element_".concat (globals.element_id.toString (10), "_endX"));
+    globals.endXonPage [0].value = elements [globals.activeElement] [ENDX];
 
-    // fix up endY
-    endYonPage = document.getElementsByName("element_".concat (element_id.toString (10), "_endY"));
-    endYonPage [0].value = elements [activeElement] [ENDY];
+    // fix up globals.endY
+    globals.endYonPage = document.getElementsByName("element_".concat (globals.element_id.toString (10), "_endY"));
+    globals.endYonPage [0].value = elements [globals.activeElement] [ENDY];
 
     submit_edits_button = document.getElementById("submit_edits_button");
     reset_edits_button = document.getElementById("reset_edits_button");
@@ -513,101 +521,101 @@ function onMouseMove(event)
     // check a change has actually been made before activating the submit and reset buttons
     CheckIfPageChanged ();
     return;
-   }  // if dragging
+   }  // if globals.dragging
 
   // MOUSE CURSOR CHANGES
 
-  // if not dragging, change the mouse to indicate what we *can* do if we click
+  // if not globals.dragging, change the mouse to indicate what we *can* do if we click
   SetMouseCursor (event);
 
 } // end of onMouseMove
 
-// test if the mouse is inside one of the dragging boxes
+// test if the mouse is inside one of the globals.dragging boxes
 function mouseInBox (mousex, mousey, x, y, hsize, vsize)
   {
-  if (mousex < (x * width_multiple) - hsize / 2)
+  if (globals.mousex < (x * globals.width_multiple) - hsize / 2)
     return false;  // too far left
-  if (mousex > (x * width_multiple) + hsize / 2)
+  if (globals.mousex > (x * globals.width_multiple) + hsize / 2)
     return false;  // too far right
-  if (mousey < (y * height_multiple) - vsize / 2)
+  if (globals.mousey < (y * globals.height_multiple) - vsize / 2)
     return false;  // too far up
-  if (mousey > (y * height_multiple) + vsize / 2)
+  if (globals.mousey > (y * globals.height_multiple) + vsize / 2)
     return false;  // too far down
   return true;
   } // end of mouseInBox
 
-// mouse down event - set up for dragging somewhere
+// mouse down event - set up for globals.dragging somewhere
 function onMouseDown(event)
 {
-  found = false;
-  mousex = event.offsetX;
-  mousey = event.offsetY;
+  globals.found   = false;
+  globals.mousex  = event.offsetX;
+  globals.mousey  = event.offsetY;
 
   // mouse down isn't active until we can see the handler boxes
-  if (!edit_clicked)
+  if (!globals.edit_clicked)
     return;
 
   // find active element
-  for (i = 0; i < num_elements; i++)
+  for (var i = 0; i < num_elements; i++)
     {
-    activeElement = i;
+    globals.activeElement = i;
     // get *this* element
     getElementDetails (elements [i]);
     // top left?
-    if (mouseInBox (mousex, mousey, startX, startY, BOX_SIZE, BOX_SIZE))
+    if (mouseInBox (globals.mousex, globals.mousey, globals.startX, globals.startY, BOX_SIZE, BOX_SIZE))
       {
-      activeCorner = 'topleft';
-      found = true;
+      globals.activeCorner = 'topleft';
+      globals.found = true;
       break;
       }
     // top right?
-    else if (mouseInBox (mousex, mousey, endX, startY, BOX_SIZE, BOX_SIZE) && element_type != ELEMENT_LINE)
+    else if (mouseInBox (globals.mousex, globals.mousey, globals.endX, globals.startY, BOX_SIZE, BOX_SIZE) && globals.element_type != ELEMENT_LINE)
       {
-      activeCorner = 'topright';
-      found = true;
+      globals.activeCorner = 'topright';
+      globals.found = true;
       break;
       }
     // bottom left?
-    else if (mouseInBox (mousex, mousey, startX, endY, BOX_SIZE, BOX_SIZE) && element_type != ELEMENT_LINE)
+    else if (mouseInBox (globals.mousex, globals.mousey, globals.startX, globals.endY, BOX_SIZE, BOX_SIZE) && globals.element_type != ELEMENT_LINE)
       {
-      activeCorner = 'bottomleft';
-      found = true;
+      globals.activeCorner = 'bottomleft';
+      globals.found = true;
       break;
       }
     // bottom right?
-    else if (mouseInBox (mousex, mousey, endX, endY, BOX_SIZE, BOX_SIZE))
+    else if (mouseInBox (globals.mousex, globals.mousey, globals.endX, globals.endY, BOX_SIZE, BOX_SIZE))
       {
-      activeCorner = 'bottomright';
-      found = true;
+      globals.activeCorner = 'bottomright';
+      globals.found = true;
       break;
       }
-    // and now check the dragging box
-    else if (mouseInBox (mousex, mousey, startX + (endX - startX) / 2, startY, DRAGGING_BOX_SIZE, BOX_SIZE))
+    // and now check the globals.dragging box
+    else if (mouseInBox (globals.mousex, globals.mousey, globals.startX + (globals.endX - globals.startX) / 2, globals.startY, DRAGGING_BOX_SIZE, BOX_SIZE))
       {
-      activeCorner = 'drag';
+      globals.activeCorner = 'drag';
       // remember where we clicked so we can get a delta location
-      dragMouseX = mousex;
-      dragMouseY = mousey;
+      globals.dragMouseX = globals.mousex;
+      globals.dragMouseY = globals.mousey;
       // remember where it was when we clicked
-      dragStartX = elements [activeElement] [STARTX];
-      dragStartY = elements [activeElement] [STARTY];
-      dragEndX   = elements [activeElement] [ENDX];
-      dragEndY   = elements [activeElement] [ENDY];
-      found = true;
+      globals.dragStartX = elements [globals.activeElement] [STARTX];
+      globals.dragStartY = elements [globals.activeElement] [STARTY];
+      globals.dragEndX   = elements [globals.activeElement] [ENDX];
+      globals.dragEndY   = elements [globals.activeElement] [ENDY];
+      globals.found = true;
       break;
       }
 
     } // end of for each element
 
-  if (!found)
+  if (!globals.found)
     return;
 
-  if (activeCorner == 'drag')
-    canvas.style.cursor = 'move';
+  if (globals.activeCorner == 'drag')
+    globals.canvas.style.cursor = 'move';
   else
-    canvas.style.cursor = 'nwse-resize';
+    globals.canvas.style.cursor = 'nwse-resize';
 
-  dragging = true;
+  globals.dragging = true;
 
   document.getElementById('editing_notes').innerHTML = 'SHIFT to snap to grid, CTRL to reset position.';
 
@@ -618,15 +626,15 @@ function onMouseUp(event)
   {
 
   // ctrl key means discard moves and reset to defaults
-  if (dragging && event.ctrlKey && activeCorner)
+  if (globals.dragging && event.ctrlKey && globals.activeCorner)
     {
-    ResetOneElement (activeElement);  // put the current element back to its default position
+    ResetOneElement (globals.activeElement);  // put the current element back to its default position
     CheckIfPageChanged ();
     drawborders ();     // redraw page
     }
 
-  activeCorner = '';
-  dragging = false;
+  globals.activeCorner  = '';
+  globals.dragging      = false;
   document.getElementById('editing_notes').innerHTML = '';
   SetMouseCursor (event);
   } // end of onMouseUp
@@ -634,27 +642,27 @@ function onMouseUp(event)
 // double-click in an element box edits that element (eg. to change the text)
 function onDoubleClick(event)
   {
-  mousex = event.offsetX;
-  mousey = event.offsetY;
+  var mousex = event.offsetX;
+  var mousey = event.offsetY;
 
-  if (edits_done)
+  if (globals.edits_done)
     {
     alert ("You have un-saved position edits - submit them or reset them.");
     return;
     }
 
-  // check the dragging boxes first in case a small element is inside a larger one
+  // check the globals.dragging boxes first in case a small element is inside a larger one
   // go backwards so that the higher (on top) one gets selected before the one underneath
-  for (i = num_elements - 1; i >= 0; i--)
+  for (var i = num_elements - 1; i >= 0; i--)
     {
-    activeElement = i;
+    globals.activeElement = i;
     // get *this* element
     getElementDetails (elements [i]);
 
     // let them double-click in the title box in case it is hard to find the element (eg. a line)
-    if (mouseInBox (mousex, mousey, startX + (endX - startX) / 2, startY, DRAGGING_BOX_SIZE, BOX_SIZE))
+    if (mouseInBox (mousex, mousey, globals.startX + (globals.endX - globals.startX) / 2, globals.startY, DRAGGING_BOX_SIZE, BOX_SIZE))
       {
-      button_to_click = document.getElementById("link_to_edit_element_".concat (element_id));
+      button_to_click = document.getElementById("link_to_edit_element_".concat (globals.element_id));
       if (!button_to_click)
         return;   // can't find button
       button_to_click.click();    // activate it
@@ -664,23 +672,23 @@ function onDoubleClick(event)
 
   // now check the entire element rectangle
   // go backwards so that the higher (on top) one gets selected before the one underneath
-  for (i = num_elements - 1; i >= 0; i--)
+  for (var i = num_elements - 1; i >= 0; i--)
     {
-    activeElement = i;
+    globals.activeElement = i;
     // get *this* element
     getElementDetails (elements [i]);
 
-    if (mousex < (startX * width_multiple))
+    if (mousex < (globals.startX * globals.width_multiple))
       continue;  // too far left
-    if (mousex > (endX * width_multiple))
+    if (mousex > (globals.endX * globals.width_multiple))
       continue;  // too far right
-    if (mousey < (startY * height_multiple))
+    if (mousey < (globals.startY * globals.height_multiple))
       continue;  // too far up
-    if (mousey > (endY * height_multiple))
+    if (mousey > (globals.endY * globals.height_multiple))
       continue;  // too far down
 
-    // found the element!
-    button_to_click = document.getElementById("link_to_edit_element_".concat (element_id));
+    // globals.found the element!
+    button_to_click = document.getElementById("link_to_edit_element_".concat (globals.element_id));
     if (!button_to_click)
       return;   // can't find button
 
@@ -692,23 +700,15 @@ function onDoubleClick(event)
 
 // START HERE
 
-init ();  // get our canvas and context
+init ();  // get our globals.canvas and context
 
-if (canvas)
+if (globals.canvas)
   {
   // mouse handlers
-  canvas.onmousedown = onMouseDown;
-  canvas.onmouseup   = onMouseUp;
-  canvas.ondblclick  = onDoubleClick;
-  canvas.onmousemove = onMouseMove;
+  globals.canvas.onmousedown = onMouseDown;
+  globals.canvas.onmouseup   = onMouseUp;
+  globals.canvas.ondblclick  = onDoubleClick;
+  globals.canvas.onmousemove = onMouseMove;
   }
 
-/*
 
-These lines are added by the PHP file once the "submit_edits_button" button exists,
-otherwise the onclick doesn't work.
-
-    submit_edits_button = document.getElementById(\"submit_edits_button\");
-    submit_edits_button.onclick = SubmitEditsClicked;
-
-*/

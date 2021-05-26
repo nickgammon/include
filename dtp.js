@@ -662,7 +662,7 @@ function onDoubleClick(event)
     // let them double-click in the title box in case it is hard to find the element (eg. a line)
     if (mouseInBox (mousex, mousey, globals.startX + (globals.endX - globals.startX) / 2, globals.startY, DRAGGING_BOX_SIZE, BOX_SIZE))
       {
-      button_to_click = document.getElementById("link_to_edit_element_".concat (globals.element_id));
+      var button_to_click = document.getElementById("link_to_edit_element_".concat (globals.element_id));
       if (!button_to_click)
         return;   // can't find button
       button_to_click.click();    // activate it
@@ -687,8 +687,8 @@ function onDoubleClick(event)
     if (mousey > (globals.endY * globals.height_multiple))
       continue;  // too far down
 
-    // globals.found the element!
-    button_to_click = document.getElementById("link_to_edit_element_".concat (globals.element_id));
+    // found the element!
+    var button_to_click = document.getElementById("link_to_edit_element_".concat (globals.element_id));
     if (!button_to_click)
       return;   // can't find button
 

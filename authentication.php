@@ -769,7 +769,11 @@ echo '<div class = "info_style" id="info_style" >';
           !$SSO_loginInfo ['show_authenticator'] &&
           !$SSO_loginInfo ['show_forgotten_password'] &&
           !$SSO_loginInfo ['show_new_password'] )
+    {
+    echo "<div id='logon'>";
     hLink ("Log on", $PHP_SELF, "action=sso_logon_form");  //  to $sso_name
+    echo "</div>\n";
+    }
 
   echo ($extra);
 

@@ -301,7 +301,7 @@ function ShowError ($theerror)
 
 function ShowWarningH ($theWarning)
   {
-  echo ("<p style=\"color:darkred; font-weight:bold;\">" . $theWarning . "</p>\n");
+  echo ("<p class='warning_message'>" . $theWarning . "</p>\n");
   } // end of ShowWarningH
 
 function ShowWarning ($theWarning)
@@ -311,7 +311,7 @@ function ShowWarning ($theWarning)
 
 function ShowInfoH ($theInfo)
   {
-  echo ("<p style=\"color:darkgreen; font-weight:bold;\">" . $theInfo . "</p>\n");
+  echo ("<p class='login_info'>" . $theInfo . "</p>\n");
   } // end of ShowInfoH
 
 function ShowInfo ($theInfo)
@@ -363,7 +363,7 @@ echo <<< EOD
     width:70%;
     box-shadow:7px 7px 10px black;
     " >
-<p>We apologise that there has been a problem with the web server ...</h3>
+<p>We apologise that there has been a problem with the server ...</h3>
 EOD;
 
   ShowError ($why);
@@ -921,18 +921,14 @@ global $shownHTMLheader;
   // our stylesheet for the Historical Society - may be empty if not applicable
   $time = filemtime ($_SERVER['DOCUMENT_ROOT'] . '/hhs/hhs.css');
   $font_string .=  "<link rel='stylesheet' href='/hhs/hhs.css?v=$time'>\n";
+  $font_string .= $otherheaderhtml;   // eg. refresh
 
   $head = str_replace ("<%BODY%>", $control ['body'], $head);
   $head = str_replace ("<%STYLE%>", $style_string, $head);
   $head = str_replace ("<%FONT%>", $font_string, $head);
 
-
   echo $head;
-  echo $otherheaderhtml;    // eg. refresh
-
   $shownHTMLheader = true;
-
-
   }   // end of MessageHead
 
 /*
@@ -3683,10 +3679,10 @@ function ShowBackupDays ()
     {
     // make message larger and larger until someone does something about it
     $font_size = 100 + ($days_since_backup * 10);
-    echo "<p style=\"color:red; font-size: $font_size%\"><b>Last off-site backup $when.</b></p>";
+    echo "<div id='offsite_backup_overdue' style='font-size: $font_size%'>Last off-site backup $when.</div>";
     }
   else
-    echo "<p style=\"color:darkgreen; font-size:x-small;\">Last off-site backup $when.</p>";
+    echo "<div id='offsite_backup_date'>Last off-site backup $when.</div>";
 
   } // end of Show_Backup_Days
 

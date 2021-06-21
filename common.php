@@ -608,18 +608,18 @@ Generation:
                                 str_repeat("\0", 16));
 */
 
-  
+
   $decrypted = openssl_decrypt ($encryptedToken,               // encrypted text
                 'AES-128-CBC',                                 // method
                 pack('H*',$authrow ['AES_key']),               // key
                 OPENSSL_RAW_DATA | OPENSSL_ZERO_PADDING,       // options
                 pack('H*','00000000000000000000000000000000')  // IV
-                );  
+                );
 
-    
+
    if (!$decrypted)
      return "Authentication failed (could not decrypt token)";
-   
+
    $crc = crc16 ($decrypted, 16);
 
    if ($crc != 0xf0b8)

@@ -417,6 +417,7 @@ function GetControlItems ()
   {
   global $control, $dblink;
   global $BODY_COLOUR, $HEADING_COLOUR;
+  global $mySQLversion;
 
   $result = mysqli_query ($dblink, "SELECT * FROM control")   // WTF?
     or MajorProblem ("Select of control table failed: " . mysqli_connect_error ());
@@ -470,6 +471,13 @@ function GetControlItems ()
   // fix time zone
   if (preg_match ("|^([+-][0-9]{2})([0-9]{2})?$|", $dst, $matches))
     dbUpdate ("SET time_zone = '" . $matches [1] . ":" . $matches [2] . "'");  // hopefully OK
+
+  // find mySQL version
+  $versionRow = dbQueryOne ("SELECT version () AS version");
+  if (preg_match ('|([0-9]+)|', $versionRow ['version'], $matches))
+    $mySQLversion = (int) $matches [1];
+  else
+    $mySQLversion = 0;
 
   } // end of GetControlItems
 
@@ -592,20 +600,30 @@ Generation:
   if (!$authrow)
     return "That authenticator is not on file";
 
-
+/*
   $decrypted = mcrypt_decrypt (MCRYPT_RIJNDAEL_128 ,
                                 pack('H*',$authrow ['AES_key']),
                                 $encryptedToken,
                                 MCRYPT_MODE_CBC,
                                 str_repeat("\0", 16));
+*/
 
-// doesn't work for some reason at present: returns false
-//  $decrypted = openssl_decrypt ($encryptedToken, 'AES-256-CBC', pack('H*',$authrow ['AES_key']), OPENSSL_RAW_DATA, str_repeat("\0", 16));
+  
+  $decrypted = openssl_decrypt ($encryptedToken,               // encrypted text
+                'AES-128-CBC',                                 // method
+                pack('H*',$authrow ['AES_key']),               // key
+                OPENSSL_RAW_DATA | OPENSSL_ZERO_PADDING,       // options
+                pack('H*','00000000000000000000000000000000')  // IV
+                );  
 
+    
+   if (!$decrypted)
+     return "Authentication failed (could not decrypt token)";
+   
    $crc = crc16 ($decrypted, 16);
 
    if ($crc != 0xf0b8)
-     return "Authentication failed";
+     return "Authentication failed (token CRC failed)";
 
    $privateUID_converted = bin2hex (substr ($decrypted, 0, 6));
 
@@ -773,7 +791,7 @@ function Init ($title,
     MessageHead ($title, $keywords, $otherheaderhtml);
     if (!$noContentType)
       {
-      if ($userinfo ['logged_on'])
+      if (isset ($userinfo ['logged_on']) && $userinfo ['logged_on'])
         {
         $extra = $control ['admin_links'];    // extra useful links
         if ($userinfo ['executesql'])
@@ -3969,9 +3987,11 @@ function ConvertMarkup ($value, $outputName = 'HTML', $headerLevel = 2, $toc = '
   else
 
     {
+    $headerLevel--;   // for --shift-heading-level-by. See: https://pandoc.org/MANUAL.html
     $cmd = "$pandocProg $pandocOptions " .
            "--from=markdown+smart " .
-           "--base-header-level=$headerLevel " .
+//           "--base-header-level=$headerLevel " .
+           "--shift-heading-level-by=$headerLevel " .
            "$toc " .
            $to;  // HTML5 or whatever
 

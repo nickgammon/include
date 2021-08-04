@@ -43,6 +43,11 @@ Copyright © 2001 Nick Gammon.
 
 */
 
+use PHPMailer\PHPMailer\PHPMailer;
+use PHPMailer\PHPMailer\SMTP;
+use PHPMailer\PHPMailer\Exception;
+
+
 // for bcrypt stuff (password_hash / password_verify)
 require ($INCLUDE_DIRECTORY . "password.php");
 require ($INCLUDE_DIRECTORY . "authentication.php");
@@ -473,7 +478,7 @@ function GetControlItems ()
     dbUpdate ("SET time_zone = '" . $matches [1] . ":" . $matches [2] . "'");  // hopefully OK
 
   // find mySQL version
-  $versionRow = dbQueryOne ("SELECT version () AS version");
+  $versionRow = dbQueryOne ("SELECT version() AS version");
   if (preg_match ('|([0-9]+)|', $versionRow ['version'], $matches))
     $mySQLversion = (int) $matches [1];
   else
@@ -3755,37 +3760,112 @@ function ShowMessage ($which, $subs = false)
 /* ********************************************************************************
  SendEmail - sends an email with the appropriate mail headers added
  ********************************************************************************  */
-function SendEmail ($recipient, $subject, $message)
+function SendEmail ($recipients, $subject, $message)
 {
   global $control;
+  global $INCLUDE_DIRECTORY, $GMAIL_EMAIL_ACCOUNT, $GMAIL_EMAIL_PASSWORD;
 
   $fromEmail = $control ['email_from'];
   $signature = $control ['email_signature'];
+  if (isset ($GMAIL_EMAIL_ACCOUNT))
+    $use_gmail = $GMAIL_EMAIL_ACCOUNT != '';
+  else
+    $use_gmail = false;
 
-  // find email domain
-  preg_match ("|@(.*)$|", $fromEmail, $matches);
+  // single recipient gets turned into an array
+  if (gettype ($recipients) == 'string')
+    {
+    $recipients = array (0 => $recipients);
+    }
 
-  // make up a unique message id
-  $message_id = '<' .
-                time () .
-                '-' .
-                substr (md5 (rand()), 1, 15) .
-                '-' .
-                substr (md5($fromEmail . $recipient), 1, 15) .
-                '@' . $matches [1] .
-                '>';
-  return
-     mail ($recipient,
-           $subject,
-           $message . "\r\n\r\n" . $signature . "\r\n",
-            // mail header
-            "From: $fromEmail\r\n"
-          . "Reply-To: $fromEmail\r\n"
-          . "Content-Type: text/plain; charset=UTF-8\r\n"
-          . "Message-Id: $message_id\r\n"
-          . "X-Mailer: PHP/" . phpversion(),
-            "-f$fromEmail"   // envelope-sender
-            );
+  if ($use_gmail)
+    {
+    // New stuff for using Gmail instead of the server's SMTP server
+
+    require_once $INCLUDE_DIRECTORY . '/PHPMailer/Exception.php';
+    require_once $INCLUDE_DIRECTORY . '/PHPMailer/PHPMailer.php';
+    require_once $INCLUDE_DIRECTORY . '/PHPMailer/SMTP.php';
+
+    // troubleshooting: https://github.com/PHPMailer/PHPMailer/wiki/Troubleshooting
+
+    // passing true in constructor enables exceptions in PHPMailer
+    $mail = new PHPMailer(true);
+
+    try {
+        // Server settings
+//        $mail->SMTPDebug = SMTP::DEBUG_SERVER; // for detailed debug output
+        $mail->isSMTP();
+        $mail->Host = 'smtp.gmail.com';
+        $mail->SMTPAuth = true;
+        $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
+        $mail->Port = 587;
+
+        $mail->Username = $GMAIL_EMAIL_ACCOUNT;       // gmail email account
+        $mail->Password = $GMAIL_EMAIL_PASSWORD;      // gmail password
+
+        // Sender and recipient settings
+        $mail->setFrom    ($fromEmail, $control ['sso_name']);
+
+        foreach ($recipients as $recipient)
+          {
+          // split email into name and address, eg. "Nick Gammon <nick@gammon.com.au>"
+          if  (preg_match ("|^([^<]+)<(.*)>|", $recipient, $matches))
+            $mail->addAddress (trim ($matches [2]), trim ($matches [1]));  // email / name
+          else
+            $mail->addAddress ($recipient, $recipient);
+          }
+        $mail->addReplyTo ($fromEmail, $control ['sso_name']); // to set the reply to
+
+        // Setting the email content
+        $mail->Subject = $subject;
+        $mail->Body = $message . "\r\n\r\n" . $signature . "\r\n";
+        $mail->send();
+      } // end of try
+
+      catch (Exception $e)
+        {
+        ShowWarning ("An error occurred sending the email message. Mailer Error: {$mail->ErrorInfo}");
+        } // end of catch
+
+    } // end of using Gmail
+  else
+    {
+    // use normal mailer
+    foreach ($recipients as $recipient)
+      {
+      // find email domain
+      preg_match ("|@(.*)$|", $fromEmail, $matches);
+
+      // make up a unique message id
+      $message_id = '<' .
+                    time () .
+                    '-' .
+                    substr (md5 (rand()), 1, 15) .
+                    '-' .
+                    substr (md5($fromEmail . $recipient), 1, 15) .
+                    '@' . $matches [1] .
+                    '>';
+      $mailresult =
+         mail ($recipient,
+               $subject,
+               $message . "\r\n\r\n" . $signature . "\r\n",
+                // mail header
+                "From: $fromEmail\r\n"
+              . "Reply-To: $fromEmail\r\n"
+              . "Content-Type: text/plain; charset=UTF-8\r\n"
+              . "Message-Id: $message_id\r\n"
+              . "X-Mailer: PHP/" . phpversion(),
+                "-f$fromEmail"   // envelope-sender
+                );
+
+      if (!$mailresult)
+        echo ("<h3 style=\"color:darkred;\" >An error occurred sending an email message</h3>\n");
+
+      } // end of for each recipient
+    } // end of not using Gmail
+
+  return true;  // supposedly succeeded
+
 }  // end of sendEmail
 
 /* ********************************************************************************
@@ -3981,17 +4061,23 @@ function ConvertMarkup ($value, $outputName = 'HTML', $headerLevel = 2, $toc = '
   if (!$options)
     $options = $control ['pandoc_options'];
 
+  if ($control ['shift-heading-level-by ok'])
+    {
+    $headerLevel--;   // for --shift-heading-level-by. See: https://pandoc.org/MANUAL.html
+    $heading_stuff = "--shift-heading-level-by=$headerLevel";
+    }
+  else
+    $heading_stuff = "--base-header-level=$headerLevel";
+
   // check we found it
   if (!is_file ($pandocProg))
     $error = "Cannot find pandoc";
   else
 
     {
-    $headerLevel--;   // for --shift-heading-level-by. See: https://pandoc.org/MANUAL.html
     $cmd = "$pandocProg $pandocOptions " .
            "--from=markdown+smart " .
-//           "--base-header-level=$headerLevel " .
-           "--shift-heading-level-by=$headerLevel " .
+           "$heading_stuff " .
            "$toc " .
            $to;  // HTML5 or whatever
 

@@ -685,7 +685,7 @@ echo <<< EOD
 <li>May not contain <b>sequences</b> of 3 or more characters going up or down (eg. "abc", "456", "ZYX", "765").
 <li>May not contain <b>repeats</b> of 3 or more characters in a row (eg. "aaa" or "666" would not be allowed).
 <li>May <b>not end with a number</b> (so you can't just add numbers to a word, like "gorilla489")
-<li>May not contain <b>part of your email address</b> (so if your name is "barbara@gmail.com" the password can't be "barb9642")
+<li>May not contain <b>part of your email address</b> (so if your email is "barbara@gmail.com" the password can't be "barb9642")
 </ul>
 
 <p>Note: Leading and trailing spaces are discarded.
@@ -1010,6 +1010,12 @@ function SSO_Handle_Password_Reset_Request ()
   global $SSO_AUDIT_LOGON, $SSO_AUDIT_LOGOFF, $SSO_AUDIT_LOGOFF_ALL, $SSO_AUDIT_REQUEST_PASSWORD_RESET,
          $SSO_AUDIT_CHANGED_PASSWORD, $SSO_AUDIT_CHANGED_EMAIL;
 
+  global $INCLUDE_DIRECTORY, $GMAIL_EMAIL_ACCOUNT, $GMAIL_EMAIL_PASSWORD;
+
+  if (isset ($GMAIL_EMAIL_ACCOUNT))
+    $use_gmail = $GMAIL_EMAIL_ACCOUNT != '';
+  else
+    $use_gmail = false;
 
   if ($SSO_UserDetails)
     {
@@ -1112,27 +1118,6 @@ function SSO_Handle_Password_Reset_Request ()
   $sso_name = $control ['sso_name'];
   $sso_url  = $control ['sso_url'];
 
-  // send mail message
-
-  $mailresult = mail ($email_address,
-        "$sso_name password",
-        "Hi $email_address,\n\n" .
-        "Someone (possibly you) requested that your $sso_name password be reset.\n\n" .
-        "To reset your password, please click on:\n\n" .
-        "  $sso_url$PHP_SELF?action=$SSO_PASSWORD_RESET&id=$sso_id&hash=$md5_password\n\n" .
-        "The password must be reset on the same day the request was made.\n\n" .
-        "If you do not want your password reset, just ignore this message.\n\n" .
-        $control ['email_signature'],
-      // mail header
-      "From: " . $control ['email_from'] . "\r\n" .
-      "Content-Type: text/plain\r\n" .
-      "X-mailer: PHP/" . phpversion()
-      );
-
-  if (!$mailresult)
-    Problem ("An error occurred sending the email message");
-
-  $SSO_loginInfo ['info'] [] = "Your password reset request is now being emailed to: $email_address";
 
   // remember when we sent the password
   dbUpdateParam ("UPDATE $SSO_USER_TABLE SET password_sent_date = NOW() WHERE sso_id = ?",
@@ -1149,8 +1134,82 @@ function SSO_Handle_Password_Reset_Request ()
   // audit password reset requests
   SSO_Audit ($SSO_AUDIT_REQUEST_PASSWORD_RESET, $sso_id);
 
-  $SSO_UserDetails = false;
+  // send mail message
 
+  $message = "Hi $email_address,\n\n" .
+        "Someone (possibly you) requested that your $sso_name password be reset.\n\n" .
+        "To reset your password, please click on:\n\n" .
+        "  $sso_url$PHP_SELF?action=$SSO_PASSWORD_RESET&id=$sso_id&hash=$md5_password\n\n" .
+        "The password must be reset on the same day the request was made.\n\n" .
+        "If you do not want your password reset, just ignore this message.\n\n" .
+        $control ['email_signature'];
+
+  // New stuff for using Gmail instead of the server's SMTP server
+
+  if ($use_gmail)
+    {
+    // New stuff for using Gmail instead of the server's SMTP server
+
+    // troubleshooting: https://github.com/PHPMailer/PHPMailer/wiki/Troubleshooting
+
+    // passing true in constructor enables exceptions in PHPMailer
+    $mail = new PHPMailer(true);
+
+    require_once $INCLUDE_DIRECTORY . '/PHPMailer/Exception.php';
+    require_once $INCLUDE_DIRECTORY . '/PHPMailer/PHPMailer.php';
+    require_once $INCLUDE_DIRECTORY . '/PHPMailer/SMTP.php';
+
+    // passing true in constructor enables exceptions in PHPMailer
+    $mail = new PHPMailer(true);
+
+    try {
+        // Server settings
+    //    $mail->SMTPDebug = SMTP::DEBUG_SERVER; // for detailed debug output
+        $mail->isSMTP();
+        $mail->Host = 'smtp.gmail.com';
+        $mail->SMTPAuth = true;
+        $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
+        $mail->Port = 587;
+
+        $mail->Username = $GMAIL_EMAIL_ACCOUNT;       // gmail email account
+        $mail->Password = $GMAIL_EMAIL_PASSWORD;      // gmail password
+
+        // Sender and recipient settings
+        $mail->setFrom    ($control ['email_from'], $control ['sso_name']);
+        $mail->addAddress ($email_address, $email_address);
+        $mail->addReplyTo ($control ['email_from'], $control ['sso_name']); // to set the reply to
+
+        // Setting the email content
+  //      $mail->IsHTML(true);
+        $mail->Subject = "$sso_name: password reset request";
+        $mail->Body = $message;
+  //      $mail->AltBody = 'Plain text message body for non-HTML email client. Gmail SMTP email body.';
+
+        $mail->send();
+    } // end of try
+
+    catch (Exception $e)
+      {
+      Problem ("An error occurred sending the email message. Mailer Error: {$mail->ErrorInfo}");
+      } // end of catch
+    } // end of using Gmail mailer
+  else   // don't use PHPMailer
+    {
+    $mailresult = mail ($email_address,
+          "$sso_name: password reset",
+           $message,
+        // mail header
+        "From: " . $control ['email_from'] . "\r\n" .
+        "Content-Type: text/plain\r\n" .
+        "X-mailer: PHP/" . phpversion()
+        );
+
+    if (!$mailresult)
+      Problem ("An error occurred sending the email message");
+    }
+
+  $SSO_loginInfo ['info'] [] = "Your password reset request is now being emailed to: $email_address";
+  $SSO_UserDetails = false;
   } // end of SSO_Handle_Password_Reset_Request
 
 function SSO_Handle_Password_Reset ()

@@ -5121,6 +5121,20 @@ function WarnOnPublicServer ()
     echo $control ['public_server_warning'];
   } // end of WarnOnPublicServer
 
+// Change straight quotes to curly and double hyphens to em-dashes.
+// https://leancrew.com/all-this/2010/11/smart-quotes-in-javascript/
+function smarten ($a)
+  {
+  $a = preg_replace ("~(^|[-\u{2014}\s(\[\"])'~", "\\1\u{2018}", $a);         // opening singles
+  $a = preg_replace ("~'~", "\u{2019}", $a);                                  // closing singles & apostrophes
+  $a = preg_replace ("~(^|[-\u{2014}/\[(\u{2018}\s])\"~", "\\1\u{201c}", $a); // opening doubles
+  $a = preg_replace ("~\"~", "\u{201d}", $a);                                 // closing doubles
+  $a = preg_replace ("~\-\-\-~", "\u{2014}", $a);                             // em-dashes
+  $a = preg_replace ("~\-\-~", "\u{2013}", $a);                               // en-dashes
+  $a = preg_replace ("~\.\.\.~", "\u{2026}", $a);                             // ellipsis
+  return $a;
+ }  // end of smarten
+
 // I think every script needs authentication
 SSO_Authenticate ();
 

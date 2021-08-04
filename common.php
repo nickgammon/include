@@ -473,7 +473,7 @@ function GetControlItems ()
     dbUpdate ("SET time_zone = '" . $matches [1] . ":" . $matches [2] . "'");  // hopefully OK
 
   // find mySQL version
-  $versionRow = dbQueryOne ("SELECT version () AS version");
+  $versionRow = dbQueryOne ("SELECT version() AS version");
   if (preg_match ('|([0-9]+)|', $versionRow ['version'], $matches))
     $mySQLversion = (int) $matches [1];
   else
@@ -5034,6 +5034,20 @@ function WarnOnPublicServer ()
   if ($control ['public_server_warning'] != 'NONE' && ServerPublic ())
     echo $control ['public_server_warning'];
   } // end of WarnOnPublicServer
+
+// Change straight quotes to curly and double hyphens to em-dashes.
+// https://leancrew.com/all-this/2010/11/smart-quotes-in-javascript/
+function smarten ($a)
+  {
+  $a = preg_replace ("~(^|[-\u{2014}\s(\[\"])'~", "\\1\u{2018}", $a);         // opening singles
+  $a = preg_replace ("~'~", "\u{2019}", $a);                                  // closing singles & apostrophes
+  $a = preg_replace ("~(^|[-\u{2014}/\[(\u{2018}\s])\"~", "\\1\u{201c}", $a); // opening doubles
+  $a = preg_replace ("~\"~", "\u{201d}", $a);                                 // closing doubles
+  $a = preg_replace ("~\-\-\-~", "\u{2014}", $a);                             // em-dashes
+  $a = preg_replace ("~\-\-~", "\u{2013}", $a);                               // en-dashes
+  $a = preg_replace ("~\.\.\.~", "\u{2026}", $a);                             // ellipsis
+  return $a;
+ }  // end of smarten
 
 // I think every script needs authentication
 SSO_Authenticate ();

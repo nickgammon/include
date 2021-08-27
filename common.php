@@ -110,7 +110,8 @@ DefaultColours ();
 srand ((double) microtime (true));
 
 // die quickly if we have to take the server down for maintenance
-if (is_file (str_replace ("//", "/", $_SERVER['DOCUMENT_ROOT'] . '/ServerDown.txt')))
+if (is_file (str_replace ("//", "/", $_SERVER['DOCUMENT_ROOT'] . '/ServerDown.htm')) &&
+    getIPaddress () != '124.184.120.237')  // Nick Gammon testing from home
   {
   echo file_get_contents (str_replace ("//", "/", $_SERVER['DOCUMENT_ROOT'] . '/ServerDown.htm'));
   die ();

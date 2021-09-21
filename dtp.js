@@ -114,6 +114,9 @@ function init()
 
   submit_edits_button = document.getElementById("submit_edits_button");
   submit_edits_button.onclick = SubmitEditsClicked;
+
+  document.getElementById("full-page-image").onload = main_image_loaded
+
   } // end of init
 
 // draw one of the four corner boxes
@@ -157,16 +160,39 @@ function getElementDetails (element)
 // draw element borders, plus resizing and moving handles
 function drawborders ()
 {
+var mainImage = document.getElementById("full-page-image")
+
 globals.ctx.clearRect(0, 0, globals.canvas.width, globals.canvas.height);  // clear globals.canvas
+
+globals.ctx.globalAlpha = 0.4;
+globals.ctx.drawImage (mainImage, 0, 0)
+globals.ctx.globalAlpha = 1;
+
+// first draw all the images
+
 for (var i = 0; i < num_elements; i++)
   {
   // get *this* element
   getElementDetails (elements [i]);
 
-  // stroke the entire element (box around it)
+  var origX, origY, origwX, origwY, dX, dY, dwX, dwY;
+
+  // original (source) of the image
+  origX = globals.orig_elements [i] [STARTX]  * globals.width_multiple
+  origY = globals.orig_elements [i] [STARTY]  * globals.height_multiple
+  origwX = (globals.orig_elements [i] [ENDX]  - globals.orig_elements [i] [STARTX])  * globals.width_multiple
+  origwY = (globals.orig_elements [i] [ENDY] - globals.orig_elements [i] [STARTY])  * globals.height_multiple
+
+  // current (destination) image
+  dX = globals.startX * globals.width_multiple
+  dY = globals.startY * globals.height_multiple
+  dwX = (globals.endX - globals.startX) * globals.width_multiple
+  dwY = (globals.endY - globals.startY) * globals.height_multiple
+
+  // fill the entire element
   globals.ctx.beginPath();
-  globals.ctx.rect(globals.startX * globals.width_multiple, globals.startY * globals.height_multiple,
-                  (globals.endX - globals.startX) * globals.width_multiple, (globals.endY - globals.startY) * globals.height_multiple);
+
+  globals.ctx.rect(dX, dY, dwX, dwY);
 
   // fill box if moved from original position
   if (ElementChanged (i))
@@ -178,7 +204,39 @@ for (var i = 0; i < num_elements; i++)
     globals.ctx.fill();
     }
 
-  // now draw box around it
+  // draw its image
+  globals.ctx.globalAlpha = 1;
+
+  // stretch images to fit but not other things
+  if (globals.element_type == ELEMENT_IMAGE)
+    {
+    var thisImage = document.getElementById("source_image_" + globals.element_id)
+    globals.ctx.drawImage (thisImage, 0, 0, origwX, origwY, dX, dY, dwX, dwY)
+
+    }
+  else
+    globals.ctx.drawImage (mainImage, origX, origY, origwX, origwY, dX, dY, origwX, origwY)
+
+  }
+
+for (var i = 0; i < num_elements; i++)
+  {
+  // get *this* element
+  getElementDetails (elements [i]);
+
+  var dX, dY, dwX, dwY;
+
+  dX = globals.startX * globals.width_multiple
+  dY = globals.startY * globals.height_multiple
+  dwX = (globals.endX - globals.startX) * globals.width_multiple
+  dwY = (globals.endY - globals.startY) * globals.height_multiple
+
+  // stroke the entire element (box around it)
+  globals.ctx.beginPath();
+
+  globals.ctx.rect(dX, dY, dwX, dwY);
+
+  // draw box around it
   globals.ctx.strokeStyle = "green";
   globals.ctx.globalAlpha = BOX_OPACITY;
   globals.ctx.stroke();
@@ -195,6 +253,7 @@ for (var i = 0; i < num_elements; i++)
 
   drawCornerBox (globals.endX, globals.endY);
 
+/*
   // draw globals.dragging box
   globals.ctx.beginPath();
   var x = globals.startX + ((globals.endX - globals.startX) / 2);  // half way along
@@ -206,8 +265,40 @@ for (var i = 0; i < num_elements; i++)
   globals.ctx.globalAlpha = BOX_OPACITY;
   globals.ctx.fillStyle = "green";
   globals.ctx.fill ();
+*/
 
   } // end of for each element
+
+  // now the grid
+
+  globals.ctx.globalAlpha = 0.5;
+  globals.ctx.strokeStyle = 'gray'
+
+  // vertical grid (each X position - vertical lines)
+  for (var x = GRID_SIZE_X  * globals.width_multiple; x < globals.canvas.width; x += GRID_SIZE_X * globals.width_multiple)
+    {
+     globals.ctx.beginPath();
+     globals.ctx.moveTo(x, GRID_SIZE_Y * globals.height_multiple);
+     // don't overshoot last horizontal grid
+     var y2 = globals.canvas.height - ((GRID_SIZE_Y  - 1 ) * globals.height_multiple)
+     y2 = Math.floor (y2 / (GRID_SIZE_Y  * globals.height_multiple)) *  (GRID_SIZE_Y  * globals.height_multiple)
+     globals.ctx.lineTo(x, y2)
+     globals.ctx.stroke();
+    }
+
+  // horizontal grid (each y position - horizontal lines)
+  for (var y = GRID_SIZE_Y * globals.height_multiple; y < globals.canvas.height; y += GRID_SIZE_Y * globals.height_multiple)
+    {
+     globals.ctx.beginPath();
+     globals.ctx.moveTo(GRID_SIZE_X * globals.width_multiple , y);
+     // don't overshoot last vertical grid
+     var x2 = globals.canvas.width - ((GRID_SIZE_X  - 1 ) * globals.width_multiple)
+     x2 = Math.floor (x2 / (GRID_SIZE_X  * globals.width_multiple)) *  (GRID_SIZE_X  * globals.width_multiple)
+     globals.ctx.lineTo(x2, y)
+     globals.ctx.stroke();
+    }
+
+  globals.ctx.globalAlpha = 1;
 
 } // end of drawborders
 
@@ -544,6 +635,20 @@ function mouseInBox (mousex, mousey, x, y, hsize, vsize)
   return true;
   } // end of mouseInBox
 
+// test if the mouse is inside one of the elements
+function mouseInElement (mousex, mousey, sx, sy, ex, ey)
+  {
+  if (globals.mousex < (sx * globals.width_multiple))
+    return false;  // too far left
+  if (globals.mousex > (ex * globals.width_multiple))
+    return false;  // too far right
+  if (globals.mousey < (sy * globals.height_multiple))
+    return false;  // too far up
+  if (globals.mousey > (ey * globals.height_multiple))
+    return false;  // too far down
+  return true;
+  } // end of mouseInElement
+
 // mouse down event - set up for globals.dragging somewhere
 function onMouseDown(event)
 {
@@ -590,7 +695,8 @@ function onMouseDown(event)
       break;
       }
     // and now check the globals.dragging box
-    else if (mouseInBox (globals.mousex, globals.mousey, globals.startX + (globals.endX - globals.startX) / 2, globals.startY, DRAGGING_BOX_SIZE, BOX_SIZE))
+  //  else if (mouseInBox (globals.mousex, globals.mousey, globals.startX + (globals.endX - globals.startX) / 2, globals.startY, DRAGGING_BOX_SIZE, BOX_SIZE))
+    else if (mouseInElement (globals.mousex, globals.mousey, globals.startX, globals.startY, globals.endX, globals.endY))
       {
       globals.activeCorner = 'drag';
       // remember where we clicked so we can get a delta location
@@ -697,6 +803,13 @@ function onDoubleClick(event)
     } // end of for each element
 
   } // end of onDoubleClick
+
+function main_image_loaded ()
+{
+  var mainImage = document.getElementById("full-page-image")
+
+  globals.ctx.drawImage (mainImage, 0, 0)
+}
 
 // START HERE
 

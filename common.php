@@ -153,6 +153,10 @@ $debugInfo = array ();
 
 // fix up magic quotes, <sigh>
 
+/*
+
+// Not sure, getting errors on this, trying to omit
+
 if (get_magic_quotes_gpc()) {
     function stripslashes_gpc(&$value)
     {
@@ -163,6 +167,8 @@ if (get_magic_quotes_gpc()) {
     array_walk_recursive($_COOKIE, 'stripslashes_gpc');
     array_walk_recursive($_REQUEST, 'stripslashes_gpc');
 }
+
+*/
 
 function DefaultColours ()
   {

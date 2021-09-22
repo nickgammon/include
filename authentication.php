@@ -207,6 +207,12 @@ function SSO_Login_Failure ($email_address, $password, $remote_ip, $sso_id = 0)
             AND date_failed < DATE_ADD(NOW(), INTERVAL -1 DAY) ";
   dbUpdateParam ($query, array ('ss', &$email_address, &$remote_ip));
 
+  // clear old bad IP address tracking records (so they can reset by waiting a day)
+  $query = "DELETE FROM $SSO_BANNED_IPS_TABLE
+            WHERE ip_address = ?
+            AND date_banned < DATE_ADD(NOW(), INTERVAL -1 DAY) ";
+  dbUpdateParam ($query, array ('ss', &$remote_ip));
+
   // see how many times they failed from this IP address
   $query = "SELECT count(*) AS counter
             FROM $SSO_FAILED_LOGINS_TABLE
@@ -300,6 +306,13 @@ function SSO_Complete_Logon ($sso_id)
   // grab user details in case we came in via the authenticator
   $SSO_UserDetails = dbQueryOneParam ("SELECT * from $SSO_USER_TABLE WHERE sso_id = ?",
                                       array ('i', &$sso_id));
+
+  // get rid of him from $SSO_FAILED_LOGINS_TABLE
+  dbUpdateParam ("DELETE FROM $SSO_FAILED_LOGINS_TABLE WHERE failure_ip = ? ",
+                 array ('s', &$remote_ip));
+  // get rid of him from bbsuspect_ip
+  dbUpdateParam ("DELETE FROM $SSO_SUSPECT_IPS_TABLE WHERE ip_address = ?",
+                 array ('s', &$remote_ip));
 
   // Delete out-of-date tokens for this user.
   // Don't delete for all users on the off-chance that a randomly-generated token
@@ -482,7 +495,7 @@ function SSO_Handle_Logon ()
                               array ('i', &$sso_id));
 
   // no, so log them in
-  if ($authrow ['counter'] == 0 )
+  if ($authrow ['counter'] == 0 && !$SSO_UserDetails ['totp_secret'])
     {
     SSO_Complete_Logon ($sso_id);
     return;
@@ -798,6 +811,15 @@ function SSO_Handle_Authenticator ()
     $SSO_loginInfo ['info'] [] = "You are already logged on.";
     return; // give up
     }
+
+  $banned_row = dbQueryOneParam ("SELECT * FROM $SSO_BANNED_IPS_TABLE WHERE ip_address  = ?",
+                                array ('s', &$remote_ip));
+  if ($banned_row)
+    {
+    $SSO_loginInfo ['errors'] [] = "That TCP/IP address is not permitted to log on";
+    return; // give up
+    } // end of a match
+
 
   $sso_id  = getP ('sso_id', 8, $VALID_NUMBER);
   $token  =  getP ('token', 50, '^[a-zA-Z0-9]+$');

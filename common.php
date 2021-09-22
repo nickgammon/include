@@ -537,12 +537,66 @@ function crc16 ($data, $len)
   return $decoded;
 } // end of modHexDecode
 
+function oauth_totp($key, $time, $digits=6, $crypto='sha1')
+{
+    $digits = intval($digits);
+    $result = null;
+
+    // Convert counter to binary (64-bit)
+    $data = pack('NN', $time >> 32, $time & 0xFFFFFFFF);
+
+    // Pad to 8 chars (if necessary)
+    if (strlen ($data) < 8) {
+        $data = str_pad($data, 8, chr(0), STR_PAD_LEFT);
+    }
+
+    // Get the hash
+    $hash = hash_hmac($crypto, $data, $key, false);
+
+    // Grab the offset (doubled because this is a hex string)
+    $offset = 2 * hexdec(substr($hash, strlen($hash) - 1, 1));
+
+    // Grab the portion we're interested in
+    $binary = hexdec(substr($hash, $offset, 8)) & 0x7fffffff;
+
+    // Modulus
+    $result = $binary % pow(10, $digits);
+
+    // Pad (if necessary)
+    $result = str_pad($result, $digits, "0", STR_PAD_LEFT);
+
+    return $result;
+} // end of oauth_totp
+
+function Handle_TOTP_authenticator ($userid, $authenticator_table, $userField, $authenticator)
+  {
+
+  // try the authenticators for this user
+  $results = dbQueryParam ("SELECT * FROM $authenticator_table WHERE $userField = ?",
+                              array ('i', &$userid));
+
+  foreach ($results as $authrow)
+    {
+    if (oauth_totp (strtolower ($authrow ['AES_key']), time() / 30) === $authenticator)
+      return false;  // OK return
+    // allow for a code entered which is 30 seconds old
+    if (oauth_totp (strtolower ($authrow ['AES_key']), (time() / 30) - 1) === $authenticator)
+      return false;  // OK return
+    }
+
+  return "That code is invalid or out-of-date";
+
+  } // end of Handle_TOTP_authenticator
+
 function HandleAuthenticator ($userid, $authenticator_table, $userField = 'User')
   {
   $authenticator  = trim ($_POST ['authenticator']);
 
+  // get rid of spaces they may have put there for their convenience
+  $authenticator = str_replace (' ', '', $authenticator);
+
   if (strlen ($authenticator) == 0)
-    return "Authenticator required";
+    return "Authenticator response required";
 
 // -------------------
 // One-time password stuff for when authenticator cannot be used
@@ -589,10 +643,15 @@ Generation:
 
 // -------------------
 
-  if (strlen ($authenticator) != 44)
+  // TOTP (time based one time password) response will be 6 digits, otherwise a 44 character authenticator
+
+  if (strlen ($authenticator) != 44 && strlen ($authenticator) != 6)
       return "Authenticator token wrong length";
  //   return "Authenticator token wrong length, should be 44, is actually " . strlen ($authenticator);
 
+
+  if (strlen ($authenticator) == 6)
+    return Handle_TOTP_authenticator ($userid, $authenticator_table, $userField, $authenticator);
 
   $decodedToken = modHexDecode($authenticator);  // this halves the number of bytes to 22
 
@@ -4420,6 +4479,7 @@ c) <use> the file, taking layer 1
       {
       $viewBoxX = $matches [1] / $multiplier;
       $viewBoxY = $matches [2] / $multiplier;
+      $aspectRatio = $matches [1] / $matches [2];
       }
 
     if (!preg_match ('`inkscape:current-layer="layer1"`s', $contents, $matches))
@@ -4464,8 +4524,13 @@ c) <use> the file, taking layer 1
   if (!$scale)
     return;  // can't do it without a scale factor
 
-  $xOffset = $x * $scale;
-  $yOffset = $y * $scale;
+
+  // calculations to center image inside the required box
+  $dwXadj = min ($height * $aspectRatio, $width);
+  $dwYadj = min ($width /  $aspectRatio, $height);
+
+  $xOffset = ($x + ($width  - $dwXadj) / 2) * $scale;
+  $yOffset = ($y + ($height - $dwYadj) / 2) * $scale;
 
   $scaleAmount = min ($width / $viewBoxX, $height / $viewBoxY);
 

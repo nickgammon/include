@@ -4473,6 +4473,7 @@ c) <use> the file, taking layer 1
       {
       $viewBoxX = $matches [1] / $multiplier;
       $viewBoxY = $matches [2] / $multiplier;
+      $aspectRatio = $matches [1] / $matches [2];
       }
 
     if (!preg_match ('`inkscape:current-layer="layer1"`s', $contents, $matches))
@@ -4517,8 +4518,13 @@ c) <use> the file, taking layer 1
   if (!$scale)
     return;  // can't do it without a scale factor
 
-  $xOffset = $x * $scale;
-  $yOffset = $y * $scale;
+
+  // calculations to center image inside the required box
+  $dwXadj = min ($height * $aspectRatio, $width);
+  $dwYadj = min ($width /  $aspectRatio, $height);
+
+  $xOffset = ($x + ($width  - $dwXadj) / 2) * $scale;
+  $yOffset = ($y + ($height - $dwYadj) / 2) * $scale;
 
   $scaleAmount = min ($width / $viewBoxX, $height / $viewBoxY);
 

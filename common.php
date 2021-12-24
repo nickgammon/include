@@ -577,11 +577,18 @@ function Handle_TOTP_authenticator ($userid, $authenticator_table, $userField, $
 
   foreach ($results as $authrow)
     {
-    if (oauth_totp (strtolower ($authrow ['AES_key']), time() / 30) === $authenticator)
-      return false;  // OK return
-    // allow for a code entered which is 30 seconds old
-    if (oauth_totp (strtolower ($authrow ['AES_key']), (time() / 30) - 1) === $authenticator)
-      return false;  // OK return
+    if (
+      (oauth_totp (strtolower ($authrow ['AES_key']), time() / 30) === $authenticator) ||
+      // allow for a code entered which is 30 seconds old
+      (oauth_totp (strtolower ($authrow ['AES_key']), (time() / 30) - 1) === $authenticator))
+        {
+        $Auth_ID = $authrow ['Auth_ID'];
+        // update database so we know which token they used
+        dbUpdate ("UPDATE $authenticator_table SET " .   // internally generated
+                " Date_Last_Used = NOW() " .
+                " WHERE Auth_ID = $Auth_ID");
+        return false;  // OK return
+        }
     }
 
   return "That code is invalid or out-of-date";
@@ -750,8 +757,7 @@ function GetUserColours ()
     {
 
     // set up custom values from user values, if supplied
-    reset ($colours);
-    while (list ($colourname, $value) = each ($colours))
+    foreach ($colours as $colourname => $value)
       {
       if ($foruminfo [$colourname])   // colour supplied?
         $colours [$colourname] ['current'] = $foruminfo [$colourname];  // use it
@@ -1000,6 +1006,8 @@ global $shownHTMLheader;
 
   $style_string = '';
 
+  $time = 1234;
+
   $time = filemtime ($_SERVER['DOCUMENT_ROOT'] . '/style.css');
   $font_string .=  "<link rel='stylesheet' href='/style.css?v=$time'>\n";
 
@@ -1194,8 +1202,7 @@ function ShowArray ($name, $thearray, $recurse = false)
     return;
     }
 
-  reset ($thearray);
-  while (list ($cellname, $value) = each ($thearray))
+  foreach ($thearray as $cellname => $value)
     {
 
     printf ("<li>[%s] = [%s]\n",
@@ -1493,9 +1500,13 @@ function ShowTable ($table, $params, $specials)
 /*
   echo '<p>Here is some debugging info:';
   echo '<pre>';
-  print_r($_FILES);
-  print_r($_POST);
+ // print_r($_FILES);
+ // print_r($_POST);
+  print_r($table);
+  print_r($params);
+  print_r($specials);
   echo '</pre>';
+
 */
 
   $COLOUR_FORM_ERROR_TEXT       = GetColour ('colour_form_error');
@@ -1542,8 +1553,7 @@ function ShowTable ($table, $params, $specials)
   if (is_array ($specials))
     {
     $implementation_error = false;
-    reset ($specials);
-    while (list ($label, $contents) = each ($specials))
+    foreach ($specials as $label => $contents)
       {
       if (isset ($contents ['error']))
         {
@@ -1567,8 +1577,7 @@ function ShowTable ($table, $params, $specials)
 
   $first_input = true;
 
-  reset ($table);
-  while (list ($label, $contents) = each ($table))
+  foreach ($table as $label => $contents)
     {
 
     // any special processing for this item?
@@ -1694,8 +1703,8 @@ function ShowTable ($table, $params, $specials)
       $td = "td";
 
     echo "  <tr id=\"{$label}_row_id\">\n";
-    echo "    <th>$bfont<b>" . htmlspecialchars ($description, ENT_SUBSTITUTE | ENT_QUOTES | ENT_HTML5) . "</b>$efont</$td>\n";
-    echo "    <td>$bfont";
+    echo "    <th>$bfont<b>" . htmlspecialchars ($description, ENT_SUBSTITUTE | ENT_QUOTES | ENT_HTML5) . "</b>$efont</th>\n";
+    echo "    <$td>$bfont";
 
     // do forms processing
     if (!$readonly && !empty ($inputname))
@@ -1713,8 +1722,7 @@ function ShowTable ($table, $params, $specials)
             } // end if no entry required
           if (gettype ($values) == 'array')   // allow for no foreign key items
             {
-            reset ($values);
-            while (list ($selectvalue, $selectdescription) = each ($values))
+            foreach ($values as $selectvalue => $selectdescription)
               {
               echo "<option value=\"$selectvalue\" ";
               if ($contents == $selectvalue)
@@ -1736,8 +1744,7 @@ function ShowTable ($table, $params, $specials)
             } // end if no entry required
           if (gettype ($values) == 'array')   // allow for no foreign key items
             {
-            reset ($values);
-            while (list ($selectvalue, $selectdescription) = each ($values))
+            foreach ($values as $selectvalue => $selectdescription)
               {
               $selectvalue = htmlspecialchars ($selectvalue);
               echo "<option value=\"$selectvalue\" ";
@@ -2450,7 +2457,7 @@ function DoExtendedDate (& $thedate, $defaultEndOfPeriod = false)
     $month = $matches [1];
     reset ($MONTHS);
     $count = 0;
-    while (list ($monthnum, $monthname) = each ($MONTHS))
+    foreach ($MONTHS as $monthnum => $monthname)
       {
       // look for partial match - do whole lot in case of ambiguity (eg. ju)
       if ($month == substr ($monthname, 0, strlen ($month)))
@@ -2556,9 +2563,8 @@ function DoExtendedDate (& $thedate, $defaultEndOfPeriod = false)
 
    // our array now has all 7 days indexed by the day name (eg. Monday)
 
-    reset ($daynames);
     $count = 0;
-    while (list ($dayname, $daydate) = each ($daynames))
+    foreach ($daynames as $dayname => $daydate)
       {
       // look for partial match - do whole lot in case of ambiguity (eg. t(hursday))
       if ($day == substr ($dayname, 0, strlen ($day)))
@@ -2640,9 +2646,8 @@ function DoExtendedDate (& $thedate, $defaultEndOfPeriod = false)
   // if non-numeric month, see if we can recognise the month name, either in full or in part
   if (!preg_match ("|^[0-9]+$|", $month))
     {
-    reset ($MONTHS);
     $count = 0;
-    while (list ($monthnum, $monthname) = each ($MONTHS))
+    foreach ($MONTHS as $monthnum => $monthname)
       {
       // look for partial match - do whole lot in case of ambiguity (eg. ju)
       if ($month == substr ($monthname, 0, strlen ($month)))
@@ -3972,10 +3977,9 @@ function MakeUpdateStatement ($table, $row)
 
   $result = "UPDATE `$table` SET ";
 
-  reset ($names);
   $count = 0;
 
-  while (list ($fieldName, $isNumber) = each ($names))
+  foreach ($names as $fieldName => $isNumber)
     {
     if ($count)
       $result .= ", ";
@@ -4014,11 +4018,10 @@ function MakeInsertStatement ($table, $row)
 
   $result = "INSERT INTO `$table` (";
 
-  reset ($names);
   $count = 0;
 
   // output the field names
-  while (list ($fieldName, $isNull) = each ($names))
+  foreach ($names as $fieldName => $isNull)
     {
     if ($count)
       $result .= ", ";
@@ -4028,11 +4031,10 @@ function MakeInsertStatement ($table, $row)
 
   $result .= ") VALUES (";
 
-  reset ($names);
   $count = 0;
 
   // and now the values
-  while (list ($fieldName, $isNumber) = each ($names))
+  foreach ($names as $fieldName => $isNumber)
     {
     if ($count)
       $result .= ", ";
@@ -5071,9 +5073,9 @@ function DumpSQL ($table, $filename, $is_OK = false, $where = '', $primary_key_t
 --
 -- eg. mysqldump -uUSERNAME -pPASSWORD --default-character-set=latin1 --no-set-names DATABASE > OUTPUT.sql
 
--- The SET NAMES line below should do the job correctly.
+-- The SET NAMES line below should do the job correctly. (REMOVED 24 Sept 2021 because it seemed to make things worse)
 
-SET NAMES 'latin1';
+-- SET NAMES 'latin1';
 ";
 
   // get the data
@@ -5110,10 +5112,9 @@ SET NAMES 'latin1';
 
   echo ("INSERT INTO `$table` (");
 
-  reset ($names);
   $count = 0;
 
-  while (list ($fieldName, $isNull) = each ($names))
+  foreach ($names as $fieldName => $isNull)
     {
     if ($count)
       echo ", ";
@@ -5128,10 +5129,9 @@ SET NAMES 'latin1';
     {
 
     echo "(";
-    reset ($names);
     $count = 0;
 
-    while (list ($fieldName, $isNumber) = each ($names))
+    foreach ($names as $fieldName => $isNumber)
       {
       if ($count)
         echo ", ";

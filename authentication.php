@@ -211,7 +211,7 @@ function SSO_Login_Failure ($email_address, $password, $remote_ip, $sso_id = 0)
   $query = "DELETE FROM $SSO_BANNED_IPS_TABLE
             WHERE ip_address = ?
             AND date_banned < DATE_ADD(NOW(), INTERVAL -1 DAY) ";
-  dbUpdateParam ($query, array ('ss', &$remote_ip));
+  dbUpdateParam ($query, array ('s', &$remote_ip));
 
   // see how many times they failed from this IP address
   $query = "SELECT count(*) AS counter

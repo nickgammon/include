@@ -503,7 +503,7 @@ function SSO_Handle_Logon ()
       return;
       }
     }
-  
+
   // security check for when they respond - the token identifies who we are authenticating
   // if the user has multiple authenticators all will get this token
   dbUpdateParam ("UPDATE $SSO_AUTHENTICATORS_TABLE SET Token = ?, Date_Token_Sent = NOW() WHERE sso_id = ?",

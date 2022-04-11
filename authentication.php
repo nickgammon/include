@@ -495,10 +495,13 @@ function SSO_Handle_Logon ()
                               array ('i', &$sso_id));
 
   // no, so log them in
-  if ($authrow ['counter'] == 0 && !$SSO_UserDetails ['totp_secret'])
+  if ($authrow)
     {
-    SSO_Complete_Logon ($sso_id);
-    return;
+    if ($authrow ['counter'] == 0 && !$SSO_UserDetails ['totp_secret'])
+      {
+      SSO_Complete_Logon ($sso_id);
+      return;
+      }
     }
 
   // security check for when they respond - the token identifies who we are authenticating

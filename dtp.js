@@ -518,7 +518,8 @@ function SetMouseCursor (event)
   // find active element, assuming we can see them (edit button has been clicked)
   if (globals.edit_clicked)
     {
-    for (var i = 0; i < num_elements; i++)
+    // go backwards so that the higher (on top) one gets selected before the one underneath
+    for (var i = num_elements - 1; i >= 0; i--)
       {
       globals.activeElement = i;
       // get *this* element
@@ -547,13 +548,22 @@ function SetMouseCursor (event)
         globals.canvas.style.cursor = 'nwse-resize';
         return;
         }
-      // and now check the dragging area
-      else if (mouseInElement (mousex, mousey, globals.startX, globals.startY, globals.endX, globals.endY + globals.caption_height))
+      } // end of for each element
+
+    // and now check the dragging area last because the selection boxes take precedence
+    // go backwards so that the higher (on top) one gets selected before the one underneath
+    for (var i = num_elements - 1; i >= 0; i--)
+      {
+      globals.activeElement = i;
+      // get *this* element
+      getElementDetails (elements [i]);
+      if (mouseInElement (mousex, mousey, globals.startX, globals.startY, globals.endX, globals.endY + globals.caption_height))
         {
         globals.canvas.style.cursor = 'move';
         return;
         }
       } // end of for each element
+
     }   // of edit button active
 
   // edit button or not, we can double-click elements
@@ -771,7 +781,8 @@ function onMouseDown(event)
     return;
 
   // find active element
-  for (var i = 0; i < num_elements; i++)
+  // go backwards so that the higher (on top) one gets selected before the one underneath
+  for (var i = num_elements - 1; i >= 0; i--)
     {
     globals.activeElement = i;
     // get *this* element

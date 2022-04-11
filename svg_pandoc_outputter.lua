@@ -11,7 +11,7 @@ PURPOSE
 
 This is the pandoc output formatting Lua script, designed to be called by pandoc like this:
 
-  pandoc (stdin) --from=markdown+smart -t /var/www/include/svg_pandoc_outputter.lua --metadata=indent:3 (stdout)
+  pandoc (stdin) --from=markdown+smart -t /var/www/include/svg_pandoc_outputter.lua --metadata=indent:3 (stdout) --metadata=line_after:$line_after
 
 This is done when text fields are added/changed by the "validation" field in the standard database editor
 for the column "Text_Contents". The results (SVG text) is stored in the "Text_Contents_SVG" column.
@@ -38,6 +38,12 @@ up.
 
 I finally (after much research) found U+2800 which prints as a space but does not interfere with
 justification (as it is "not a space").
+
+LINES AFTER PARAGRAPHS
+
+If the style requires a blank line after paragraphs then PANDOC_DOCUMENT.meta.line_after should be non-zero.
+
+This is done when invoking pandoc: --metadata=line_after:$line_after
 
 ----
 
@@ -116,19 +122,7 @@ end
 -- to pandoc, and pandoc will add do the template processing as
 -- usual.
 function Doc(body, metadata, variables)
-  local buffer = {}
-  local function add(s)
-    table.insert(buffer, s)
-  end
-  add(body)
-  if #notes > 0 then
-    add('<ol class="footnotes">')
-    for _,note in pairs(notes) do
-      add(note)
-    end
-    add('</ol>')
-  end
-  return table.concat(buffer,'\n') .. '\n'
+  return body .. table.concat(notes,'\n') .. '\n'
 end
 
 -- The functions that follow render corresponding pandoc elements.
@@ -202,16 +196,16 @@ function DisplayMath(s)
   return "\\[" .. escape(s) .. "\\]"
 end
 
+function trim(s)
+   return (s:gsub("^%s*(.-)%s*$", "%1"))
+end
+
 function Note(s)
   local num = #notes + 1
-  -- insert the back reference right before the final closing tag.
-  s = string.gsub(s,
-          '(.*)</', '%1 <a href="#fnref' .. num ..  '">&#8617;</a></')
   -- add a list item with the note to the note table.
-  table.insert(notes, '<li id="fn' .. num .. '">' .. s .. '</li>')
+  table.insert(notes, num ..  ". " .. string.gsub (s, INDENT_SPACE, ''))
   -- return the footnote reference, linked to the note.
-  return '<a id="fnref' .. num .. '" href="#fn' .. num ..
-            '"><sup>' .. num .. '</sup></a>'
+  return '<flowSpan style="font-size:65%;baseline-shift:super; " >' .. num .. "</flowSpan>"
 end
 
 function Span(s, attr)
@@ -252,7 +246,16 @@ function Para(s)
   end -- if
   firstPara = false
   firstHeading = false
-  return '<flowPara>' .. string.rep (INDENT_SPACE, indent_amount) .. s .. "</flowPara>\n"
+
+  local extra_line
+  if PANDOC_DOCUMENT.meta.line_after and tonumber (PANDOC_DOCUMENT.meta.line_after) ~= 0 then
+    extra_line = '<flowPara>' .. '</flowPara>'
+  else
+    extra_line = ''
+  end -- if
+
+  return  '<flowPara>' .. string.rep (INDENT_SPACE, indent_amount) .. s .. "</flowPara>" ..
+          extra_line .. '\n'
 end
 
 -- lev is an integer, the header level.

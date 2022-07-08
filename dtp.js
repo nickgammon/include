@@ -123,8 +123,40 @@ function init()
   globals.edits_done   = false;
   globals.dragging     = false;
 
+  // nor the "add new element" button
+  globals.adding       = false;
+  globals.started_dragging = false;
+
   submit_edits_button = document.getElementById("submit_edits_button");
   submit_edits_button.onclick = SubmitEditsClicked;
+
+  // for adding elements by clicking and dragging
+  globals.add_text_button = document.getElementById("add_text_button");
+  globals.add_text_button.onclick = AddTextClicked;
+
+  globals.add_heading_button = document.getElementById("add_heading_button");
+  globals.add_heading_button.onclick = AddHeadingClicked;
+
+  globals.add_continuation_button = document.getElementById("add_continuation_button");
+  globals.add_continuation_button.onclick = AddContinuationClicked;
+
+  globals.add_box_button = document.getElementById("add_box_button");
+  globals.add_box_button.onclick = AddBoxClicked;
+
+  globals.add_vline_button = document.getElementById("add_vline_button");
+  globals.add_vline_button.onclick = AddVlineClicked;
+
+  globals.add_hline_button = document.getElementById("add_hline_button");
+  globals.add_hline_button.onclick = AddHlineClicked;
+
+  globals.add_image_button = document.getElementById("add_image_button");
+  globals.add_image_button.onclick = AddImageClicked;
+
+  globals.add_ellipse_button = document.getElementById("add_ellipse_button");
+  globals.add_ellipse_button.onclick = AddEllipseClicked;
+
+  globals.add_star_button = document.getElementById("add_star_button");
+  globals.add_star_button.onclick = AddStarClicked;
 
   // see if our main image has loaded, if not set up a handler for it
   var image = document.getElementById('full-page-image')
@@ -460,6 +492,10 @@ function ResetClicked (event)
 // here when the "Edit" / "Submit edits" button is clicked
 function SubmitEditsClicked (event)
 {
+  // don't edit and add stuff at the same time
+  if (globals.adding)
+    return false;
+
   if (!globals.edit_clicked)
     {
     globals.edit_clicked          = true;
@@ -471,6 +507,92 @@ function SubmitEditsClicked (event)
     }
   return true;  // submit form now
 } // end of SubmitEditsClicked
+
+function AddElementClicked (adding_type, button)
+{
+  // don't edit and add stuff at the same time
+  if (globals.edit_clicked)
+    return false;
+
+  if (!globals.adding)
+    {
+    globals.adding            = true
+    globals.started_dragging  = false
+    globals.adding_type     = adding_type
+    globals.canvas.style.cursor = 'crosshair';
+    globals.add_element_button = button
+    globals.add_element_button.disabled  = true;  // can't click it again
+
+    // save type of add
+    var add_element_type = document.getElementsByName("add_element_type");
+    add_element_type [0].value = globals.adding_type
+
+    document.getElementById('editing_notes').innerHTML = 'SHIFT to snap to grid, CTRL to cancel adding an element'
+    }
+} // end of AddElementClicked
+
+// here when the "Add text block" button is clicked
+function AddTextClicked (event)
+  {
+  AddElementClicked ('text', globals.add_text_button)
+  return false;   // don't submit yet
+  } // end of AddTextClicked
+
+// here when the "Add heading block" button is clicked
+function AddHeadingClicked (event)
+  {
+  AddElementClicked ('heading', globals.add_heading_button)
+  return false;   // don't submit yet
+  } // end of AddHeadingClicked
+
+// here when the "Add text continuation block" button is clicked
+function AddContinuationClicked (event)
+  {
+  AddElementClicked ('continuation', globals.add_continuation_button)
+  return false;   // don't submit yet
+  } // end of AddContinuationClicked
+
+// here when the "Add box" button is clicked
+function AddBoxClicked (event)
+  {
+  AddElementClicked ('box', globals.add_box_button)
+  return false;   // don't submit yet
+  } // end of AddBoxClicked
+
+// here when the "Add vertical line" button is clicked
+function AddVlineClicked (event)
+  {
+  AddElementClicked ('vertical line', globals.add_vline_button)
+  return false;   // don't submit yet
+  } // end of AddVlineClicked
+
+// here when the "Add horizontal line" button is clicked
+function AddHlineClicked (event)
+  {
+  AddElementClicked ('horizontal line', globals.add_hline_button)
+  return false;   // don't submit yet
+  } // end of AddHlineClicked
+
+// here when the "Add image" button is clicked
+function AddImageClicked (event)
+  {
+  AddElementClicked ('image', globals.add_image_button)
+  return false;   // don't submit yet
+  } // end of AddImageClicked
+
+// here when the "Add ellipse line" button is clicked
+function AddEllipseClicked (event)
+  {
+  AddElementClicked ('ellipse', globals.add_ellipse_button)
+  return false;   // don't submit yet
+  } // end of AddEllipseClicked
+
+// here when the "Add star" button is clicked
+function AddStarClicked (event)
+  {
+  AddElementClicked ('star', globals.add_star_button)
+  return false;   // don't submit yet
+  } // end of AddStarClicked
 
 // returns true if this element has globals.changed from its original position
 function ElementChanged (which)
@@ -595,141 +717,206 @@ function onMouseMove(event)
   globals.mousex = event.offsetX;
   globals.mousey = event.offsetY;
 
-  // if globals.dragging (mouse down previously) update the element's position depending on where we move to
-  if (globals.dragging)
-   {
-    // find new position in mm
-    var x = Math.round(globals.mousex / globals.width_multiple);
-    var y = Math.round(globals.mousey / globals.height_multiple);
+  if (globals.adding)
+    {
+    globals.canvas.style.cursor = 'crosshair';
 
-    // shift key snaps to the grid
-    if (event.shiftKey)
+    if (globals.started_dragging)
       {
-      x = Math.round(x / grid_size_x) * grid_size_x;
-      y = Math.round(y / grid_size_y) * grid_size_y;
-      }
+      var mainImage = document.getElementById("full-page-image")
+      globals.ctx.clearRect(0, 0, globals.canvas.width, globals.canvas.height);  // clear globals.canvas
 
-    globals.element_type = elements [globals.activeElement] [ELEMENT_TYPE];
+      globals.ctx.globalAlpha = 0.8;
+      globals.ctx.drawImage (mainImage, 0, 0)
+      globals.ctx.globalAlpha = 1;
 
-    // update element - depending on which corner was being moved
-
-    // top left
-    if (globals.activeCorner == 'topleft' && globals.element_type == ELEMENT_LINE)
-      {
-      // lines can line up vertically and horizontally
-      if (x <= elements [globals.activeElement] [ENDX] && y <= elements [globals.activeElement] [ENDY])
-        {
-        elements [globals.activeElement] [STARTX] = x;
-        elements [globals.activeElement] [STARTY] = y;
-        }
-      }
-    else if (globals.activeCorner == 'topleft' && globals.element_type != ELEMENT_LINE)
-      {
-      if (x < elements [globals.activeElement] [ENDX] && y < elements [globals.activeElement] [ENDY])
-        {
-        elements [globals.activeElement] [STARTX] = x;
-        elements [globals.activeElement] [STARTY] = y;
-        }
-      }
-
-    // top right
-    else if (globals.activeCorner == 'topright')
-      {
-      if (x > elements [globals.activeElement] [STARTX] && y < elements [globals.activeElement] [ENDY])
-        {
-        elements [globals.activeElement] [ENDX] = x;
-        elements [globals.activeElement] [STARTY] = y;
-        }
-      }
-
-    // bottom left
-    else if (globals.activeCorner == 'bottomleft')
-      {
-      if (x < elements [globals.activeElement] [ENDX] && y > elements [globals.activeElement] [STARTY])
-        {
-        elements [globals.activeElement] [STARTX] = x;
-        elements [globals.activeElement] [ENDY] = y;
-        }
-      }
-
-   // bottom right
-   else if (globals.activeCorner == 'bottomright' && globals.element_type == ELEMENT_LINE)
-      {
-      // lines can line up vertically and horizontally
-      if (x >= elements [globals.activeElement] [STARTX] && y >= elements [globals.activeElement] [STARTY])
-        {
-        elements [globals.activeElement] [ENDX] = x;
-        elements [globals.activeElement] [ENDY] = y;
-        }
-      }
-   else if (globals.activeCorner == 'bottomright' && globals.element_type != ELEMENT_LINE)
-      {
-      if (x > elements [globals.activeElement] [STARTX] && y > elements [globals.activeElement] [STARTY])
-        {
-        elements [globals.activeElement] [ENDX] = x;
-        elements [globals.activeElement] [ENDY] = y;
-        }
-      }
-
-    // drag box (reposition)
-    else if (globals.activeCorner == 'drag')
-      {
-      var deltaX = Math.round((globals.dragMouseX - event.offsetX) / globals.width_multiple);
-      var deltaY = Math.round((globals.dragMouseY - event.offsetY) / globals.height_multiple);
-
-      var new_x = globals.dragStartX - deltaX;
-      var new_y = globals.dragStartY - deltaY;
-      var width = elements [globals.activeElement]  [ENDX] - elements [globals.activeElement] [STARTX];
-      var height = elements [globals.activeElement] [ENDY] - elements [globals.activeElement] [STARTY];
+      // find new position in mm
+      var x = Math.round(globals.mousex / globals.width_multiple);
+      var y = Math.round(globals.mousey / globals.height_multiple);
 
       // shift key snaps to the grid
       if (event.shiftKey)
         {
-        new_x = Math.round(new_x / grid_size_x) * grid_size_x;
-        new_y = Math.round(new_y / grid_size_y) * grid_size_y;
+        x = Math.round(x / grid_size_x) * grid_size_x;
+        y = Math.round(y / grid_size_y) * grid_size_y;
         }
 
-      elements [globals.activeElement] [STARTX] = new_x;
-      elements [globals.activeElement] [STARTY] = new_y;
-      elements [globals.activeElement] [ENDX]   = new_x + width;
-      elements [globals.activeElement] [ENDY]   = new_y + height;
-      }
+      // convert back to pixels
+      x *= globals.width_multiple
+      y *= globals.height_multiple
 
-    drawborders ();
+      // draw its outline
+      globals.ctx.globalAlpha = 1;
+      globals.ctx.save ()
+      globals.ctx.beginPath()
+      globals.ctx.rect(globals.box_startx, globals.box_starty,
+                      x - globals.box_startx,
+                      y - globals.box_starty)
+      globals.ctx.strokeStyle = "green"
+      globals.ctx.lineWidth = 3
+      globals.ctx.stroke();
+      globals.ctx.fillStyle = "green";
+      globals.ctx.globalAlpha = 0.2;
+      globals.ctx.fill ();
+      globals.ctx.restore ()
 
-    // update form ready for them to post it
 
-    // turn element array number into an element ID
-    globals.element_id = elements [globals.activeElement] [ELEMENT_ID];
+      // fix up startX
+      var add_element_startX = document.getElementsByName("add_element_startX");
+      add_element_startX [0].value = globals.box_startx / globals.width_multiple;
 
-    // fix up globals.startX
-    globals.startXonPage = document.getElementsByName("element_".concat (globals.element_id.toString (10), "_startX"));
-    globals.startXonPage [0].value = elements [globals.activeElement] [STARTX];
+      // fix up startY
+      var add_element_startY = document.getElementsByName("add_element_startY");
+      add_element_startY [0].value = globals.box_starty / globals.height_multiple;
 
-    // fix up globals.startY
-    globals.startYonPage = document.getElementsByName("element_".concat (globals.element_id.toString (10), "_startY"));
-    globals.startYonPage [0].value = elements [globals.activeElement] [STARTY];
+      // fix up endX
+      var add_element_endX = document.getElementsByName("add_element_endX");
+      add_element_endX [0].value = x / globals.width_multiple;
 
-    // fix up globals.endX
-    globals.endXonPage = document.getElementsByName("element_".concat (globals.element_id.toString (10), "_endX"));
-    globals.endXonPage [0].value = elements [globals.activeElement] [ENDX];
+       // fix up endY
+      var add_element_endY = document.getElementsByName("add_element_endY");
+      add_element_endY [0].value = y / globals.height_multiple;
 
-    // fix up globals.endY
-    globals.endYonPage = document.getElementsByName("element_".concat (globals.element_id.toString (10), "_endY"));
-    globals.endYonPage [0].value = elements [globals.activeElement] [ENDY];
+      } // end of currently dragging
 
-    submit_edits_button = document.getElementById("submit_edits_button");
-    reset_edits_button = document.getElementById("reset_edits_button");
-
-    // check a change has actually been made before activating the submit and reset buttons
-    CheckIfPageChanged ();
     return;
-   }  // if globals.dragging
-
-  // MOUSE CURSOR CHANGES
+    }
 
   // if not globals.dragging, change the mouse to indicate what we *can* do if we click
+  if (!globals.dragging)
+  {
   SetMouseCursor (event);
+  return
+  }
+
+  // if globals.dragging (mouse down previously) update the element's position depending on where we move to
+
+  // find new position in mm
+  var x = Math.round(globals.mousex / globals.width_multiple);
+  var y = Math.round(globals.mousey / globals.height_multiple);
+
+  // shift key snaps to the grid
+  if (event.shiftKey)
+    {
+    x = Math.round(x / grid_size_x) * grid_size_x;
+    y = Math.round(y / grid_size_y) * grid_size_y;
+    }
+
+  globals.element_type = elements [globals.activeElement] [ELEMENT_TYPE];
+
+  // update element - depending on which corner was being moved
+
+  // top left
+  if (globals.activeCorner == 'topleft' && globals.element_type == ELEMENT_LINE)
+    {
+    // lines can line up vertically and horizontally
+    if (x <= elements [globals.activeElement] [ENDX] && y <= elements [globals.activeElement] [ENDY])
+      {
+      elements [globals.activeElement] [STARTX] = x;
+      elements [globals.activeElement] [STARTY] = y;
+      }
+    }
+  else if (globals.activeCorner == 'topleft' && globals.element_type != ELEMENT_LINE)
+    {
+    if (x < elements [globals.activeElement] [ENDX] && y < elements [globals.activeElement] [ENDY])
+      {
+      elements [globals.activeElement] [STARTX] = x;
+      elements [globals.activeElement] [STARTY] = y;
+      }
+    }
+
+  // top right
+  else if (globals.activeCorner == 'topright')
+    {
+    if (x > elements [globals.activeElement] [STARTX] && y < elements [globals.activeElement] [ENDY])
+      {
+      elements [globals.activeElement] [ENDX] = x;
+      elements [globals.activeElement] [STARTY] = y;
+      }
+    }
+
+  // bottom left
+  else if (globals.activeCorner == 'bottomleft')
+    {
+    if (x < elements [globals.activeElement] [ENDX] && y > elements [globals.activeElement] [STARTY])
+      {
+      elements [globals.activeElement] [STARTX] = x;
+      elements [globals.activeElement] [ENDY] = y;
+      }
+    }
+
+ // bottom right
+ else if (globals.activeCorner == 'bottomright' && globals.element_type == ELEMENT_LINE)
+    {
+    // lines can line up vertically and horizontally
+    if (x >= elements [globals.activeElement] [STARTX] && y >= elements [globals.activeElement] [STARTY])
+      {
+      elements [globals.activeElement] [ENDX] = x;
+      elements [globals.activeElement] [ENDY] = y;
+      }
+    }
+ else if (globals.activeCorner == 'bottomright' && globals.element_type != ELEMENT_LINE)
+    {
+    if (x > elements [globals.activeElement] [STARTX] && y > elements [globals.activeElement] [STARTY])
+      {
+      elements [globals.activeElement] [ENDX] = x;
+      elements [globals.activeElement] [ENDY] = y;
+      }
+    }
+
+  // drag box (reposition)
+  else if (globals.activeCorner == 'drag')
+    {
+    var deltaX = Math.round((globals.dragMouseX - event.offsetX) / globals.width_multiple);
+    var deltaY = Math.round((globals.dragMouseY - event.offsetY) / globals.height_multiple);
+
+    var new_x = globals.dragStartX - deltaX;
+    var new_y = globals.dragStartY - deltaY;
+    var width = elements [globals.activeElement]  [ENDX] - elements [globals.activeElement] [STARTX];
+    var height = elements [globals.activeElement] [ENDY] - elements [globals.activeElement] [STARTY];
+
+    // shift key snaps to the grid
+    if (event.shiftKey)
+      {
+      new_x = Math.round(new_x / grid_size_x) * grid_size_x;
+      new_y = Math.round(new_y / grid_size_y) * grid_size_y;
+      }
+
+    elements [globals.activeElement] [STARTX] = new_x;
+    elements [globals.activeElement] [STARTY] = new_y;
+    elements [globals.activeElement] [ENDX]   = new_x + width;
+    elements [globals.activeElement] [ENDY]   = new_y + height;
+    }
+
+  drawborders ();
+
+  // update form ready for them to post it
+
+  // turn element array number into an element ID
+  globals.element_id = elements [globals.activeElement] [ELEMENT_ID];
+
+  // fix up globals.startX
+  globals.startXonPage = document.getElementsByName("element_".concat (globals.element_id.toString (10), "_startX"));
+  globals.startXonPage [0].value = elements [globals.activeElement] [STARTX];
+
+  // fix up globals.startY
+  globals.startYonPage = document.getElementsByName("element_".concat (globals.element_id.toString (10), "_startY"));
+  globals.startYonPage [0].value = elements [globals.activeElement] [STARTY];
+
+  // fix up globals.endX
+  globals.endXonPage = document.getElementsByName("element_".concat (globals.element_id.toString (10), "_endX"));
+  globals.endXonPage [0].value = elements [globals.activeElement] [ENDX];
+
+  // fix up globals.endY
+  globals.endYonPage = document.getElementsByName("element_".concat (globals.element_id.toString (10), "_endY"));
+  globals.endYonPage [0].value = elements [globals.activeElement] [ENDY];
+
+  submit_edits_button = document.getElementById("submit_edits_button");
+  reset_edits_button = document.getElementById("reset_edits_button");
+
+  // check a change has actually been made before activating the submit and reset buttons
+  CheckIfPageChanged ();
+
 
 } // end of onMouseMove
 
@@ -775,6 +962,38 @@ function onMouseDown(event)
   globals.found   = false;
   globals.mousex  = event.offsetX;
   globals.mousey  = event.offsetY;
+
+  if (globals.started_dragging)
+    return;
+
+  // HERE for ADDING NEW ELEMENTS
+
+  if (globals.adding)
+    {
+    globals.started_dragging = true;
+
+    // find new position in mm
+    var x = Math.round(globals.mousex / globals.width_multiple);
+    var y = Math.round(globals.mousey / globals.height_multiple);
+
+    // shift key snaps to the grid
+    if (event.shiftKey)
+      {
+      x = Math.round(x / grid_size_x) * grid_size_x;
+      y = Math.round(y / grid_size_y) * grid_size_y;
+      }
+
+    // convert back to pixels
+    x *= globals.width_multiple
+    y *= globals.height_multiple
+
+    globals.box_startx = x
+    globals.box_starty = y
+    return
+    } // end of adding an element
+
+
+  // HERE for MOVING EXISTING ELEMENTS
 
   // mouse down isn't active until we can see the handler boxes
   if (!globals.edit_clicked)
@@ -853,6 +1072,28 @@ function onMouseDown(event)
 function onMouseUp(event)
   {
 
+  document.getElementById('editing_notes').innerHTML = '';
+
+  if (globals.adding)
+    {
+    globals.adding = false
+
+    // if Ctrl pressed, do nothing
+    if (event.ctrlKey || !globals.started_dragging)
+      {
+      globals.ctx.clearRect(0, 0, globals.canvas.width, globals.canvas.height);  // clear globals.canvas
+      globals.ctx.globalAlpha = 1;
+      main_image_loaded ()
+      globals.add_element_button.disabled  = false
+      return;
+      }
+
+    globals.started_dragging = false;
+    document.getElementById("add_element_box").submit();
+    return
+    }
+
+
   // ctrl key means discard moves and reset to defaults
   if (globals.dragging && event.ctrlKey && globals.activeCorner)
     {
@@ -863,7 +1104,6 @@ function onMouseUp(event)
 
   globals.activeCorner  = '';
   globals.dragging      = false;
-  document.getElementById('editing_notes').innerHTML = '';
   SetMouseCursor (event);
   } // end of onMouseUp
 

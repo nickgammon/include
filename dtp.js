@@ -163,9 +163,9 @@ function init()
   var isLoaded = image.complete && image.naturalHeight !== 0;
 
   if (isLoaded)
-    main_image_loaded ()
+    draw_main_image ()
   else
-    image.onload = main_image_loaded
+    image.onload = draw_main_image
 
   } // end of init
 
@@ -220,7 +220,7 @@ var mainImage = document.getElementById("full-page-image")
 globals.ctx.clearRect(0, 0, globals.canvas.width, globals.canvas.height);  // clear globals.canvas
 
 globals.ctx.globalAlpha = 0.4;
-globals.ctx.drawImage (mainImage, 0, 0)
+draw_main_image ()
 globals.ctx.globalAlpha = 1;
 
 // first draw all the images
@@ -503,6 +503,7 @@ function SubmitEditsClicked (event)
     submit_edits_button.value     = "Submit edits";
     submit_edits_button.disabled  = true;  // nothing edited yet
     drawborders ();
+    event.preventDefault();
     return false;   // don't submit yet
     }
   return true;  // submit form now
@@ -727,7 +728,7 @@ function onMouseMove(event)
       globals.ctx.clearRect(0, 0, globals.canvas.width, globals.canvas.height);  // clear globals.canvas
 
       globals.ctx.globalAlpha = 0.8;
-      globals.ctx.drawImage (mainImage, 0, 0)
+      draw_main_image ()
       globals.ctx.globalAlpha = 1;
 
       // find new position in mm
@@ -963,6 +964,33 @@ function onMouseDown(event)
   globals.mousex  = event.offsetX;
   globals.mousey  = event.offsetY;
 
+  // Ctrl+Click to toggle selection in the list on the right
+  if (!globals.adding && !globals.edit_clicked && event.ctrlKey)
+    {
+    // check the entire element rectangle
+    // go backwards so that the higher (on top) one gets selected before the one underneath
+    for (var i = num_elements - 1; i >= 0; i--)
+      {
+      globals.activeElement = i;
+      // get *this* element
+      getElementDetails (elements [i]);
+
+      if (mouseInElement (globals.mousex, globals.mousey, globals.startX, globals.startY, globals.endX, globals.endY + globals.caption_height))
+        {
+        // found the element!
+        var selection_to_click = document.getElementById("checkbox_to_select_".concat (globals.element_id));
+        if (!selection_to_click)
+          return;   // can't find button
+
+        selection_to_click.click();    // activate it
+        return;
+        }
+      } // end of for each element
+
+    return;
+    }
+
+
   if (globals.started_dragging)
     return;
 
@@ -1083,7 +1111,7 @@ function onMouseUp(event)
       {
       globals.ctx.clearRect(0, 0, globals.canvas.width, globals.canvas.height);  // clear globals.canvas
       globals.ctx.globalAlpha = 1;
-      main_image_loaded ()
+      draw_main_image ()
       globals.add_element_button.disabled  = false
       return;
       }
@@ -1160,12 +1188,147 @@ function onDoubleClick(event)
 
   } // end of onDoubleClick
 
-function main_image_loaded ()
+function draw_selection ()
 {
-  var mainImage = document.getElementById("full-page-image")
+  const LINE_BORDER = 6;
+  globals.ctx.save ()
 
-  globals.ctx.drawImage (mainImage, 0, 0)
-}
+  globals.ctx.globalAlpha = 1;
+  globals.ctx.setLineDash([5, 5]);
+  globals.ctx.lineWidth = 2;
+  globals.ctx.strokeStyle = "blue";
+
+  for (var i = 0; i < num_elements; i++)
+    {
+    // get *this* element
+    getElementDetails (elements [i]);
+
+    var dX, dY, dwX, dwY;
+
+    dX = globals.startX * globals.width_multiple
+    dY = globals.startY * globals.height_multiple
+    dwX = (globals.endX - globals.startX) * globals.width_multiple
+    dwY = (globals.endY - globals.startY) * globals.height_multiple
+
+    var element_checkbox = document.getElementById("checkbox_to_select_".concat (globals.element_id));
+
+    if (element_checkbox && element_checkbox.checked)
+      {
+      // stroke the entire element (box around it)
+      globals.ctx.beginPath();
+
+      // make lines bigger so we can see the selection box
+      if (globals.element_type == ELEMENT_LINE)
+        {
+        dX -= LINE_BORDER;
+        dY -= LINE_BORDER;
+        dwX += LINE_BORDER * 2;
+        dwY += LINE_BORDER * 2;
+        }
+
+      var height = dwY + globals.caption_height * globals.height_multiple
+      globals.ctx.rect(dX, dY, dwX, globals.element_type == ELEMENT_STAR ? dwX : height);
+
+      // draw box around it
+      globals.ctx.stroke();
+      }
+
+    } // end of for each element
+
+  globals.ctx.restore ()
+
+} // end of draw_selection
+
+function draw_main_image ()
+{
+  globals.ctx.drawImage (document.getElementById("full-page-image"), 0, 0)
+  draw_selection ()
+} // end of draw_main_image
+
+function keyDownHandler (event)
+  {
+
+  // Escape cancels edits - seems to not work unless you click on the page first
+  if (event.code == 'Escape' && globals.edit_clicked)
+    {
+    ResetClicked () // put everything back
+
+    // now redraw without the resizing boxes
+    var mainImage = document.getElementById("full-page-image")
+    globals.ctx.clearRect(0, 0, globals.canvas.width, globals.canvas.height);  // clear globals.canvas
+    globals.ctx.globalAlpha = 1;
+    draw_main_image ()
+
+    // put button back to "Edit"
+    var submit_edits_button = document.getElementById("submit_edits_button");
+    submit_edits_button.disabled = false;
+    submit_edits_button.value     = "Edit";
+
+    // disable "Reset edits"
+    var reset_edits_button = document.getElementById("reset_edits_button");
+    reset_edits_button.disabled = true;
+
+    // can edit again later if we want
+    globals.edit_clicked = false;
+
+    event.preventDefault();
+    return
+    }
+
+  // Enter accepts edits
+  if (event.code == 'Enter' && globals.edit_clicked && globals.edits_done)
+    {
+    var submit_edits_button  = document.getElementById("submit_edits_button");
+    submit_edits_button.click ()
+
+    event.preventDefault();
+    return
+    }
+
+
+  } // end of keyDownHandler
+
+function drawSelectionsAndBorders ()
+{
+  draw_main_image ()
+  if (globals.edit_clicked)
+    drawborders ()
+} // end of drawSelectionsAndBorders
+
+// when they select an item automatically expand the things you can do to save
+// having to make an extra click
+function SelectionClicked (event)
+  {
+  document.getElementById('selection_details').open = true
+  drawSelectionsAndBorders ()
+  return false;
+  } // end of SelectionClicked
+
+
+function clearSelections (event)
+  {
+  var filterTags = document.getElementsByClassName("selection_checkbox");
+  for (var i = 0; i < filterTags.length; i++)
+    {
+     var item = filterTags.item(i);
+     item.checked = false;
+    } // end of for
+  drawSelectionsAndBorders ()
+  return false;
+  } // end of clearSelections
+
+function setSelections (event)
+  {
+  var filterTags = document.getElementsByClassName("selection_checkbox");
+  for (var i = 0; i < filterTags.length; i++)
+    {
+     var item = filterTags.item(i);
+     item.checked = true;
+    } // end of for
+  drawSelectionsAndBorders ()
+  return false;
+  } // end of setSelections
+
 
 // START HERE
 
@@ -1178,6 +1341,7 @@ if (globals.canvas)
   globals.canvas.onmouseup   = onMouseUp;
   globals.canvas.ondblclick  = onDoubleClick;
   globals.canvas.onmousemove = onMouseMove;
+  document.addEventListener('keydown', keyDownHandler);
   }
 
 

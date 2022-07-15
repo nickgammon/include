@@ -1194,9 +1194,7 @@ function draw_selection ()
   globals.ctx.save ()
 
   globals.ctx.globalAlpha = 1;
-  globals.ctx.setLineDash([5, 5]);
   globals.ctx.lineWidth = 2;
-  globals.ctx.strokeStyle = "blue";
 
   for (var i = 0; i < num_elements; i++)
     {
@@ -1229,8 +1227,18 @@ function draw_selection ()
       var height = dwY + globals.caption_height * globals.height_multiple
       globals.ctx.rect(dX, dY, dwX, globals.element_type == ELEMENT_STAR ? dwX : height);
 
-      // draw box around it
+      globals.ctx.setLineDash([]);
+      globals.ctx.strokeStyle = "white";
+
+      // stroke in white first in case the element is blue or very dark (like black)
       globals.ctx.stroke();
+
+      globals.ctx.setLineDash([5, 5]);
+      globals.ctx.strokeStyle = "blue";
+
+      // draw dashed line around it
+      globals.ctx.stroke();
+
       }
 
     } // end of for each element

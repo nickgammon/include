@@ -494,10 +494,11 @@ function SSO_Handle_Logon ()
   $authrow = dbQueryOneParam ("SELECT COUNT(*) AS counter FROM $SSO_AUTHENTICATORS_TABLE WHERE sso_id = ?",
                               array ('i', &$sso_id));
 
-  // no, so log them in
+  // we should always get this row because it is a counter
   if ($authrow)
     {
-    if ($authrow ['counter'] == 0 && !$SSO_UserDetails ['totp_secret'])
+    // see if the counter is zero in which case no authenticator is required
+    if ($authrow ['counter'] == 0)
       {
       SSO_Complete_Logon ($sso_id);
       return;

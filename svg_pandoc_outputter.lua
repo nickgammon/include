@@ -53,6 +53,11 @@ The Braille Patterns Unicode block contains U+2800 ⠀ BRAILLE PATTERN BLANK (HT
 a Braille pattern with no dots raised. Some fonts display the character as a fixed-width blank,
 however the Unicode standard explicitly states that it does not act as a space.
 
+
+----
+
+Consider <flowLine/> for line breaks.
+
 --]]
 
 local INDENT_SPACE = '&#x2800;'  -- U+2800 ⠀ BRAILLE PATTERN BLANK (HTML &#10240;),
@@ -169,7 +174,6 @@ function SmallCaps(s)
   return '<span style="font-variant: small-caps;">' .. s .. '</span>'
 end
 
--- NOT WORKING!
 function Strikeout(s)
   return '<flowSpan style="text-decoration: line-through; " >' .. s .. "</flowSpan>"
 end

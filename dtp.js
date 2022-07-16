@@ -1176,8 +1176,12 @@ function onDoubleClick(event)
 
     if (mouseInElement (mousex, mousey, globals.startX, globals.startY, globals.endX, globals.endY + globals.caption_height))
       {
+      var idName = 'link_to_edit_element_'
+      if (event.altKey)
+        idName = 'triangle_to_expand_'
+
       // found the element!
-      var button_to_click = document.getElementById("link_to_edit_element_".concat (globals.element_id));
+      var button_to_click = document.getElementById(idName.concat (globals.element_id));
       if (!button_to_click)
         return;   // can't find button
 

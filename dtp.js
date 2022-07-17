@@ -162,12 +162,26 @@ function init()
   var image = document.getElementById('full-page-image')
   var isLoaded = image.complete && image.naturalHeight !== 0;
 
+  var markdown_convert_drop_zone = document.getElementById ('markdown_convert_drop_zone')
+  if (markdown_convert_drop_zone)
+    {
+    ;['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+      markdown_convert_drop_zone.addEventListener(eventName, preventDefaults, false)
+    })
+    markdown_convert_drop_zone.addEventListener('drop', markdownConvertFileUpload)
+    }
+
   if (isLoaded)
     draw_main_image ()
   else
     image.onload = draw_main_image
 
   } // end of init
+
+function preventDefaults (e) {
+  e.preventDefault()
+  e.stopPropagation()
+}
 
 // draw one of the four corner boxes
 function drawCornerBox (x, y)
@@ -1368,7 +1382,7 @@ function copyToClipboard(textToCopy) {
     }
 }
 
-
+// for copying the output from Pandoc to the clipboard
 function copyMarkdown ()
 {
   var md_text = document.getElementById("markdown_text")
@@ -1379,6 +1393,26 @@ function copyMarkdown ()
 
 } // end of copyMarkdown
 
+// here to fix up headings in the form **my heading** on a line on their own, to be ## my heading
+function fixHeadings ()
+{
+  var md_text = document.getElementById("markdown_text").textContent
+  md_text = md_text.replace (/\n\x2a\x2a([^\n\x2a]+)\x2a\x2a\n/g, '\n\n## $1\n\n')
+  document.getElementById("markdown_text").textContent = md_text
+} // end of fixHeadings
+
+// see: https://www.smashingmagazine.com/2018/01/drag-drop-file-uploader-vanilla-js/
+
+// for drag and drop of the DOCX file for uploading
+function markdownConvertFileUpload (event)
+{
+  if (event.dataTransfer.files.length)  // should be exactly one file, really
+    {
+    document.getElementById('markdown_convert_file_list').files = event.dataTransfer.files
+    document.getElementById("markdown_convert_form").submit();
+    }
+  event.preventDefault();
+} // end of markdownConvertFileUpload
 
 // START HERE
 

@@ -4451,7 +4451,7 @@ c) <use> the file, taking layer 1
 
   if ($svgHandle)
     {
-    $contents = fread($svgHandle, 4000);
+    $contents = fread($svgHandle, 50000);
     fclose($svgHandle);
 
     if (preg_match ('`units="([a-z]+)"`', $contents, $matches))

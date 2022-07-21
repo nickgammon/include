@@ -102,6 +102,8 @@ var globals = [];
 // Initialization: called on load of script
 function init()
   {
+  console.log ("Javascript dtp.js initialising")
+
   globals.canvas = document.getElementById("mycanvas");  // our globals.canvas
 
   if (globals.canvas)
@@ -136,6 +138,9 @@ function init()
   globals.edit_clicked = false;
   globals.edits_done   = false;
   globals.dragging     = false;
+
+  var body_div =  document.getElementById('main_page_body')
+  body_div.addEventListener('drop', dropOntoMainPage)
 
   // nor the "add new element" button
   globals.adding       = false;
@@ -1566,6 +1571,11 @@ function canvasDragLeave (event)
   document.getElementById('dragBorder').style.display = 'none'
   } // end of canvasDragLeave
 
+function dropOntoMainPage (event)
+  {
+  preventDefaults (event);
+  console.log ('drop prevented')
+  } // end of dropOntoMainPage
 
 // START HERE
 

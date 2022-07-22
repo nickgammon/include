@@ -128,10 +128,6 @@ function init()
     globals.canvas.addEventListener('dragleave', canvasDragLeave);
     globals.canvas.addEventListener('drop',      canvasDropImage);
 
-//    ;['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-//      globals.canvas.addEventListener(eventName, preventDefaults, false)
-//    })
-
     } // end of if globals.canvas exists
 
   // they haven't clicked the "Edit" button yet
@@ -139,8 +135,18 @@ function init()
   globals.edits_done   = false;
   globals.dragging     = false;
 
+  // stop default drag and drop behaviour, so missing the page doesn't open a new
+  // page with the image on it
+
+  // as for the semicolon, see this: https://stackoverflow.com/questions/58069078/semicolon-before-square-bracket
+
   var body_div =  document.getElementById('main_page_body')
-  body_div.addEventListener('drop', dropOntoMainPage)
+  if (body_div)
+    {
+    ;['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+      body_div.addEventListener(eventName, preventDefaults, false)
+    })
+    } // if we found main_page_body div
 
   // nor the "add new element" button
   globals.adding       = false;
@@ -559,6 +565,7 @@ function SubmitEditsClicked (event)
     submit_edits_button.disabled  = true;  // nothing edited yet
     drawborders ();
     event.preventDefault();
+    document.getElementById("ctrl_click_message").style.display = 'none'
     return false;   // don't submit yet
     }
   return true;  // submit form now
@@ -1342,20 +1349,50 @@ function keyDownHandler (event)
     // can edit again later if we want
     globals.edit_clicked = false;
 
-    event.preventDefault();
-    return
-    }
+    // show message about ctrl+clicking again
+    document.getElementById("ctrl_click_message").style.display = 'block'
+
+    preventDefaults (event)
+    } // end of Escape
 
   // Enter accepts edits
-  if (event.code == 'Enter' && globals.edit_clicked && globals.edits_done)
+  else if (event.code == 'Enter' && globals.edit_clicked && globals.edits_done)
     {
     var submit_edits_button  = document.getElementById("submit_edits_button");
     submit_edits_button.click ()
 
-    event.preventDefault();
-    return
-    }
+    preventDefaults (event)
+    } // end of Enter
 
+  // Numpad+Plus goes into edit mode, or submits edits
+  else if (event.code == 'NumpadAdd')
+    {
+    var editButton = document.getElementById('submit_edits_button')
+    if (editButton)
+      editButton.click()
+
+    preventDefaults (event)
+    } // end of Numpad Plus
+
+  // Numpad+Minus refreshes the page
+  else if (event.code == 'NumpadSubtract')
+    {
+    var refreshButton = document.getElementById('refresh_page_button')
+    if (refreshButton)
+      refreshButton.click()
+
+    preventDefaults (event)
+    } // end of Numpad Minus
+
+  // Numpad+Star shows all pages
+  else if (event.code == 'NumpadMultiply')
+    {
+    var showAllPagesButton = document.getElementById('show_all_pages')
+    if (showAllPagesButton)
+      showAllPagesButton.click()
+
+    preventDefaults (event)
+    } // end of Numpad Star
 
   } // end of keyDownHandler
 
@@ -1576,6 +1613,8 @@ function dropOntoMainPage (event)
   preventDefaults (event);
   console.log ('drop prevented')
   } // end of dropOntoMainPage
+
+refresh_page_button
 
 // START HERE
 

@@ -1124,23 +1124,37 @@ function onMouseDown(event)
       globals.found = true;
       break;
       }
-    // and now check the globals.dragging box
-    else if (mouseInElement (globals.mousex, globals.mousey, globals.startX, globals.startY, globals.endX, globals.endY + globals.caption_height))
-      {
-      globals.activeCorner = 'drag';
-      // remember where we clicked so we can get a delta location
-      globals.dragMouseX = globals.mousex;
-      globals.dragMouseY = globals.mousey;
-      // remember where it was when we clicked
-      globals.dragStartX = elements [globals.activeElement] [STARTX];
-      globals.dragStartY = elements [globals.activeElement] [STARTY];
-      globals.dragEndX   = elements [globals.activeElement] [ENDX];
-      globals.dragEndY   = elements [globals.activeElement] [ENDY];
-      globals.found = true;
-      break;
-      }
-
     } // end of for each element
+
+  // now check the overall rectangle in case they didn't click on a resize box
+  // this is so the resize boxes take precedence over the general drag area
+
+  // go backwards so that the higher (on top) one gets selected before the one underneath
+  if (!globals.found)
+    {
+    for (var i = num_elements - 1; i >= 0; i--)
+      {
+      globals.activeElement = i;
+      // get *this* element
+      getElementDetails (elements [i]);
+
+      if (mouseInElement (globals.mousex, globals.mousey, globals.startX, globals.startY, globals.endX, globals.endY + globals.caption_height))
+          {
+          globals.activeCorner = 'drag';
+          // remember where we clicked so we can get a delta location
+          globals.dragMouseX = globals.mousex;
+          globals.dragMouseY = globals.mousey;
+          // remember where it was when we clicked
+          globals.dragStartX = elements [globals.activeElement] [STARTX];
+          globals.dragStartY = elements [globals.activeElement] [STARTY];
+          globals.dragEndX   = elements [globals.activeElement] [ENDX];
+          globals.dragEndY   = elements [globals.activeElement] [ENDY];
+          globals.found = true;
+          break;
+          }
+
+      } // end of for each element
+    } // if not found via a resize box
 
   if (!globals.found)
     return;
@@ -1627,7 +1641,7 @@ if (globals.canvas)
   globals.canvas.onmouseup   = onMouseUp;
   globals.canvas.ondblclick  = onDoubleClick;
   globals.canvas.onmousemove = onMouseMove;
-  document.addEventListener('keydown', keyDownHandler);
   }
 
+document.addEventListener('keydown', keyDownHandler);
 

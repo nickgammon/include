@@ -4262,17 +4262,19 @@ function openSVGfile ($filename, $labelRow)
   if (!isset ($labelRow ['Units']))
     $labelRow ['Units'] = 'mm';
 
-  $width  = $labelRow ['Page_Width']  . $labelRow ['Units'];
-  $height = $labelRow ['Page_Height'] . $labelRow ['Units'];
+  $width  = $labelRow ['Page_Width'];
+  $height = $labelRow ['Page_Height'];
+  $width_with_units  = $labelRow ['Page_Width']  . $labelRow ['Units'];
+  $height_with_units = $labelRow ['Page_Height'] . $labelRow ['Units'];
 
   fwrite ($handle, <<< EOD
     <svg
        xmlns="http://www.w3.org/2000/svg"
        xmlns:xlink="http://www.w3.org/1999/xlink"
        version="1.1"
-       width="$width"
-       height="$height"
-       viewBox="0 0 $width $height"
+       width="$width_with_units"
+       height="$height_with_units"
+       viewBox="0 0 $width_with_units $height_with_units"
        >
 
 

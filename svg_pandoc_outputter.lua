@@ -164,8 +164,6 @@ function Subscript(s)
   return '<flowSpan style="font-size:65%;baseline-shift:sub; " >' .. s .. "</flowSpan>"
 end
 
-
-
 function Superscript(s)
   return '<flowSpan style="font-size:65%;baseline-shift:super; " >' .. s .. "</flowSpan>"
 end

@@ -552,7 +552,14 @@ echo <<< EOD
 <td><input type="submit"    value="Log on"></td>
 </tr>
 </table>
-<a href="$PHP_SELF">Cancel log on</a>
+EOD;
+
+if ($control ["sso_login_message"])
+  echo ($control ["sso_login_message"]);
+
+echo <<< EOD
+
+<p><a href="$PHP_SELF">Cancel log on</a>
 <a href="$PHP_SELF?action=$SSO_FORGOT_PASSWORD" style="float:right;">Forgot password</a>
 </div>
 <input type="hidden"    name="action" value="$SSO_LOGON">

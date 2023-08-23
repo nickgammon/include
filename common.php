@@ -1,5 +1,9 @@
 <?php
 
+ini_set('error_reporting', E_ERROR | E_WARNING);
+ini_set('display_errors', '1');
+
+
 /*
 Copyright © 2001 Nick Gammon.
 
@@ -412,6 +416,8 @@ function OpenDatabase ($dbserver, $dbuser, $dbname, $dbpassword)
 
   if (mysqli_connect_errno())
     MajorProblem ("Cannot connect to server $dbserver: " . mysqli_connect_error());
+
+  mysqli_set_charset($dblink, 'utf8mb4');
 
   } // end of OpenDatabase
 

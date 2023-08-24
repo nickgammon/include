@@ -417,7 +417,7 @@ function OpenDatabase ($dbserver, $dbuser, $dbname, $dbpassword)
   if (mysqli_connect_errno())
     MajorProblem ("Cannot connect to server $dbserver: " . mysqli_connect_error());
 
-  mysqli_set_charset($dblink, 'utf8mb4');
+//  mysqli_set_charset($dblink, 'utf8mb4');
 
   } // end of OpenDatabase
 

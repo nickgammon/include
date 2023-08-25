@@ -417,8 +417,6 @@ function OpenDatabase ($dbserver, $dbuser, $dbname, $dbpassword)
   if (mysqli_connect_errno())
     MajorProblem ("Cannot connect to server $dbserver: " . mysqli_connect_error());
 
-//  mysqli_set_charset($dblink, 'utf8mb4');
-
   } // end of OpenDatabase
 
 function OpenMailDatabase ()
@@ -496,6 +494,11 @@ function GetControlItems ()
     $mySQLversion = (int) $matches [1];
   else
     $mySQLversion = 0;
+
+
+  $sso_hhs_active = $control ['sso_hhs_active'];
+  if ($sso_hhs_active)
+     mysqli_set_charset($dblink, 'utf8mb4');
 
   } // end of GetControlItems
 
@@ -844,6 +847,9 @@ function Init ($title,
 
     if ($sso_hhs_active)
       {
+      // newly-added HHS members will need an SSO record
+      if (ServerPublic ())
+          AddNewHHSMembers ();
       // see if this is an HHS user
       $hhs_member_info = dbQueryOneParam ("SELECT * FROM hhs_member LEFT JOIN hhs_member_sso USING (Member_ID) WHERE sso_id = ?",
                                     array ('i', &$sso_id));
@@ -923,6 +929,56 @@ function Init ($title,
     } // end of having some sort of title
 
   } // end of Init
+
+// <sigh>
+// If the database is copied from the HHS server to the public server and new members are on it
+// then we need to auto-generate an SSO record for them so they can log in.
+function AddNewHHSMembers ()
+{
+  global $control;
+  $latest_hhs_member = $control ['latest_hhs_member'];
+
+  // find all newly-added members
+  $results = dbQueryParam ("SELECT * FROM hhs_member WHERE Member_ID > ? ORDER BY Member_ID",
+          array ("i", &$latest_hhs_member));
+
+  foreach ($results as $row)
+    {
+    // now we have to fart around making an SSO record so this guy can log in
+
+    $Member_ID   = $row ['Member_ID'];
+    $email_address = $row ['Email_Address'];
+    $username = $row ['Screen_Name'];
+    if (!$username)
+      $username = $row ['Surname'];
+
+    // if no email address they won't have an SSO id
+    // if there *is* an email address create an SSO record
+    if ($email_address)
+      {
+      // check for duplicate email or username which would give the user an error message
+      $testRow = dbQueryOneParam ("SELECT * FROM sso_users WHERE
+          email_address = ? OR username = ?",
+                    array ('ss', &$email_address, &$username));
+      if (!$testRow)
+        {
+        // make a SSO record with a new sso_id - we can't keep them in sync
+        // because the inhouse ones might be added out of step with the public server ones
+        dbUpdateParam ("INSERT INTO sso_users (email_address, password, username) VALUES (?, '', ?)",
+                                array ('ss', &$email_address, &$username), false);
+
+        $sso_id = dbInsertId ();
+        // now create a record in hhs_member_sso to link the user to the sso record
+        dbUpdateParam ("INSERT INTO hhs_member_sso (sso_id, Member_ID) VALUE (?, ?)",
+                       array ('ii', &$sso_id, &$Member_ID), false);
+        } // end of not already being on file with this username or email address
+      } // end of them having an email address
+    // update control record so we know we dealt with this guy
+    dbUpdateParam ("UPDATE control SET contents = ? WHERE item = 'latest_hhs_member'",
+                   array ("i", &$Member_ID), false);
+    } // end of for each new member
+
+}   // end of AddNewHHSMembers
 
 //----------------------------------------------------------------------------
 // Start, end of page

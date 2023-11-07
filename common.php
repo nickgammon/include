@@ -5307,7 +5307,7 @@ function addAnchorToBar ($anchor, $newlinebefore=false, $newlineafter=true)
     </script>
     ";
 
-    echo $br . $anchor . $br2;
+    echo $br1 . $anchor . $br2;
 
     }   // end of addAnchorToBar
 

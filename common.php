@@ -5288,26 +5288,18 @@ function addButtonToBar ($button)
 
   } // end of addButtonToBar
 
-function addAnchorToBar ($anchor, $newlinebefore=false, $newlineafter=true)
+function addAnchorToBar ($anchor)
     {
-    if ($newlinebefore)
-       $br1 ='<br>';
-    else
-       $br1 ='';
-    if ($newlineafter)
-       $br2 ='<br>';
-    else
-       $br2 ='';
     echo "<script>
     action_bar = document.getElementById('action_bar');
     if (action_bar)
         {
-        action_bar.innerHTML += `$br1<button>$anchor</button>$br2`
+        action_bar.innerHTML += `<button>$anchor</button>`
         } // end of having an action bar
     </script>
     ";
 
-    echo $br1 . $anchor . $br2;
+    echo $anchor;
 
     }   // end of addAnchorToBar
 

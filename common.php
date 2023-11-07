@@ -5288,4 +5288,30 @@ function addButtonToBar ($button)
 
   } // end of addButtonToBar
 
+function addAnchorToBar ($anchor, $newlinebefore=false, $newlineafter=true)
+    {
+    if ($newlinebefore)
+       $br1='<br>';
+    if ($newlineafter)
+       $br2='<br>';
+    echo "<script>
+    action_bar = document.getElementById('action_bar');
+    if (action_bar)
+        {
+        action_bar.innerHTML += `$br1<button>$anchor</button>$br2`
+        } // end of having an action bar
+    </script>
+    ";
+
+    echo $br . $anchor . $br2;
+
+    }   // end of addAnchorToBar
+
+function hLinkButton ($description, $destination, $params="", $newwindow=false, $nofollow=false)
+    {
+    shLink ($link, $description, $destination, $params, $newwindow, $nofollow);
+    addAnchorToBar ($link);
+    }   // end of hLinkButton
+
+
 ?>

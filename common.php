@@ -496,8 +496,8 @@ function GetControlItems ()
     $mySQLversion = 0;
 
 
-  $sso_hhs_active = $control ['sso_hhs_active'];
-  if ($sso_hhs_active)
+  $mysql_utf8 = $control ['mysql_utf8'];
+  if ($mysql_utf8)
      mysqli_set_charset($dblink, 'utf8mb4');
 
   } // end of GetControlItems
@@ -5273,5 +5273,19 @@ function smarten ($a)
 
 // I think every script needs authentication
 SSO_Authenticate ();
+
+function addButtonToBar ($button)
+  {
+  $button = str_replace ('&nbsp;', '', $button);
+  echo "<script>
+  action_bar = document.getElementById('action_bar');
+  if (action_bar)
+    {
+    action_bar.innerHTML += `$button`
+    } // end of having an action bar
+  </script>
+  ";
+
+  } // end of addButtonToBar
 
 ?>

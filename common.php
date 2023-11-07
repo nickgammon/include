@@ -5291,9 +5291,13 @@ function addButtonToBar ($button)
 function addAnchorToBar ($anchor, $newlinebefore=false, $newlineafter=true)
     {
     if ($newlinebefore)
-       $br1='<br>';
+       $br1 ='<br>';
+    else
+       $br1 ='';
     if ($newlineafter)
-       $br2='<br>';
+       $br2 ='<br>';
+    else
+       $br2 ='';
     echo "<script>
     action_bar = document.getElementById('action_bar');
     if (action_bar)

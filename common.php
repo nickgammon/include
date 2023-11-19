@@ -59,7 +59,7 @@ require ($INCLUDE_DIRECTORY . "authentication.php");
 // stop XSS injection  - get rid of stuff like <!'/*!"/*!\'/*\"/*--!><svg/onload=prompt(/OPENBUGBOUNTY/)>
 //     (added to the end of the URL, which we would then echo back as part of $PHP_SELF)
 // we trim the URL after letters, numbers, hyphens, underscores, slashes and dots.
-$VALID_URL_REGEXP = '|^([\w/\-\.]+).*$|';
+$VALID_URL_REGEXP = '|^([\w/\-\. ]+).*$|';
 $_SERVER['PHP_SELF'] = preg_replace ($VALID_URL_REGEXP, '\1', $_SERVER['PHP_SELF']);
 $_SERVER['REQUEST_URI'] = preg_replace ($VALID_URL_REGEXP, '\1', $_SERVER['REQUEST_URI']);
 $_SERVER['SCRIPT_NAME'] = preg_replace ($VALID_URL_REGEXP, '\1', $_SERVER['SCRIPT_NAME']);
@@ -5274,33 +5274,94 @@ function smarten ($a)
 // I think every script needs authentication
 SSO_Authenticate ();
 
+
+// stuff to make an [X] at the top right and if clicked replace by a hamburger
+$CLOSE_BOX_STUFF = "
+    count = action_bar.childElementCount;
+    if (count == 0)
+        {
+        function closeClick ()
+            {
+            action_bar = document.getElementById('action_bar');
+            // hide all content
+            const nodes = action_bar.childNodes
+            for (let i = 0; i < nodes.length; i++) {
+                nodes[i].style.display = 'none'
+                }
+            // now show the hamburger
+            hamburger = document.getElementById('hamburger')
+            hamburger.style.display = 'block';
+            hamburger.addEventListener('click', openClick);
+            }   // end of closeClick
+        function openClick ()
+            {
+            action_bar = document.getElementById('action_bar');
+            // show all content
+            const nodes = action_bar.childNodes
+            for (let i = 0; i < nodes.length; i++) {
+                if (nodes[i].className != 'action_button')
+                    nodes[i].style.display = 'block'
+                else
+                    nodes[i].style.display = 'inline-block'
+                }
+            // but hide the hamburger
+            hamburger = document.getElementById('hamburger')
+            hamburger.style.display = 'none';
+            }   // end of openClick
+        // add the hamburger
+        action_bar.innerHTML = '<img id=\'hamburger\' title=\'Show actions\' src=\'/images/Hamburger.jpg\'>';
+        // hide it
+        document.getElementById('hamburger').style.display = 'none';
+        // add the close box
+        var el = document.createElement('DIV');
+        el.innerHTML = 'X';
+        el.className = 'close_box'
+        el.title = 'Hide'
+        // click event handler
+        el.addEventListener('click',closeClick);
+        action_bar.appendChild(el);               // Append an X
+        }
+";
+
 function addButtonToBar ($button)
   {
+  global $CLOSE_BOX_STUFF;
   $button = str_replace ('&nbsp;', '', $button);
   echo "<script>
   action_bar = document.getElementById('action_bar');
   if (action_bar)
     {
-    action_bar.innerHTML += `$button`
+      $CLOSE_BOX_STUFF
+      var dynamicContent = document.createElement('span');
+      dynamicContent.innerHTML = `$button`;
+      dynamicContent.className = 'action_button'
+      action_bar.appendChild(dynamicContent);
     } // end of having an action bar
   </script>
   ";
 
+  $CLOSE_BOX_STUFF = '';  // don't need it any more
   } // end of addButtonToBar
 
 function addAnchorToBar ($anchor)
     {
+    global $CLOSE_BOX_STUFF;
     echo "<script>
     action_bar = document.getElementById('action_bar');
     if (action_bar)
         {
-        action_bar.innerHTML += `<button>$anchor</button>`
+        $CLOSE_BOX_STUFF
+        var dynamicContent = document.createElement('span');
+        dynamicContent.innerHTML = `<button>$anchor</button>`;
+        dynamicContent.className = 'action_anchor'
+        action_bar.appendChild(dynamicContent);
         } // end of having an action bar
     </script>
     ";
 
     echo $anchor;
 
+    $CLOSE_BOX_STUFF = '';  // don't need it any more
     }   // end of addAnchorToBar
 
 function hLinkButton ($description, $destination, $params="", $newwindow=false, $nofollow=false)

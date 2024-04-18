@@ -435,6 +435,12 @@ function GetControlItems ()
   global $BODY_COLOUR, $HEADING_COLOUR;
   global $mySQLversion;
 
+  // we need to find whether to use UTF8 *before* we read all the control stuff in,
+  // so read this flag first
+  $mysql_utf8 = dbQueryOne ("SELECT contents from control where Item = 'mysql_utf8'");
+  if ($mysql_utf8)
+     mysqli_set_charset($dblink, 'utf8mb4');
+
   $result = mysqli_query ($dblink, "SELECT * FROM control")   // WTF?
     or MajorProblem ("Select of control table failed: " . mysqli_connect_error ());
 
@@ -494,11 +500,6 @@ function GetControlItems ()
     $mySQLversion = (int) $matches [1];
   else
     $mySQLversion = 0;
-
-
-  $mysql_utf8 = $control ['mysql_utf8'];
-  if ($mysql_utf8)
-     mysqli_set_charset($dblink, 'utf8mb4');
 
   } // end of GetControlItems
 
@@ -3089,6 +3090,10 @@ function showSQLerror ($sql)
   {
   global $dblink;
   global $control;
+
+  // if we get an error raised by a trigger, just show that - it isn't really a statement failure
+  if ($dblink->errno == 1644)
+    Problem ($dblink->error);
 
   if ((isset ($control ['show_sql_problems']) && $control ['show_sql_problems'])
       || isAdminOrModerator ())

@@ -108,6 +108,8 @@ $action      = getGPC ('action', 40, $VALID_ACTION);
 
 $shownHTMLheader = false;  // eg. <html><head> etc.
 
+$action_bar_hidden = false;
+
 DefaultColours ();
 
 // initialize random numbers
@@ -1497,7 +1499,7 @@ function Permission ($todo)
     echo "<p>";
     hLink ("Log on", $ADMIN_DIRECTORY . "logon.php?returnto=" . urlencode ($_SERVER ['REQUEST_URI']));
     echo "</p>\n";
-    Problem ("Permission denied");
+    Problem ("Permission denied: $todo");
    }
   }  // end of  Permission
 
@@ -5274,6 +5276,22 @@ function smarten ($a)
 // I think every script needs authentication
 SSO_Authenticate ();
 
+function hideActionBar ()
+  {
+  global $userinfo;
+  global $action_bar_hidden;
+  if (isLoggedOn() && $userinfo ['hide_action_bar'] && !$action_bar_hidden)
+    {
+    $action_bar_hidden = true;  // don't hide it twice
+    echo "<script>
+    action_bar = document.getElementById('action_bar');
+    if (action_bar)
+      action_bar.style.display = 'none';
+    </script>\n";
+
+    } // if they don't want the action bar
+
+  } // end of hideActionBar
 
 // stuff to make an [X] at the top right and if clicked replace by a hamburger
 $CLOSE_BOX_STUFF = "
@@ -5339,7 +5357,7 @@ function addButtonToBar ($button)
     } // end of having an action bar
   </script>
   ";
-
+  hideActionBar ();
   $CLOSE_BOX_STUFF = '';  // don't need it any more
   } // end of addButtonToBar
 
@@ -5358,6 +5376,7 @@ function addAnchorToBar ($anchor)
         } // end of having an action bar
     </script>
     ";
+    hideActionBar ();
 
     echo $anchor;
 

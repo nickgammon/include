@@ -127,7 +127,7 @@ function init()
     globals.canvas.addEventListener('dragover',  canvasDragOver);
     globals.canvas.addEventListener('dragleave', canvasDragLeave);
     globals.canvas.addEventListener('drop',      canvasDropImage);
-
+    console.log ("Created canvas")
     } // end of if globals.canvas exists
 
   // they haven't clicked the "Edit" button yet
@@ -152,8 +152,10 @@ function init()
   globals.adding       = false;
   globals.started_dragging = false;
 
-  submit_edits_button = document.getElementById("submit_edits_button");
-  submit_edits_button.onclick = SubmitEditsClicked;
+  globals.submit_edits_button = document.getElementById("submit_edits_button");
+  globals.submit_edits_button.onclick = SubmitEditsClicked;
+  
+  globals.reset_edits_button = document.getElementById("reset_edits_button");
 
   // for adding elements by clicking and dragging
   globals.add_text_button = document.getElementById("add_text_button");
@@ -200,6 +202,15 @@ function init()
     draw_main_image ()
   else
     image.onload = draw_main_image
+
+  if (globals.canvas)
+    {
+    // mouse handlers
+    globals.canvas.onmousedown = onMouseDown;
+    globals.canvas.onmouseup   = onMouseUp;
+    globals.canvas.ondblclick  = onDoubleClick;
+    globals.canvas.onmousemove = onMouseMove;
+    }
 
   } // end of init
 
@@ -338,6 +349,7 @@ for (var i = 0; i < num_elements; i++)
     var dwYadj = Math.min (dwX / globals.aspect_ratio, dwY)
 
     globals.ctx.drawImage (thisImage, dX + (dwX - dwXadj) / 2, dY  + (dwY - dwYadj) / 2, dwXadj, dwYadj)
+    console.log ("Drawing image " + " source_image_" + globals.element_id)
     } // end of ELEMENT_IMAGE
   else if ((globals.element_type == ELEMENT_TEXT || globals.element_type == ELEMENT_TEXT_CONTINUATION)
           && ElementChanged (i))
@@ -535,11 +547,10 @@ function ResetOneElement (which)
 // here when the "Reset" button clicked - put everything back to how it was
 function ResetClicked (event)
 {
-  submit_edits_button = document.getElementById("submit_edits_button");
-  submit_edits_button.disabled = true;
+  console.log ("Reset edits clicked")
+  globals.submit_edits_button.disabled = true;
 
-  reset_edits_button = document.getElementById("reset_edits_button");
-  reset_edits_button.disabled = true;
+  globals.reset_edits_button.disabled = true;
 
   // reset all elements
   for (var i = 0; i < num_elements; i++)
@@ -559,15 +570,16 @@ function SubmitEditsClicked (event)
 
   if (!globals.edit_clicked)
     {
+    console.log ("Edit button clicked")
     globals.edit_clicked          = true;
-    submit_edits_button           = document.getElementById("submit_edits_button");
-    submit_edits_button.value     = "Submit edits";
-    submit_edits_button.disabled  = true;  // nothing edited yet
+    globals.submit_edits_button.value     = "Submit edits";
+    globals.submit_edits_button.disabled  = true;  // nothing edited yet
     drawborders ();
     event.preventDefault();
     document.getElementById("ctrl_click_message").style.display = 'none'
     return false;   // don't submit yet
     }
+  console.log ("Submitting edits")
   return true;  // submit form now
 } // end of SubmitEditsClicked
 
@@ -678,18 +690,18 @@ function CheckIfPageChanged ()
 
   if (globals.changed)
     {
-    submit_edits_button.disabled  = false;
-    reset_edits_button.disabled   = false;
-    reset_edits_button.onclick    = ResetClicked;
+    globals.submit_edits_button.disabled  = false;
+    globals.reset_edits_button.disabled   = false;
+    globals.reset_edits_button.onclick    = ResetClicked;
     globals.edits_done            = true;
     }
   else
     {
     // no changes? make sure submit and reset buttons are disabled
     // - this is for the situation where you make a change and then change it back
-    submit_edits_button.disabled  = true;
-    reset_edits_button.disabled   = true;
-    reset_edits_button.onclick    = null;
+    globals.submit_edits_button.disabled  = true;
+    globals.reset_edits_button.disabled   = true;
+    globals.reset_edits_button.onclick    = null;
     globals.edits_done            = false;
     }
   } // end of CheckIfPageChanged
@@ -974,9 +986,6 @@ function onMouseMove(event)
   globals.endYonPage = document.getElementsByName("element_".concat (globals.element_id.toString (10), "_endY"));
   globals.endYonPage [0].value = elements [globals.activeElement] [ENDY];
 
-  submit_edits_button = document.getElementById("submit_edits_button");
-  reset_edits_button = document.getElementById("reset_edits_button");
-
   // check a change has actually been made before activating the submit and reset buttons
   CheckIfPageChanged ();
 
@@ -1025,6 +1034,7 @@ function onMouseDown(event)
   globals.found   = false;
   globals.mousex  = event.offsetX;
   globals.mousey  = event.offsetY;
+  console.log ("onMouseDown")
 
   // Ctrl+Click to toggle selection in the list on the right
   if (!globals.adding && !globals.edit_clicked && event.ctrlKey)
@@ -1331,10 +1341,12 @@ function draw_selection ()
 
 } // end of draw_selection
 
+
 function draw_main_image ()
 {
+  console.log ("Drawing " + "full-page-image")
   globals.ctx.drawImage (document.getElementById("full-page-image"), 0, 0)
-  draw_selection ()
+  draw_selection()
 } // end of draw_main_image
 
 function keyDownHandler (event)
@@ -1352,13 +1364,11 @@ function keyDownHandler (event)
     draw_main_image ()
 
     // put button back to "Edit"
-    var submit_edits_button = document.getElementById("submit_edits_button");
-    submit_edits_button.disabled = false;
-    submit_edits_button.value     = "Edit";
+    globals.submit_edits_button.disabled = false;
+    globals.submit_edits_button.value     = "Edit";
 
     // disable "Reset edits"
-    var reset_edits_button = document.getElementById("reset_edits_button");
-    reset_edits_button.disabled = true;
+    globals.reset_edits_button.disabled = true;
 
     // can edit again later if we want
     globals.edit_clicked = false;
@@ -1372,8 +1382,7 @@ function keyDownHandler (event)
   // Enter accepts edits
   else if (event.code == 'Enter' && globals.edit_clicked && globals.edits_done)
     {
-    var submit_edits_button  = document.getElementById("submit_edits_button");
-    submit_edits_button.click ()
+    globals.submit_edits_button.click ()
 
     preventDefaults (event)
     } // end of Enter
@@ -1381,9 +1390,8 @@ function keyDownHandler (event)
   // Numpad+Plus goes into edit mode, or submits edits
   else if (event.code == 'NumpadAdd')
     {
-    var editButton = document.getElementById('submit_edits_button')
-    if (editButton)
-      editButton.click()
+    if (globals.submit_edits_button)
+      globals.submit_edits_button.click()
 
     preventDefaults (event)
     } // end of Numpad Plus
@@ -1628,20 +1636,19 @@ function dropOntoMainPage (event)
   console.log ('drop prevented')
   } // end of dropOntoMainPage
 
-refresh_page_button
-
 // START HERE
 
-init ();  // get our globals.canvas and context
-
-if (globals.canvas)
-  {
-  // mouse handlers
-  globals.canvas.onmousedown = onMouseDown;
-  globals.canvas.onmouseup   = onMouseUp;
-  globals.canvas.ondblclick  = onDoubleClick;
-  globals.canvas.onmousemove = onMouseMove;
+// Run the script after a short delay to ensure the DOM is fully loaded
+setTimeout(() => {
+  if (document.readyState === 'complete' || document.readyState === 'interactive') {
+    init();
+  } else {
+    document.addEventListener('DOMContentLoaded', init);
   }
+}, 500);
+
+//init ();  // get our globals.canvas and context
+
 
 document.addEventListener('keydown', keyDownHandler);
 

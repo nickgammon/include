@@ -4555,7 +4555,7 @@ c) <use> the file, taking layer 1
       $aspectRatio = $matches [1] / $matches [2];
       }
 
-    if (!preg_match ('`inkscape:current-layer="layer1"`s', $contents, $matches))
+    if (!preg_match ('`inkscape:[^=]+="layer1"`s', $contents, $matches))
         {
         $svgHandle = FALSE;
         $reason = "Cannot find layer1";

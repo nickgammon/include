@@ -149,7 +149,7 @@ end
 
 function LineBreak()
   lineBreak = true
-  return '<flowDiv></flowDiv>\n'
+  return "<flowDiv></flowDiv>\n"
 end
 
 function Emph(s)

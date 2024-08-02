@@ -149,7 +149,7 @@ end
 
 function LineBreak()
   lineBreak = true
-  return "<flowPara></flowPara>\n"
+  return '<flowDiv></flowDiv>\n'
 end
 
 function Emph(s)
@@ -277,7 +277,7 @@ function Header(lev, s, attr)
     heading =  heading ..  -- blank line before unless first paragraph
                '<flowPara><flowSpan style="font-size:' ..
                (6 - lev) * 2 + 10 ..
-               '; font-weight:bold;' ..
+               'px; font-weight:bold;' ..
                attributes(attr) ..   -- convert attributes into a list, eg. fill:blue;
                ' " >' .. s .. "</flowSpan></flowPara>" ..
                LineBreak () .. "\n"  -- blank line after

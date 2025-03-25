@@ -80,6 +80,14 @@ INSERT INTO sso_authenticators  (Auth_ID, Public_UID, Secret_UID, AES_key, sso_i
 // for bcrypt stuff (password_hash / password_verify)
 require ($INCLUDE_DIRECTORY . "password.php");
 
+require_once $INCLUDE_DIRECTORY . '/PHPMailer/Exception.php';
+require_once $INCLUDE_DIRECTORY . '/PHPMailer/PHPMailer.php';
+require_once $INCLUDE_DIRECTORY . '/PHPMailer/SMTP.php';
+
+use PHPMailer\PHPMailer\PHPMailer;
+use PHPMailer\PHPMailer\SMTP;
+use PHPMailer\PHPMailer\Exception;
+
 // database tables
 
 $SSO_USER_TABLE           = 'sso_users';
@@ -546,12 +554,24 @@ echo <<< EOD
 </tr>
 <tr>
 <th align=right>Password:</th>
-<td><input type="password"  name="password" size=50 maxlength=60 required style="width:95%;"></td>
-
+<td><input type="password"  id="password" name="password" size=50 maxlength=60 required style="width:95%;">
+<input type="checkbox" id="togglePassword" />
+<label for="togglePassword">Show password</label>
+</td>
 <tr><td></td>
 <td><input type="submit"    value="Log on"></td>
 </tr>
 </table>
+
+<script>
+    const passwordInput = document.getElementById("password");
+    const toggleCheckbox = document.getElementById("togglePassword");
+
+    toggleCheckbox.addEventListener("change", () => {
+      passwordInput.type = toggleCheckbox.checked ? "text" : "password";
+    });
+  </script>
+  
 EOD;
 
 if ($control ["sso_login_message"])
@@ -1043,7 +1063,7 @@ function SSO_Handle_Password_Reset_Request ()
   global $SSO_AUDIT_LOGON, $SSO_AUDIT_LOGOFF, $SSO_AUDIT_LOGOFF_ALL, $SSO_AUDIT_REQUEST_PASSWORD_RESET,
          $SSO_AUDIT_CHANGED_PASSWORD, $SSO_AUDIT_CHANGED_EMAIL;
 
-  global $INCLUDE_DIRECTORY, $GMAIL_EMAIL_ACCOUNT, $GMAIL_EMAIL_PASSWORD;
+  global $INCLUDE_DIRECTORY, $GMAIL_EMAIL_ACCOUNT, $GMAIL_EMAIL_PASSWORD, $SMTP_SERVER;
 
   if (isset ($GMAIL_EMAIL_ACCOUNT))
     $use_gmail = $GMAIL_EMAIL_ACCOUNT != '';
@@ -1188,10 +1208,6 @@ function SSO_Handle_Password_Reset_Request ()
     // passing true in constructor enables exceptions in PHPMailer
     $mail = new PHPMailer(true);
 
-    require_once $INCLUDE_DIRECTORY . '/PHPMailer/Exception.php';
-    require_once $INCLUDE_DIRECTORY . '/PHPMailer/PHPMailer.php';
-    require_once $INCLUDE_DIRECTORY . '/PHPMailer/SMTP.php';
-
     // passing true in constructor enables exceptions in PHPMailer
     $mail = new PHPMailer(true);
 
@@ -1199,10 +1215,13 @@ function SSO_Handle_Password_Reset_Request ()
         // Server settings
     //    $mail->SMTPDebug = SMTP::DEBUG_SERVER; // for detailed debug output
         $mail->isSMTP();
-        $mail->Host = 'smtp.gmail.com';
+        $mail->Host = $SMTP_SERVER;
         $mail->SMTPAuth = true;
-        $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
-        $mail->Port = 587;
+        $mail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS;            //Enable implicit TLS encryption
+        $mail->Port       = 465;                                    //TCP port to connect to; use 587 if you have set `SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS`
+        
+//        $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
+//        $mail->Port = 587;
 
         $mail->Username = $GMAIL_EMAIL_ACCOUNT;       // gmail email account
         $mail->Password = $GMAIL_EMAIL_PASSWORD;      // gmail password

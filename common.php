@@ -47,10 +47,13 @@ Copyright © 2001 Nick Gammon.
 
 */
 
+require_once $INCLUDE_DIRECTORY . '/PHPMailer/Exception.php';
+require_once $INCLUDE_DIRECTORY . '/PHPMailer/PHPMailer.php';
+require_once $INCLUDE_DIRECTORY . '/PHPMailer/SMTP.php';
+
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\SMTP;
 use PHPMailer\PHPMailer\Exception;
-
 
 // for bcrypt stuff (password_hash / password_verify)
 require ($INCLUDE_DIRECTORY . "password.php");
@@ -999,6 +1002,7 @@ function MessageHead ($title, $keywords, $otherheaderhtml)
 global $control, $foruminfo;
 global $bbsubject_id, $bbtopic_id, $bbsection_id;
 global $shownHTMLheader;
+global $HHS_CSS;
 
   if ($title == "%FORUM_NAME%")
     {
@@ -1081,8 +1085,8 @@ global $shownHTMLheader;
   $font_string .=  "<link rel='stylesheet' href='/admin/showtable.css?v=$time'>\n";
 
   // our stylesheet for the Historical Society - may be empty if not applicable
-  $time = filemtime ($_SERVER['DOCUMENT_ROOT'] . '/hhs/hhs.css');
-  $font_string .=  "<link rel='stylesheet' href='/hhs/hhs.css?v=$time'>\n";
+  $time = filemtime ($_SERVER['DOCUMENT_ROOT'] . $HHS_CSS);
+  $font_string .=  "<link rel='stylesheet' href='$HHS_CSS?v=$time'>\n";
   $font_string .= $otherheaderhtml;   // eg. refresh
 
   $head = str_replace ("<%BODY%>", $control ['body'], $head);
@@ -3903,7 +3907,7 @@ function ShowMessage ($which, $subs = false)
 function SendEmail ($recipients, $subject, $message)
 {
   global $control;
-  global $INCLUDE_DIRECTORY, $GMAIL_EMAIL_ACCOUNT, $GMAIL_EMAIL_PASSWORD;
+  global $INCLUDE_DIRECTORY, $GMAIL_EMAIL_ACCOUNT, $GMAIL_EMAIL_PASSWORD, $SMTP_SERVER;
 
   $fromEmail = $control ['email_from'];
   $signature = $control ['email_signature'];
@@ -3922,9 +3926,6 @@ function SendEmail ($recipients, $subject, $message)
     {
     // New stuff for using Gmail instead of the server's SMTP server
 
-    require_once $INCLUDE_DIRECTORY . '/PHPMailer/Exception.php';
-    require_once $INCLUDE_DIRECTORY . '/PHPMailer/PHPMailer.php';
-    require_once $INCLUDE_DIRECTORY . '/PHPMailer/SMTP.php';
 
     // troubleshooting: https://github.com/PHPMailer/PHPMailer/wiki/Troubleshooting
 
@@ -3935,10 +3936,10 @@ function SendEmail ($recipients, $subject, $message)
         // Server settings
 //        $mail->SMTPDebug = SMTP::DEBUG_SERVER; // for detailed debug output
         $mail->isSMTP();
-        $mail->Host = 'smtp.gmail.com';
+        $mail->Host = $SMTP_SERVER;
         $mail->SMTPAuth = true;
-        $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
-        $mail->Port = 587;
+        $mail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS;            //Enable implicit TLS encryption
+        $mail->Port       = 465;                                    //TCP port to connect to; use 587 if you have set `SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS`
 
         $mail->Username = $GMAIL_EMAIL_ACCOUNT;       // gmail email account
         $mail->Password = $GMAIL_EMAIL_PASSWORD;      // gmail password

@@ -36,14 +36,31 @@ Copyright © 2001 Nick Gammon.
 
     Make a file: ServerDown.txt in the document root, eg.
 
-    touch /var/www/ServerDown.txt
+    touch /var/www/html/ServerDown.txt
 
     If this file exists then the contents of the file ServerDown.htm
     in the document root will be echoed to all users.
 
     Afterwards, remove the file ServerDown.txt, eg.
 
-    rm /var/www/ServerDown.txt
+    rm /var/www/html/ServerDown.txt
+    
+    
+  CONFIG changes
+  
+  Previously I was getting configuration stuff like this:
+     $global $control;
+     $foo = $control ['foo'];
+     
+  Now I am doing:
+     $foo = config ('foo');
+     
+  config() will return an empty string if the configuration item does not exist.
+  
+  Search for: \$control *\[['"]([A-Za-z0-9_\-]+)['"]\]
+  Change to:  config ('\1')
+  
+  Then look for isset on lines with config on them.
 
 */
 
@@ -159,6 +176,71 @@ $DAYS_IN_MONTHS = array
   );  // end of array
 
 $debugInfo = array ();
+
+// function to return configuration stuff, mainly from control table
+// but also from configuration file
+function config ($key)
+  {
+  global $control;
+
+  // keys from config/general_config.php
+
+  $allowed_keys = [
+      'TABLE_EDITOR',
+      'EVENTS_PAGE',
+      'HOME_PAGE',
+      'LOGON_PAGE',
+      'MEMBERS_PAGE',
+      'ROSTER_PAGE',
+      'USER_EDITOR_PAGE',
+      'MESSAGES_PAGE',
+      'SHOPPING_CART_PAGE',
+      'HHS_CSS',
+      'DATABASE_SERVER',
+      'GENERAL_DATABASE_NAME',
+      'GENERAL_DATABASE_USER',
+      'MAIL_DATABASE_NAME',
+      'MAIL_DATABASE_USER',
+      'DUMP_TABLE_DIRECTORY',
+      'INCLUDE_DIRECTORY',
+      'FORUM_INCLUDE_DIRECTORY',
+      'HHS_INCLUDE_DIRECTORY',
+      'ADMIN_DIRECTORY',
+      'HMS_DIRECTORY',
+      'HHS_ROOT',
+      'IMAGES_ROOT',
+      'PDFS_ROOT',
+      'DTP_ROOT',
+      'ACCESSION_BOOKS_FULL_PATH',
+      'AUTHORISE_SECRET',
+      'MAIN_LOGO',
+      'ADMINISTRATOR_USER_ID',
+      'SOCIETY_NAME',
+      'NEWSPAPER_NAME',
+      'NEWSLETTER_NAME',
+      'NEWSLETTER_UPLOAD_DIRECTORY',
+      'NEWSLETTER_UPLOAD_PREFIX',
+      'EXTRA_FOLDER_TO_CHECK',
+      'GMAIL_EMAIL_ACCOUNT',
+      'SMTP_SERVER',
+
+      // passwords
+      'GENERAL_DATABASE_PASSWORD',
+      'MAIL_DATABASE_PASSWORD',
+      'GMAIL_EMAIL_PASSWORD',
+    ];
+
+  if (isset ($control [$key]))
+     return $control [$key];
+
+  if (!in_array($key, $allowed_keys, true)) {
+    return '';
+  }
+
+  global $$key;
+  return $$key ?? '';
+
+  } // end of config
 
 // fix up magic quotes, <sigh>
 
@@ -466,6 +548,12 @@ function GetControlItems ()
     'datetimeformat'        => '%e %b %Y %r',  // default date/time format
     'shortdatetimeformat'   => '%e %b %r',  // default short date/time format
     'encoding'              => 'UTF-8',  // character encoding
+    
+    // where some of our external programs are
+    'inkscape'  => 'inkscape',
+    'qpdf'      => 'qpdf',
+    'convert'   => 'convert',
+    'pandoc'    => 'pandoc',
 
     'public_server_warning' => 'NONE',
 
@@ -487,8 +575,8 @@ function GetControlItems ()
     if (!isset ($control [$key]) || !$control [$key])
       $control [$key] = $value;
 
-  $HEADING_COLOUR = $control ['colour_table_heading'];
-  $BODY_COLOUR    = $control ['colour_table_body'];
+  $HEADING_COLOUR = config ('colour_table_heading');
+  $BODY_COLOUR    = config ('colour_table_body');
 
   // Set the timezone in the current script
   date_default_timezone_set("Australia/Melbourne");
@@ -808,7 +896,7 @@ function Init ($title,
                $otherheaderhtml = "",
                $noContentType = false)
   {
-  global $logoff, $control, $PHP_SELF,
+  global $logoff, $PHP_SELF,
          $viewsource, $PATH_TRANSLATED, $pagestarttime, $doingMail;
   global $USER_TABLE;
   global $SSO_UserDetails;
@@ -838,8 +926,8 @@ function Init ($title,
 //  if ($doingMail = $mail)  // this assignment is intentional
 //    OpenMailDatabase ();
 
-  $sso_forum_active = $control ['sso_forum_active'];
-  $sso_hhs_active   = $control ['sso_hhs_active'];
+  $sso_forum_active = config ('sso_forum_active');
+  $sso_hhs_active   = config ('sso_hhs_active');
 
   if ($SSO_UserDetails)
     {
@@ -874,11 +962,11 @@ function Init ($title,
   if ($noContentType)
     return;
 
-  header("Content-type: text/html; charset=" . $control ['encoding']);
+  header("Content-type: text/html; charset=" . config ('encoding'));
 
   $extra = '';
 
-  $FORUM_URL = $control ['forum_url'] . '/';
+  $FORUM_URL = config ('forum_url') . '/';
 
   // empty title means we are doing a "printable" page
   if ($title)
@@ -888,7 +976,7 @@ function Init ($title,
       {
       if (isset ($userinfo ['logged_on']) && $userinfo ['logged_on'])
         {
-        $extra = $control ['admin_links'];    // extra useful links
+        $extra = config ('admin_links');    // extra useful links
         if ($userinfo ['executesql'])
           {
           shLink ($adminLink, "(Menu)", $ADMIN_DIRECTORY . "logon.php");
@@ -909,7 +997,7 @@ function Init ($title,
           shLink ($link, "Users", $FORUM_URL . "bbuserlist.php");
           $links [] = $link;
           } // end of being logged in to forum
-        else if ($control ['allow_registrations'])
+        else if (config ('allow_registrations'))
           {
           shLink ($link, "Register forum user name",
                              $FORUM_URL . "bbuseredit.php",
@@ -919,9 +1007,9 @@ function Init ($title,
 
         shLink ($link, "Search", $FORUM_URL . "bbsearch.php");
         $links [] = $link;
-        if ($control ['faq_url'])
+        if (config ('faq_url'))
           {
-          shLink ($link, "FAQ", $control ['faq_url']);
+          shLink ($link, "FAQ", config ('faq_url'));
           $links [] = $link;
           }
 
@@ -941,8 +1029,7 @@ function Init ($title,
 // then we need to auto-generate an SSO record for them so they can log in.
 function AddNewHHSMembers ()
 {
-  global $control;
-  $latest_hhs_member = $control ['latest_hhs_member'];
+  $latest_hhs_member = config ('latest_hhs_member');
 
   // find all newly-added members
   $results = dbQueryParam ("SELECT * FROM hhs_member WHERE Member_ID > ? ORDER BY Member_ID",
@@ -992,14 +1079,13 @@ function AddNewHHSMembers ()
 
 function SetFont ()
   {
-  global $control;
-  echo $control ['font'];
+  echo config ('font');
   } // end of SetFont
 
 
 function MessageHead ($title, $keywords, $otherheaderhtml)
   {
-global $control, $foruminfo;
+global $foruminfo;
 global $bbsubject_id, $bbtopic_id, $bbsection_id;
 global $shownHTMLheader;
 global $HHS_CSS;
@@ -1018,7 +1104,7 @@ global $HHS_CSS;
 
     // get better title (put section/topic/subject into it)
 
-    $title = $control ['forum_name'];
+    $title = config ('forum_name');
     if ($bbsubject_id && !ValidateInt ($bbsubject_id))
       $title .= " : " .  LookupSubject (true);
     else if ($bbtopic_id && !ValidateInt ($bbtopic_id))
@@ -1028,12 +1114,12 @@ global $HHS_CSS;
 
     } // end of forum title
 
-  $head = str_replace ("<%TITLE%>", htmlspecialchars ($title, ENT_SUBSTITUTE | ENT_QUOTES | ENT_HTML5), $control ['head']);
+  $head = str_replace ("<%TITLE%>", htmlspecialchars ($title, ENT_SUBSTITUTE | ENT_QUOTES | ENT_HTML5), config ('head'));
   $head = str_replace ("<%KEYWORDS%>", htmlspecialchars ($keywords, ENT_SUBSTITUTE | ENT_QUOTES | ENT_HTML5), $head);
 
 
   if (isset ($foruminfo ['font']))
-    $control ['font'] = '<font face="' . $foruminfo ['font'] . '" size="-1">';
+    $copntrol ['font'] = '<font face="' . $foruminfo ['font'] . '" size="-1">';
 
   // build up CSS styles for user-supplied text and background colours
 
@@ -1046,7 +1132,7 @@ global $HHS_CSS;
   if (isset ($foruminfo ['colour_text']))
      $font_string .= $foruminfo ['colour_text'];
   else
-     $font_string .= $control ['colour_text'];
+     $font_string .= config ('colour_text');
 
   $font_string .= '; }' . "\n" .
                   '  body {background-color: ';
@@ -1059,7 +1145,7 @@ global $HHS_CSS;
     $font_string .= "background-image: none; }\n";
     }
   else
-    $font_string .=  $control ['colour_body'] . "; }\n" ;
+    $font_string .=  config ('colour_body') . "; }\n" ;
 
   // and take custom font
 
@@ -1089,7 +1175,7 @@ global $HHS_CSS;
   $font_string .=  "<link rel='stylesheet' href='$HHS_CSS?v=$time'>\n";
   $font_string .= $otherheaderhtml;   // eg. refresh
 
-  $head = str_replace ("<%BODY%>", $control ['body'], $head);
+  $head = str_replace ("<%BODY%>", config ('body'), $head);
   $head = str_replace ("<%STYLE%>", $style_string, $head);
   $head = str_replace ("<%FONT%>", $font_string, $head);
 
@@ -1105,7 +1191,7 @@ Call this at the end of each page to do a standard page footer
 
 function MessageTail ()
   {
-global $control, $pagestarttime, $userinfo, $doingMail, $foruminfo;
+global $pagestarttime, $userinfo, $doingMail, $foruminfo;
 global $COLOUR_TIMING_TEXT, $COLOUR_TIMING_BGND;
 global $sql_evaluations;
 
@@ -1190,7 +1276,7 @@ if (isSQLdebugger () && !empty ($sql_evaluations))
   echo "</div>\n";
   } // end of admin SQL stuff to show
 
-echo $control ['tail'];
+  echo config ('tail');
   } // end of MessageTail
 
 function ElapsedTime ($where = "")
@@ -1238,7 +1324,6 @@ function GetStatusName ($statusid, &$statusname)
 function Problem ($why)
   {
   global $shownHTMLheader;
-  global $control;
 
   if (!$shownHTMLheader)
     echo <<< EOD
@@ -1249,7 +1334,7 @@ EOD;
 
   echo "<h3>There is a problem ...</h3><p>\n";
   ShowError ($why);
-  if (isset ($control ['tail']))
+  if (config ('tail'))
     MessageTail (false);
   else
     echo "</body></html>\n";
@@ -1563,7 +1648,6 @@ Currently specials are:
 function ShowTable ($table, $params, $specials)
   {
   global $WEBMASTER;
-  global $control;
   global $MAX_FILE_SIZE;
 
 /*
@@ -2160,8 +2244,6 @@ function ValidateDegrees ($thedegrees)
 // simple date check
 function ValidateDate ($thedate)
   {
-  global $control;
-
   $thedate = trim ($thedate); // ensure no leading spaces etc.
 
   // don't let them slip in alphas or other stuff into the middle of a number
@@ -2384,14 +2466,14 @@ function ShowTablesToEdit ()
 
 function MailAdmins ($subject, $message, $link, $condition, $bbuser_id = 0)
   {
-  global $control, $username, $foruminfo, $subjectrow;
+  global $username, $foruminfo, $subjectrow;
 
   // don't do it if they don't permit it
-  if (!$control ['allow_notification'])
+  if (!config ('allow_notification'))
     return;
 
-  $forum_name = $control ['forum_name'];
-  $forum_url = $control ['forum_url'];
+  $forum_name = config ('forum_name');
+  $forum_url = config ('forum_url');
 
   // put the "http:" part back for emails
   if (substr ($forum_url, 0, 2) == "//")
@@ -2454,9 +2536,8 @@ function MailAdmins ($subject, $message, $link, $condition, $bbuser_id = 0)
 
 function utctime ()
   {
-  global $control;
-  if ($control ['minuteswest'])
-    $minuteswest = $control ['minuteswest'];
+  if (config ('minuteswest'))
+    $minuteswest = config ('minuteswest');
   else
     {
     $thetime = gettimeofday ();
@@ -3024,9 +3105,8 @@ function edittableAudit ($audit_type_id, $table, $primary_key, $comment="")
 function SaveOneRecord ($table, $primary_key_name, $primary_key)
   {
   global $DATABASE_SERVER, $GENERAL_DATABASE_USER, $GENERAL_DATABASE_NAME, $GENERAL_DATABASE_PASSWORD;
-  global $control;
 
-  $mysqldump = $control ['mysqldump'];
+  $mysqldump = config ('mysqldump');
   $sql = array ();
 
   exec ("$mysqldump -u'$GENERAL_DATABASE_USER' " .
@@ -3095,14 +3175,12 @@ function showBacktrace ($howFarBack = 1)
 function showSQLerror ($sql)
   {
   global $dblink;
-  global $control;
 
   // if we get an error raised by a trigger, just show that - it isn't really a statement failure
   if ($dblink->errno == 1644)
     Problem ($dblink->error);
 
-  if ((isset ($control ['show_sql_problems']) && $control ['show_sql_problems'])
-      || isAdminOrModerator ())
+  if (config ('show_sql_problems') || isAdminOrModerator ())
     {
     echo "<hr>\n";
     echo "<h2><font color=darkred>Problem with SQL</font></h2>\n";
@@ -3820,16 +3898,15 @@ function IsReadOnly ($align = 'left')
  ********************************************************************************  */
 function ShowBackupDays ()
   {
-  global $control;
 
   /*
     find when last backup
   */
 
-  if (!isset ($control ['last_backup']))
+  if (!config ('last_backup'))
     return;
 
-  $last_backup_time = $control ['last_backup'];
+  $last_backup_time = config ('last_backup');
 
   /*
     calculate days since last backup
@@ -3859,8 +3936,6 @@ function ShowBackupDays ()
  ********************************************************************************  */
 function ShowMessage ($which, $subs = false)
   {
-  global $control;
-
   $row = dbQueryOneParam ("SELECT * FROM message WHERE Item_Name = ?",
                           array ('s', &$which));
 
@@ -3868,7 +3943,7 @@ function ShowMessage ($which, $subs = false)
     {
     $colour = $row ['Box_Colour'];
     if ($colour == 'message')
-      $colour = $control ['colour_message'];
+      $colour = config ('colour_message');
 
     $html = $row ['HTML'];
 
@@ -3906,11 +3981,10 @@ function ShowMessage ($which, $subs = false)
  ********************************************************************************  */
 function SendEmail ($recipients, $subject, $message)
 {
-  global $control;
   global $INCLUDE_DIRECTORY, $GMAIL_EMAIL_ACCOUNT, $GMAIL_EMAIL_PASSWORD, $SMTP_SERVER;
 
-  $fromEmail = $control ['email_from'];
-  $signature = $control ['email_signature'];
+  $fromEmail = config ('email_from');
+  $signature = config ('email_signature');
   if (isset ($GMAIL_EMAIL_ACCOUNT))
     $use_gmail = $GMAIL_EMAIL_ACCOUNT != '';
   else
@@ -3945,7 +4019,7 @@ function SendEmail ($recipients, $subject, $message)
         $mail->Password = $GMAIL_EMAIL_PASSWORD;      // gmail password
 
         // Sender and recipient settings
-        $mail->setFrom    ($fromEmail, $control ['sso_name']);
+        $mail->setFrom    ($fromEmail, config ('sso_name'));
 
         foreach ($recipients as $recipient)
           {
@@ -3955,7 +4029,7 @@ function SendEmail ($recipients, $subject, $message)
           else
             $mail->addAddress ($recipient, $recipient);
           }
-        $mail->addReplyTo ($fromEmail, $control ['sso_name']); // to set the reply to
+        $mail->addReplyTo ($fromEmail, config ('sso_name')); // to set the reply to
 
         // Setting the email content
         $mail->Subject = $subject;
@@ -4190,16 +4264,14 @@ function ShowSqlResult ($result)
 
 function ConvertMarkup ($value, $outputName = 'HTML', $headerLevel = 2, $toc = '', $to='--to=html5', $options='')
   {
-  global $control;
-
   // where it is
-  $pandocProg = $control ['pandoc'];
+  $pandocProg = config ('pandoc');
   $pandocOptions =  $options;
 
   if (!$options)
-    $options = $control ['pandoc_options'];
+    $options = config ('pandoc_options');
 
-  if ($control ['shift-heading-level-by ok'])
+  if (config ('shift-heading-level-by ok'))
     {
     $headerLevel--;   // for --shift-heading-level-by. See: https://pandoc.org/MANUAL.html
     $heading_stuff = "--shift-heading-level-by=$headerLevel";
@@ -4887,8 +4959,7 @@ $regexp =
 
 function getForumURL ()
   {
-  global $control;
-  $forum_url = $control ['forum_url'];
+  $forum_url = config ('forum_url');
   // put the "http:" part back for emails
   if (substr ($forum_url, 0, 2) == "//")
     $forum_url = "http:" . $forum_url;
@@ -5111,7 +5182,6 @@ function passwordCheck ($pass, $username = "", $username_description = 'username
 //  is_OK must be true to authorize the dump - if not, you are checked that you are logged on an an administrator
 function DumpSQL ($table, $filename, $is_OK = false, $where = '', $primary_key_to_null = false)
   {
-  global $control;
   global $userinfo;
 
   if (!$is_OK)
@@ -5260,9 +5330,8 @@ function CheckLoggedOn ()
 
 function WarnOnPublicServer ()
   {
-  global $control;
-  if ($control ['public_server_warning'] != 'NONE' && ServerPublic ())
-    echo $control ['public_server_warning'];
+  if (config ('public_server_warning') != 'NONE' && ServerPublic ())
+    echo config ('public_server_warning');
   } // end of WarnOnPublicServer
 
 // Change straight quotes to curly and double hyphens to em-dashes.

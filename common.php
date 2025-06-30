@@ -44,22 +44,22 @@ Copyright © 2001 Nick Gammon.
     Afterwards, remove the file ServerDown.txt, eg.
 
     rm /var/www/html/ServerDown.txt
-    
-    
+
+
   CONFIG changes
-  
+
   Previously I was getting configuration stuff like this:
      $global $control;
      $foo = $control ['foo'];
-     
+
   Now I am doing:
      $foo = config ('foo');
-     
+
   config() will return an empty string if the configuration item does not exist.
-  
+
   Search for: \$control *\[['"]([A-Za-z0-9_\-]+)['"]\]
   Change to:  config ('\1')
-  
+
   Then look for isset on lines with config on them.
 
 */
@@ -110,6 +110,8 @@ $VALID_BOOLEAN    = '^[01]$';                  // must be 0 or 1
 $VALID_SQL_ID     = '^\w+$';                   // SQL names are usually just words with underscore and maybe numbers (max 30 probably)
 $VALID_COLOUR     = '^(#[0-9A-F]{1,6}|\w+)$';  // HTML colour name
 $VALID_REGISTRATION_NUMBER = '^[A-Z]+\-?[0-9]+((\.[0-9]+)|[A-Z]+)?$';   // HHS registration numbers
+$VALID_FILENAME   = '^[\w/\.\-]+$';            // for file downloads
+$VALID_MD5        = '^[0-9a-fA-F]{32}$';          // for validating file downloads
 
 $sql_evaluations = array ();
 
@@ -548,7 +550,7 @@ function GetControlItems ()
     'datetimeformat'        => '%e %b %Y %r',  // default date/time format
     'shortdatetimeformat'   => '%e %b %r',  // default short date/time format
     'encoding'              => 'UTF-8',  // character encoding
-    
+
     // where some of our external programs are
     'inkscape'  => 'inkscape',
     'qpdf'      => 'qpdf',
@@ -3661,6 +3663,16 @@ function isLoggedOn ()
   return $userinfo ['logged_on'];
   } // end of isLoggedOn
 
+function isSocietyMember ()
+  {
+  global $hhs_member_info;
+
+  if (!isset ($hhs_member_info) || !$hhs_member_info)
+    return false;
+
+  return true;
+  } // end of isSocietyMember
+
 function isServerAdministrator ()
   {
   global $userinfo;
@@ -5463,6 +5475,14 @@ function hLinkButton ($description, $destination, $params="", $newwindow=false, 
     shLink ($link, $description, $destination, $params, $newwindow, $nofollow);
     addAnchorToBar ($link);
     }   // end of hLinkButton
+
+// generate a suitable link for loading an image
+function imageLink ($diskFile, $saveAs, $type)
+  {
+  $md5 = md5 ($diskFile . '|' . $saveAs . '|' . $type . '|' . config ('image_secret'));
+  return "image.php?image=$diskFile&as=$saveAs&type=$type&hash=$md5";
+  } // end of imageLink
+
 
 
 ?>

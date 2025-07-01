@@ -3948,6 +3948,8 @@ function ShowBackupDays ()
  ********************************************************************************  */
 function ShowMessage ($which, $subs = false)
   {
+  global $ADMIN_DIRECTORY, $TABLE_EDITOR;
+
   $row = dbQueryOneParam ("SELECT * FROM message WHERE Item_Name = ?",
                           array ('s', &$which));
 
@@ -3984,8 +3986,12 @@ function ShowMessage ($which, $subs = false)
   else
     echo "<p><em>Warning</em>: Message " . htmlspecialchars ($which, ENT_SUBSTITUTE | ENT_QUOTES | ENT_HTML5) . " does  not exist.\n";
 
-  if (isLoggedOn ())
-    echo ("<p style=\"text-align:right;\"><span style=\"font-size:smaller; color:gray;\">[$which]</span></p>\n");
+  if (isLoggedOn () && isAdmin())
+    hLink ("<p style=\"text-align:right;\"><span style=\"font-size:smaller; color:gray;\">[$which]</span>",
+        $TABLE_EDITOR,
+        "table=message&Item_Name=$which&simple=1" .
+        "&returnto=" . urlencode ($PHP_SELF . "?id="));
+
   } // end of ShowMessage
 
 /* ********************************************************************************
@@ -5479,7 +5485,10 @@ function hLinkButton ($description, $destination, $params="", $newwindow=false, 
 // generate a suitable link for loading an image
 function imageLink ($diskFile, $saveAs, $type)
   {
+  $saveAs = basename ($saveAs);
   $md5 = md5 ($diskFile . '|' . $saveAs . '|' . $type . '|' . config ('image_secret'));
+  $diskFile = urlencode ($diskFile);
+  $saveAs = urlencode ($saveAs);
   return "image.php?image=$diskFile&as=$saveAs&type=$type&hash=$md5";
   } // end of imageLink
 

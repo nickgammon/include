@@ -3951,6 +3951,7 @@ function ShowBackupDays ()
 function ShowMessage ($which, $subs = false)
   {
   global $ADMIN_DIRECTORY, $TABLE_EDITOR;
+  global $PHP_SELF;
 
   $row = dbQueryOneParam ("SELECT * FROM message WHERE Item_Name = ?",
                           array ('s', &$which));

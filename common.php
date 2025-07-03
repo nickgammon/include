@@ -556,6 +556,8 @@ function GetControlItems ()
     'qpdf'      => 'qpdf',
     'convert'   => 'convert',
     'pandoc'    => 'pandoc',
+    'pdftotext' => 'pdftotext',
+    'pdfinfo'   => 'pdfinfo',
 
     'public_server_warning' => 'NONE',
 
@@ -3986,7 +3988,7 @@ function ShowMessage ($which, $subs = false)
   else
     echo "<p><em>Warning</em>: Message " . htmlspecialchars ($which, ENT_SUBSTITUTE | ENT_QUOTES | ENT_HTML5) . " does  not exist.\n";
 
-  if (isLoggedOn () && isAdmin())
+  if (isLoggedOn () && isServerAdministrator())
     hLink ("<p style=\"text-align:right;\"><span style=\"font-size:smaller; color:gray;\">[$which]</span>",
         $TABLE_EDITOR,
         "table=message&Item_Name=$which&simple=1" .
@@ -5482,7 +5484,7 @@ function hLinkButton ($description, $destination, $params="", $newwindow=false, 
     addAnchorToBar ($link);
     }   // end of hLinkButton
 
-// generate a suitable link for loading an image
+// generate a suitable link for loading an image: type is one of: thumb|large|watermarked
 function imageLink ($diskFile, $saveAs, $type)
   {
   $saveAs = basename ($saveAs);

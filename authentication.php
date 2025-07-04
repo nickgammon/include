@@ -1507,7 +1507,7 @@ function SSO_Validate_UserName (&$new_name, $sso_id)
 
   // we don't want them making a name like "&&--.."
   if ($row)
-    return "The name \"$new_name\" is in use by someone else. Names are required to be unique.";
+    return "The name \"$new_name\" is in use by someone else in the SSO system. Names are required to be unique.";
 
   return false;
   } // end of SSO_Validate_UserName

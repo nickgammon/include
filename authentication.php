@@ -737,6 +737,10 @@ echo <<< EOD
 <input type="hidden"    name="action" value="$SSO_CHANGE_PASSWORD">
 </form>
 EOD;
+
+  if ($SSO_UserDetails && $SSO_UserDetails ['password_change_required'])
+    $SSO_UserDetails = false;
+
   } // end of SSO_ShowNewPasswordForm
 
 function SSO_ShowLoginInfo ($extra = '')
@@ -896,6 +900,7 @@ function SSO_See_If_Logged_On ()
   global $SSO_COOKIE_NAME;
   global $SSO_UserDetails, $SSO_loginInfo;
   global $remote_ip;
+  global $action, $SSO_CHANGE_PASSWORD, $SSO_SHOW_CHANGE_PASSWORD;
 
   // find the token on their cookie
   // do NOT get POST variable or we switch users when editing the user table
@@ -944,6 +949,12 @@ function SSO_See_If_Logged_On ()
   // in case they want to log off
   $SSO_UserDetails ['token'] = $token;
   $SSO_UserDetails ['token_expiry'] = $tokenExpiry;
+
+  if ($SSO_UserDetails ['password_change_required'] && $action != $SSO_CHANGE_PASSWORD)
+    {
+    $action = $SSO_SHOW_CHANGE_PASSWORD;
+    $SSO_loginInfo ['errors'] [] = "You must change your password.";
+  }
 
   } // end of SSO_See_If_Logged_On
 
@@ -1418,7 +1429,7 @@ function SSO_Handle_Change_Password ()
 
   // that old reset hash is no longer valid
   dbUpdateParam ("UPDATE $SSO_USER_TABLE SET password_reset_hash = NULL,
-                  password_sent_date = NULL WHERE sso_id = ?",
+                  password_sent_date = NULL, password_change_required = 0 WHERE sso_id = ?",
                     array ('i', &$sso_id ));
 
   // may as well log them on once they have reset their password
@@ -1739,5 +1750,8 @@ function SSO_Authenticate ()
     case $SSO_SHOW_CHANGE_PASSWORD    : $SSO_loginInfo ['show_new_password'] = true;    break;
     case $SSO_SHOW_CHANGE_NAME        : $SSO_loginInfo ['show_name_change'] = true;     break;
     } // end of switch on $action
+
   } // end of SSO_Authenticate
+
+
 ?>

@@ -3685,6 +3685,16 @@ function isServerAdministrator ()
   return $userinfo ['server_administrator'];
   } // end of isServerAdministrator
 
+function isServerDeveloper ()
+  {
+  global $userinfo;
+
+  if (!isset ($userinfo) || !$userinfo || !isset ($userinfo ['server_developer']))
+    return false;
+
+  return $userinfo ['server_developer'];
+  } // end of isServerDeveloper
+
 function isLoggedOnToForum ()
   {
   global $foruminfo;
@@ -5369,7 +5379,7 @@ function smarten ($a)
   return $a;
  }  // end of smarten
 
-// I think every script needs authentication
+// I think every script needs authentication - this will also read in the configuration
 SSO_Authenticate ();
 
 function hideActionBar ()

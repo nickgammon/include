@@ -21,7 +21,7 @@
 
 function metatable_registration_preamble ()
 {
-global $import, $importdata, $key, $value, $HTTP_POST_VARS;
+global $import, $importdata, $key, $value, $action;
 
 // import stuff from the registration program
   if (!empty ($import))
@@ -40,13 +40,13 @@ global $import, $importdata, $key, $value, $HTTP_POST_VARS;
       switch ($token [0])
         {
         case "## Name":
-            $HTTP_POST_VARS ['username'] = trim ($token [1]); break;
+            $_POST ['username'] = trim ($token [1]); break;
         case "## Registration":
-            $HTTP_POST_VARS ['regcode'] = trim ($token [1]); break;
+            $_POST ['regcode'] = trim ($token [1]); break;
         case "## Email":
-             $HTTP_POST_VARS ['email'] = trim ($token [1]); break;
+             $_POST ['email'] = trim ($token [1]); break;
         case "## Product":
-             $HTTP_POST_VARS ['productid'] = trim ($token [1]); break;
+             $_POST ['productid'] = trim ($token [1]); break;
 
         } // end of switch on token
 

@@ -2,4 +2,5 @@
 !.gitignore
 !.gitattributes
 !.htaccess
+scan_for_function_names.sh
 

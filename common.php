@@ -4000,10 +4000,13 @@ function ShowMessage ($which, $subs = false)
     echo "<p><em>Warning</em>: Message " . htmlspecialchars ($which, ENT_SUBSTITUTE | ENT_QUOTES | ENT_HTML5) . " does  not exist.\n";
 
   if (isLoggedOn () && isServerAdministrator())
-    hLink ("<p style=\"text-align:right;\"><span style=\"font-size:smaller; color:gray;\">[$which]</span>",
+    {
+    echo "<p style=\"text-align:right;\">";
+    hLink ("<span style=\"font-size:smaller; color:gray;\">[$which]</span>",
         $TABLE_EDITOR,
         "table=message&Item_Name=$which&simple=1" .
         "&returnto=" . urlencode ($PHP_SELF . "?id="));
+    }
 
   } // end of ShowMessage
 

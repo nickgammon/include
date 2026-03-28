@@ -135,7 +135,7 @@ $action_bar_hidden = false;
 DefaultColours ();
 
 // initialize random numbers
-srand ((double) microtime (true));
+mt_srand((int) (microtime(true) * 1000000));
 
 // die quickly if we have to take the server down for maintenance
 if (is_file (str_replace ("//", "/", $_SERVER['DOCUMENT_ROOT'] . '/ServerDown.htm')) &&
@@ -262,6 +262,66 @@ if (get_magic_quotes_gpc()) {
 }
 
 */
+
+
+// Local time formatter (strftime-like)
+
+function my_strftime($format, $timestamp = null) {
+    return _strftime_like($format, $timestamp, date_default_timezone_get());
+}
+function my_gmstrftime($format, $timestamp = null) {
+    return _strftime_like($format, $timestamp, 'UTC');
+}
+function _strftime_like($format, $timestamp, $tz) {
+    if ($timestamp === null) { $timestamp = time(); }
+    if (!($tz instanceof DateTimeZone)) { $tz = new DateTimeZone($tz); }
+
+    // Protect literal %
+    $format = str_replace('%%', '__PERCENT__', $format);
+
+    // Map simple tokens
+    $map = array(
+        '%Y'=>'Y','%m'=>'m','%d'=>'d',
+        '%H'=>'H','%M'=>'i','%S'=>'s',
+        '%I'=>'h','%p'=>'A','%z'=>'O',
+    );
+
+    // Locale-dependent placeholders
+    $needsWords = preg_match('/%[AaBb]/', $format) === 1;
+    $format = str_replace(
+        array('%A','%a','%B','%b'),
+        array('__WDAY__','__WDAY_ABBR__','__MON__','__MON_ABBR__'),
+        $format
+    );
+
+    $dt = new DateTime('@' . $timestamp);
+    $dt->setTimezone($tz);
+
+    $out = $dt->format(strtr($format, $map));
+
+    if ($needsWords) {
+        if (extension_loaded('intl')) {
+            $loc = \Locale::getDefault();
+            $tzName = $tz->getName();
+            $fullDay   = (new IntlDateFormatter($loc, IntlDateFormatter::FULL, IntlDateFormatter::NONE, $tzName, null, 'EEEE'))->format($dt);
+            $abbrDay   = (new IntlDateFormatter($loc, IntlDateFormatter::FULL, IntlDateFormatter::NONE, $tzName, null, 'EEE'))->format($dt);
+            $fullMonth = (new IntlDateFormatter($loc, IntlDateFormatter::FULL, IntlDateFormatter::NONE, $tzName, null, 'MMMM'))->format($dt);
+            $abbrMonth = (new IntlDateFormatter($loc, IntlDateFormatter::FULL, IntlDateFormatter::NONE, $tzName, null, 'MMM'))->format($dt);
+        } else {
+            // English fallback
+            $fullDay   = $dt->format('l');  $abbrDay = $dt->format('D');
+            $fullMonth = $dt->format('F');  $abbrMonth = $dt->format('M');
+        }
+        $out = str_replace(
+            array('__WDAY__','__WDAY_ABBR__','__MON__','__MON_ABBR__'),
+            array($fullDay,   $abbrDay,       $fullMonth,  $abbrMonth),
+            $out
+        );
+    }
+
+    return str_replace('__PERCENT__', '%', $out);
+}
+
 
 function DefaultColours ()
   {
@@ -472,7 +532,7 @@ echo <<< EOD
 EOD;
 
   ShowError ($why);
-  echo "<p>Error occurred at " . strftime ("%Y-%m-%d %H:%M:%S", time()) . "</p>\n";
+  echo "<p>Error occurred at " . my_strftime ("%Y-%m-%d %H:%M:%S", time()) . "</p>\n";
   echo "<p>Please notify <a href=\"mailto:$WEBMASTER\">$WEBMASTER</a> of the above message and time.</p>";
   echo "</div>\n";
   echo "</body></html>\n";
@@ -555,10 +615,11 @@ function GetControlItems ()
     'inkscape'  => 'inkscape',
     'qpdf'      => 'qpdf',
     'convert'   => 'convert',
+    'composite' => 'composite',
     'pandoc'    => 'pandoc',
     'pdftotext' => 'pdftotext',
     'pdfinfo'   => 'pdfinfo',
-
+    'exiftool'  => 'exiftool',
     'public_server_warning' => 'NONE',
 
     // Single sign on (SSO) control items
@@ -585,7 +646,7 @@ function GetControlItems ()
   // Set the timezone in the current script
   date_default_timezone_set("Australia/Melbourne");
 
-  $dst = strftime ("%z", time());
+  $dst = my_strftime ("%z", time());
 
   // fix time zone
   if (preg_match ("|^([+-][0-9]{2})([0-9]{2})?$|", $dst, $matches))
@@ -650,6 +711,7 @@ function oauth_totp($key, $time, $digits=6, $crypto='sha1')
     $result = null;
 
     // Convert counter to binary (64-bit)
+    $time = (int) $time;
     $data = pack('NN', $time >> 32, $time & 0xFFFFFFFF);
 
     // Pad to 8 chars (if necessary)
@@ -876,7 +938,7 @@ function GetUserColours ()
 function getForumInfo ($where, $params)
   {
   global $foruminfo;
-  $date_now = strftime ("%Y-%m-%d %H:%M:%S", utctime());
+  $date_now = my_gmstrftime ("%Y-%m-%d %H:%M:%S", utctime());
 
 //  echo "\n<!-- Inside getForumInfo, date_now = $date_now -->\n";
 
@@ -919,7 +981,7 @@ function Init ($title,
   $userinfo = false;
   $foruminfo = false;
 
-  date_default_timezone_set('Australia/ACT');
+  date_default_timezone_set('Australia/Melbourne');
 
   // note when we started, for timing purposes
   $pagestarttime = getmicrotime ();
@@ -2656,7 +2718,7 @@ function DoExtendedDate (& $thedate, $defaultEndOfPeriod = false)
     if ($converteddate)
       {
       // success - convert back and return
-      $thedate = strftime ("%Y-%m-%d", $converteddate);
+      $thedate = my_strftime ("%Y-%m-%d", $converteddate);
       return "";
       }
     } // end of not simple number
@@ -2673,13 +2735,13 @@ function DoExtendedDate (& $thedate, $defaultEndOfPeriod = false)
         $thedate == substr ('now', 0, strlen ($thedate))
         )
       {
-      $thedate = strftime ("%Y-%m-%d", utctime());
+      $thedate = my_gmstrftime ("%Y-%m-%d", utctime());
       return "";
       }   // end of today
 
     if ($thedate == substr ('tomorrow', 0, strlen ($thedate)))
       {
-      $thedate = strftime ("%Y-%m-%d", utctime() + (60 * 60 * 24));
+      $thedate = my_gmstrftime ("%Y-%m-%d", utctime() + (60 * 60 * 24));
       return "";
       }   // end of tomorrow
     }  // end of string length > 2
@@ -2705,13 +2767,13 @@ function DoExtendedDate (& $thedate, $defaultEndOfPeriod = false)
      // find the dates of the next 7 days
      for ($count = 1; $count <= 7; $count++)
        {
-       $daynames [strtolower (strftime ("%A", $seconds))] = strftime ("%Y-%m-%d", $seconds);
+       $daynames [strtolower (my_strftime ("%A", $seconds))] = my_strftime ("%Y-%m-%d", $seconds);
 
-       // echo ("<p>" . strtolower (strftime ("%A", $seconds)) . " = " . strftime ("%Y-%m-%d", $seconds));
+       // echo ("<p>" . strtolower (my_strftime ("%A", $seconds)) . " = " . my_strftime ("%Y-%m-%d", $seconds));
 
        // let them put in 'Thursday week'
-       $daynames_week [strtolower (strftime ("%A", $seconds))]
-          = strftime ("%Y-%m-%d", $seconds + (60 * 60 * 24 * 7));
+       $daynames_week [strtolower (my_strftime ("%A", $seconds))]
+          = my_strftime ("%Y-%m-%d", $seconds + (60 * 60 * 24 * 7));
        $seconds += 60 * 60 * 24;  // onwards a day
        }
 
@@ -2766,8 +2828,8 @@ function DoExtendedDate (& $thedate, $defaultEndOfPeriod = false)
   else  // no month? assume current month (or next month if past that date)
         // eg. on 29th March, putting in 2 means 2nd April
     {
-    $month = strftime ("%m", utctime());
-    $currentday = strftime ("%d", utctime());  // what is today?
+    $month = my_gmstrftime ("%m", utctime());
+    $currentday = my_gmstrftime ("%d", utctime());  // what is today?
     if ($day < $currentday)   // is wanted day earlier? (therefore, next month)
       $month = $month + 1;
     }
@@ -2777,7 +2839,7 @@ function DoExtendedDate (& $thedate, $defaultEndOfPeriod = false)
     $year = trim($items [2]);
   else  // no year? assume current year
     {
-    $year = strftime ("%Y", utctime());
+    $year = my_gmstrftime ("%Y", utctime());
     // in case we added 1 to current month
     if (preg_match ("|^[0-9]+$|", $month) && $month > 12)
       {
@@ -2793,7 +2855,7 @@ function DoExtendedDate (& $thedate, $defaultEndOfPeriod = false)
   // 2-digit year supplied? Assume current century
   if ($year < 100)
     {
-    $century = intval (floor (strftime ("%Y", utctime()) / 100)) * 100;
+    $century = intval (floor (my_gmstrftime ("%Y", utctime()) / 100)) * 100;
     $year = $year + $century;
     } // end of 2-digit year
 
@@ -2850,7 +2912,7 @@ function DoExtendedDateTime (& $thedate)
     if ($converteddate)
       {
       // success - convert back and return
-      $thedate = strftime ("%Y-%m-%d %H:%M:%S", $converteddate);
+      $thedate = my_strftime ("%Y-%m-%d %H:%M:%S", $converteddate);
       return "";
       }
     } // end of not simple number
@@ -2880,7 +2942,7 @@ function DoExtendedDateTime (& $thedate)
       }   // end of having a space
     else
       {
-      $date = strftime ("%Y-%m-%d", strtotime ("now"));   // assume date today
+      $date = my_strftime ("%Y-%m-%d", strtotime ("now"));   // assume date today
       $time = $thedate;   // time is whole string
       }   // end of no space
     } // end of date string with a colon in it
@@ -3478,13 +3540,38 @@ function dbFree ($result)
   } // end of dbFree
 
 // general function for getting a count of something
-
 function GetSQLcount ($query, $select = "SELECT count(*) FROM ")
   {
   $row = dbQueryOne ($select . $query);  // uncertain - need to check these
   $count = $row [0];
   return ($count);
   } // end of GetSQLcount
+
+function dbBeginTransaction ()
+  {
+  global $dblink;
+  mysqli_begin_transaction ($dblink);
+  } // end of dbBeginTransaction
+
+// see if we are in a transactions
+function dbInTransaction ()
+  {
+  $row = dbQueryOne ("SELECT @@in_transaction AS in_txn");
+  return $row ['in_txn'];
+  } // end of dbInTransaction
+
+function dbCommit ()
+  {
+  global $dblink;
+  mysqli_commit($dblink);
+  } // end of dbCommit
+
+// roll back a transaction
+function dbRollback ()
+  {
+  global $dblink;
+  mysqli_rollback($dblink);
+  } // end of dbRollback
 
 function fixsql ($sql)
   {
@@ -3747,7 +3834,7 @@ function beingThrottled ($basis = 'minutes_since_last_post', $last_date = 'last_
   global $foruminfo;
   global $NEW_USER_THROTTLE_MINUTES, $NEW_USER_DAYS_REGISTERED, $NEW_USER_MINIMUM_POST_COUNT;
 
-  $date_now = strftime ("%Y-%m-%d %H:%M:%S", utctime());
+  $date_now = my_gmstrftime ("%Y-%m-%d %H:%M:%S", utctime());
 
 //  echo "\n<!-- Inside: beingThrottled, basis = '$basis', date_now = $date_now, last_date = '$last_date' -->\n";
 
@@ -4467,7 +4554,7 @@ EOD
 //  <rect width="100%" height="100%" fill="white"/>
 
   // timestamp
-  fwrite ($handle, "\n    This file generated on: " . strftime ("%A %d %B %Y at %I:%M:%S %p", time ()));
+  fwrite ($handle, "\n    This file generated on: " . my_strftime ("%A %d %B %Y at %I:%M:%S %p", time ()));
   fwrite ($handle, "\n\n  -->\n\n");
   return $handle;
 }   // end of openSVGfile
@@ -5389,7 +5476,7 @@ function hideActionBar ()
   {
   global $userinfo;
   global $action_bar_hidden;
-  if (isLoggedOn() && $userinfo ['hide_action_bar'] && !$action_bar_hidden)
+  if (isLoggedOn() && isset ($userinfo ['hide_action_bar'] ) && $userinfo ['hide_action_bar'] && !$action_bar_hidden)
     {
     $action_bar_hidden = true;  // don't hide it twice
     echo "<script>
@@ -5508,6 +5595,10 @@ function imageLink ($diskFile, $saveAs, $type)
   return "image.php?image=$diskFile&as=$saveAs&type=$type&hash=$md5";
   } // end of imageLink
 
-
+// insert an HTML comment in the output
+function comment ($what)
+  {
+  echo ("<!-- " . $what . " -->\n");
+  } // end of comment
 
 ?>

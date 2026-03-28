@@ -301,7 +301,7 @@ function SSO_Complete_Logon ($sso_id)
 
   $server_name = $_SERVER["HTTP_HOST"];
 
-  $loginTime = strftime ("%Y-%m-%d %H:%M:%S", utctime());
+  $loginTime = (new DateTime('now', new DateTimeZone('UTC')))->format('Y-m-d H:i:s');
 
   // note when they logged on last and from where
   $query = "UPDATE $SSO_USER_TABLE SET
@@ -1614,7 +1614,7 @@ function SSO_Handle_Show_Sessions ()
                           AS date_last_failed_login_formatted FROM $SSO_USER_TABLE WHERE sso_id = ?",
                           array ('i', &$sso_id ));
 
-  $date_last_failed_login_formatted = htmlspecialchars ($row ['date_last_failed_login_formatted']);
+  $date_last_failed_login_formatted = htmlspecialchars($row['date_last_failed_login_formatted'] ?? '');
 
   if ($counter == 1)
     $s1 = '';

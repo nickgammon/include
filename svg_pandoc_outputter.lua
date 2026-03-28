@@ -110,6 +110,22 @@ end
 -- Table to store footnotes, so they can be included at the end.
 local notes = {}
 
+-- Pandoc 3.x classic-writer shim
+function Writer(doc, opts)
+  PANDOC_DOCUMENT = doc
+  PANDOC_WRITER_OPTIONS = opts
+  return pandoc.write_classic(doc, opts)
+end
+
+local stringify = pandoc.utils.stringify
+
+local function meta_number(key, default)
+  local v = PANDOC_DOCUMENT.meta[key]
+  if not v then return default end
+  return tonumber(stringify(v)) or default
+end
+
+
 -- First paragraph is not indented
 local firstPara = true
 local lineBreak = false
@@ -236,29 +252,30 @@ function Plain(s)
 end
 
 function Para(s)
-  -- replace indent amount with Unicode en-dash size spaces (of indent_amount number)
-  local indent_amount = PANDOC_DOCUMENT.meta.indent or 0
+  -- indent_amount from metadata; first para suppression handled by your flags
+  local indent_amount = meta_number('indent', 0)
   if firstPara then
     indent_amount = 0
     firstPara = false
-  end -- if
+  end
   if lineBreak then
     firstPara = true
     lineBreak = false
-  end -- if
+  end
   firstPara = false
   firstHeading = false
 
-  local extra_line
-  if PANDOC_DOCUMENT.meta.line_after and tonumber (PANDOC_DOCUMENT.meta.line_after) ~= 0 then
-    extra_line = '<flowPara>' .. '</flowPara>'
-  else
-    extra_line = ''
-  end -- if
+  -- optional blank line after para
+  local extra_line = ''
+  local line_after = meta_number('line_after', 0)
+  if line_after ~= 0 then
+    extra_line = '<flowPara></flowPara>'
+  end
 
-  return  '<flowPara>' .. string.rep (INDENT_SPACE, indent_amount) .. s .. "</flowPara>" ..
-          extra_line .. '\n'
+  return '<flowPara>' .. string.rep(INDENT_SPACE, indent_amount) .. s .. '</flowPara>'
+         .. extra_line .. '\n'
 end
+
 
 -- lev is an integer, the header level.
 function Header(lev, s, attr)

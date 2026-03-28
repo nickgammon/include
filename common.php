@@ -1,11 +1,26 @@
 <?php
 
-ini_set('error_reporting', E_ERROR | E_WARNING);
+error_reporting(-1);
 ini_set('display_errors', '1');
+ini_set('display_startup_errors', '1');
 
+// turn PHP warnings/notices into exceptions so you *see* them
+set_error_handler(function($sev,$msg,$file,$line){
+    if (!(error_reporting() & $sev)) return;
+    throw new ErrorException($msg, 0, $sev, $file, $line);
+});
+
+// catch fatals too (e.g., out-of-memory, parse in included files)
+register_shutdown_function(function(){
+    $e = error_get_last();
+    if ($e) {
+        echo "<pre style='white-space:pre-wrap;background:#fee;padding:8px;border:1px solid #f99'>".
+             "FATAL: {$e['message']} in {$e['file']}:{$e['line']}</pre>";
+    }
+});
 
 /*
-Copyright © 2001 Nick Gammon.
+Copyright ï¿½ 2001 Nick Gammon.
 
   Author: Nick Gammon <nick@gammon.com.au>
   Web:    http://www.gammon.com.au/
@@ -484,6 +499,13 @@ function ShowInfo ($theInfo)
   ShowInfoH (nl2br_http (htmlspecialchars ($theInfo, ENT_SUBSTITUTE | ENT_QUOTES | ENT_HTML5)));
   } // end of ShowInfo
 
+function echoNL (...$args)
+  {
+  foreach ($args as $arg)
+    echo $arg;
+  echo "\n";
+  } // end of echoNL
+
 function ColourEchoH ($theMessage, $theColour, $bold = false, $italic = false)
   {
   if ($bold)
@@ -710,9 +732,13 @@ function oauth_totp($key, $time, $digits=6, $crypto='sha1')
     $digits = intval($digits);
     $result = null;
 
-    // Convert counter to binary (64-bit)
-    $time = (int) $time;
-    $data = pack('NN', $time >> 32, $time & 0xFFFFFFFF);
+    // 30-second time step counter as an integer
+    $counter = intdiv((int)time(), 30);
+    // If you really want microseconds, still floor to int:
+    // $counter = (int) floor(microtime(true) / 30);
+
+    // Convert counter to 64-bit big-endian binary (two 32-bit words)
+    $data = pack('N2', $counter >> 32, $counter & 0xFFFFFFFF);
 
     // Pad to 8 chars (if necessary)
     if (strlen ($data) < 8) {
@@ -1533,11 +1559,11 @@ function tData ($text, $fontsize=-1, $align="left", $colspan=1)
 
   if ($colspan == 1)
     echo "<td style=\"text-align:$align; \" >"
-        . nl2br_http (htmlspecialchars ($text, ENT_SUBSTITUTE | ENT_QUOTES | ENT_HTML5))
+        . nl2br_http (htmlspecialchars ($text ?? '', ENT_SUBSTITUTE | ENT_QUOTES | ENT_HTML5))
         . "</td>\n";
   else
     echo "<td style=\"text-align:$align; \" colspan=\"$colspan\" >"
-        . nl2br_http (htmlspecialchars ($text, ENT_SUBSTITUTE | ENT_QUOTES | ENT_HTML5))
+        . nl2br_http (htmlspecialchars ($text ?? '', ENT_SUBSTITUTE | ENT_QUOTES | ENT_HTML5))
         . "</td>\n";
 
   } // end of tData
@@ -1777,7 +1803,7 @@ function ShowTable ($table, $params, $specials)
       if (isset ($contents ['error']))
         {
         $error = $contents ['error'];
-        if ($error != '*' && !$contents ['input'])
+        if ($error != '*' && !($contents ['input'] ?? ''))
           {
           ShowError ("Implementation error - error message \"$error\" for field \"$label\""
                    . " however this field is not an input field.");
@@ -1897,9 +1923,9 @@ function ShowTable ($table, $params, $specials)
 
     // if 'breaks' then they want to keep line breaks
     if ($breaks)
-      $contents = nl2br_http (htmlentities ($contents, ENT_SUBSTITUTE | ENT_QUOTES | ENT_HTML5));
+      $contents = nl2br_http (htmlentities ($contents ?? '', ENT_SUBSTITUTE | ENT_QUOTES | ENT_HTML5));
     else if (!$html)
-      $contents = htmlspecialchars ($contents, ENT_SUBSTITUTE | ENT_QUOTES | ENT_HTML5);
+      $contents = htmlspecialchars ($contents ?? '', ENT_SUBSTITUTE | ENT_QUOTES | ENT_HTML5);
 
     $On_Change = '';
 
@@ -2735,13 +2761,14 @@ function DoExtendedDate (& $thedate, $defaultEndOfPeriod = false)
         $thedate == substr ('now', 0, strlen ($thedate))
         )
       {
-      $thedate = my_gmstrftime ("%Y-%m-%d", utctime());
+      $thedate = gmdate("Y-m-d", utctime());
       return "";
       }   // end of today
 
     if ($thedate == substr ('tomorrow', 0, strlen ($thedate)))
       {
-      $thedate = my_gmstrftime ("%Y-%m-%d", utctime() + (60 * 60 * 24));
+      $dt = new DateTime('tomorrow', new DateTimeZone('Australia/Melbourne'));
+      $thedate = $dt->format('Y-m-d');
       return "";
       }   // end of tomorrow
     }  // end of string length > 2
@@ -2762,20 +2789,29 @@ function DoExtendedDate (& $thedate, $defaultEndOfPeriod = false)
   // look for alpha day name (eg. Monday)
   if (preg_match ("|^[a-z]+$|", $day) && count ($items) < 3)
     {
-     $daynames = array ();
-     $seconds = utctime();
-     // find the dates of the next 7 days
-     for ($count = 1; $count <= 7; $count++)
-       {
-       $daynames [strtolower (my_strftime ("%A", $seconds))] = my_strftime ("%Y-%m-%d", $seconds);
+    // starting point (UTC)
+    $seconds = utctime();
+    $tz = new DateTimeZone('UTC'); // change to 'Australia/Melbourne' if you want local dates
+    $start = (new DateTimeImmutable('@' . $seconds))->setTimezone($tz);
 
-       // echo ("<p>" . strtolower (my_strftime ("%A", $seconds)) . " = " . my_strftime ("%Y-%m-%d", $seconds));
+    $daynames = [];
+    $daynames_week = [];
 
-       // let them put in 'Thursday week'
-       $daynames_week [strtolower (my_strftime ("%A", $seconds))]
-          = my_strftime ("%Y-%m-%d", $seconds + (60 * 60 * 24 * 7));
-       $seconds += 60 * 60 * 24;  // onwards a day
-       }
+    for ($i = 0; $i < 7; $i++) {
+        $d = $start->modify("+$i day");
+
+        // keys: full name (monday) and abbrev (mon), both lowercase
+        $full = strtolower($d->format('l')); // e.g. "Wednesday"
+        $abbr = strtolower($d->format('D')); // e.g. "Wed"
+
+        $ymd = $d->format('Y-m-d');
+        $ymd_week = $d->modify('+1 week')->format('Y-m-d');
+
+        $daynames[$full] = $ymd;
+
+        $daynames_week[$full] = $ymd_week;
+    }
+
 
    // our array now has all 7 days indexed by the day name (eg. Monday)
 
@@ -5601,4 +5637,10 @@ function comment ($what)
   echo ("<!-- " . $what . " -->\n");
   } // end of comment
 
+function showWhenPageGenerated ()
+  {
+  echo "<p>Page generated on "
+   . (new DateTimeImmutable())->format('l d F Y \a\t h:i:s A')
+   . "</p>";
+  } // end of showWhenPageGenerated
 ?>

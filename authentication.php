@@ -301,7 +301,7 @@ function SSO_Complete_Logon ($sso_id)
 
   $server_name = $_SERVER["HTTP_HOST"];
 
-  $loginTime = (new DateTime('now', new DateTimeZone('UTC')))->format('Y-m-d H:i:s');
+  $loginTime = my_strftime ("%Y-%m-%d %H:%M:%S", utctime());
 
   // note when they logged on last and from where
   $query = "UPDATE $SSO_USER_TABLE SET
@@ -1429,7 +1429,7 @@ function SSO_Handle_Change_Password ()
 
   // that old reset hash is no longer valid
   dbUpdateParam ("UPDATE $SSO_USER_TABLE SET password_reset_hash = NULL,
-                  password_sent_date = NULL, password_change_required = 0 WHERE sso_id = ?",
+                  password_sent_date = NULL WHERE sso_id = ?",
                     array ('i', &$sso_id ));
 
   // may as well log them on once they have reset their password
